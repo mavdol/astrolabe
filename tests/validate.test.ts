@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { compute, METHODS_VERSION, parseRaw, type RawFile } from "../src/compute/compute.js";
 import { loadRaw } from "../src/compute/files.js";
@@ -8,7 +8,9 @@ import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { validate } from "../src/validate/validate.js";
 import { planOf, rawFileOf } from "./helpers.js";
 
-const EXAMPLES = ["json-cli-parse", "geocoding-apis", "notes-apps-onboarding", "support-assistant-eval"];
+const ALL_EXAMPLES = readdirSync("examples").filter((folder) => existsSync(`examples/${folder}/benchmark.json`));
+const isComputed = (id: string) => JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")).results.computed !== undefined;
+const COMPUTED_EXAMPLES = ALL_EXAMPLES.filter(isComputed);
 
 function loadExample(id: string): { benchmark: Benchmark; rawFiles: Record<string, RawFile> } {
   const path = `examples/${id}/benchmark.json`;
@@ -21,8 +23,8 @@ const errorsOf = (issues: Issue[]) => issues.filter((issue) => issue.severity ==
 const rulesOf = (issues: Issue[]) => issues.map((issue) => issue.rule);
 const copyOf = <T>(value: T): T => structuredClone(value);
 
-describe("the four reference examples", () => {
-  it.each(EXAMPLES)("%s is valid: every computed field matches its raw files", (id) => {
+describe("the reference examples", () => {
+  it.each(COMPUTED_EXAMPLES)("%s is valid: every computed field matches its raw files", (id) => {
     const { benchmark, rawFiles } = loadExample(id);
     const report = validate(benchmark, rawFiles);
 
@@ -32,7 +34,7 @@ describe("the four reference examples", () => {
   });
 
   it("their plans alone are valid before any measurement", () => {
-    for (const id of EXAMPLES) {
+    for (const id of ALL_EXAMPLES) {
       const { benchmark } = loadExample(id);
       const {
         computed: _stamp,

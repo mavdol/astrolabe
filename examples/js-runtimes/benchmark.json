@@ -1,0 +1,108 @@
+{
+  "schema_version": "0.5",
+  "results": {
+    "benchmark": {
+      "id": "js-runtimes",
+      "version": "1.0.0",
+      "goal": "Which JavaScript runtime runs our short command-line scripts faster and with less memory: Node.js or Deno?",
+      "scope": "One process per run, start-up included, on a short CPU-bound script; not a measure of long-running servers.",
+      "conditions": []
+    },
+    "domain_research": {
+      "reference_suites": ["none found for start-up plus a short workload; runtime vendors publish their own micro-benchmarks"],
+      "standard_metrics": ["wall time per process", "peak resident memory"],
+      "pitfalls": [
+        "start-up time counted or not",
+        "code caches warm up after the first runs",
+        "a shell between hyperfine and the runtime adds its own start-up",
+        "Deno type-checks TypeScript files, so the workload is plain JavaScript"
+      ],
+      "sources": ["https://github.com/sharkdp/hyperfine"]
+    },
+    "candidates": [
+      {
+        "id": "node",
+        "name": "Node.js",
+        "version": "22.14.0",
+        "config": {"command": "node workload.mjs", "flags": "none"},
+        "publication_terms": {
+          "terms": "MIT licence, with the licences of bundled third-party code",
+          "restriction": "none found",
+          "checked_url": "https://github.com/nodejs/node/blob/main/LICENSE",
+          "checked_on": "2026-11-15"
+        },
+        "variants": {"tested": [], "selected": null}
+      },
+      {
+        "id": "deno",
+        "name": "Deno",
+        "version": "2.5.6",
+        "config": {"command": "deno run --quiet workload.mjs", "flags": "--quiet"},
+        "publication_terms": {
+          "terms": "MIT licence",
+          "restriction": "none found",
+          "checked_url": "https://github.com/denoland/deno/blob/main/LICENSE.md",
+          "checked_on": "2026-11-15"
+        },
+        "variants": {"tested": [], "selected": null}
+      }
+    ],
+    "baseline": "node",
+    "metrics": [
+      {
+        "id": "wall_time",
+        "label": "Wall time",
+        "kind": "run_time",
+        "unit": "s",
+        "direction": "lower",
+        "statistic": "median",
+        "definition": "Elapsed time of one process running workload.mjs, start-up included, as measured by hyperfine without a shell",
+        "weight": 0.7,
+        "compare_as": "relative",
+        "minimum_meaningful": 10,
+        "failures_count_as": "excluded",
+        "from": {"raw": "runs", "measure": "wall_time"}
+      },
+      {
+        "id": "peak_rss",
+        "label": "Peak memory",
+        "kind": "memory",
+        "unit": "MiB",
+        "direction": "lower",
+        "statistic": "median",
+        "definition": "Peak resident set size of the process, as reported by hyperfine",
+        "scope": "The runtime process only",
+        "weight": 0.3,
+        "compare_as": "relative",
+        "minimum_meaningful": 20,
+        "failures_count_as": "excluded",
+        "from": {"raw": "runs", "measure": "peak_rss"}
+      }
+    ],
+    "composite": {"computed": false, "note": "Weights record priorities only"},
+    "workload": {
+      "description": "workload.mjs builds 200,000 records, serializes them to JSON, parses them back, sorts and sums them",
+      "usage_pattern": "One short-lived process per script run, as in build and maintenance scripts"
+    },
+    "environment": {
+      "hardware": "Apple M2, 8 cores, 8 GB RAM",
+      "os": "macOS 26.6.2",
+      "software": {"node": "22.14.0", "deno": "2.5.6", "hyperfine": "2.0.0"},
+      "background": "Not controlled: a developer laptop with its usual background processes",
+      "tools": ["hyperfine"]
+    },
+    "runs": {
+      "levels": [{"level": "process", "field": "run", "planned": 30}],
+      "warmup": "3 untimed runs per runtime before each round",
+      "state": "warm",
+      "order": "3 rounds of 10 runs; the order of the runtimes alternates between rounds, and hyperfine runs each runtime's runs consecutively within a round"
+    },
+    "artifacts": {"repo": "https://github.com/mavdol/astrolabe", "command": "./bench.sh", "scripts": ["bench.sh", "workload.mjs"]},
+    "raw_data": [{"id": "runs", "kind": "samples", "path": "data/runs.jsonl", "format": "jsonl"}],
+    "limitations": [
+      "One machine and one workload; a different script or a server workload may rank the runtimes differently.",
+      "Bun is not included: it was not installed on the measuring machine.",
+      "Within a round, the runs of one runtime are consecutive, so a slow drift of the machine can favour one runtime; alternating the order between rounds limits it."
+    ]
+  }
+}
