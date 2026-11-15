@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { compute, ComputeError } from "../compute/compute.js";
 import { findBenchmark, formatBenchmark, loadRaw, resultsHash, resultsKeepingPlanAsWritten } from "../compute/files.js";
@@ -8,7 +8,9 @@ import { importHyperfine, ImportError, rawFileContent } from "../import/hyperfin
 import { allRules, formatIssue, rule as findRule, type Issue } from "../rules/registry.js";
 import { benchmarkSchema } from "../schema/benchmark.js";
 import { jsonSchemaFileContent } from "../schema/json-schema.js";
-import { buildDateFrom, continuousIntegrationFrom, renderMarkdown } from "../render/markdown.js";
+import { AVAILABLE_FORMATS, buildOutputs, type OutputFormat } from "../render/build.js";
+import { buildDateFrom, continuousIntegrationFrom } from "../render/describe.js";
+import { pictureHtml } from "../render/exports.js";
 import { validate } from "../validate/validate.js";
 
 const packageVersion: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -21,10 +23,10 @@ Usage
                               raw files and compared.
   astrolabe compute [file]    Read the plan and the raw files; write values, intervals,
                               failures, aggregates, comparisons and verdicts into results.
-  astrolabe build [file] [--format md] [--out dir]
-                              Validate, then write the outputs: for now the Markdown
-                              table, dist/benchmark.md next to the file. Nothing is
-                              written when a rule fails.
+  astrolabe build [file] [--format md,svg] [--out dir]
+                              Validate, then write the outputs next to the file:
+                              dist/benchmark.md and the README cards in dist/exports/.
+                              Nothing is written when a rule fails.
   astrolabe import hyperfine <export.json...> --raw <id> [--benchmark file]
                               Convert hyperfine --export-json files into the raw file
                               declared as <id> in raw_data. Name each command after its
@@ -125,15 +127,14 @@ function withoutStamp(results: unknown): unknown {
   return declaredValues && declaredValues.length > 0 ? { ...plan, values: declaredValues } : plan;
 }
 
-const AVAILABLE_FORMATS = ["md"];
-const PLANNED_FORMATS = ["site", "svg", "png"];
+const PLANNED_FORMATS = ["site", "png"];
 
 function runBuild(fileArgument: string | undefined, formatOption: string | undefined, outOption: string | undefined): number {
   const requestedFormats = (formatOption ?? AVAILABLE_FORMATS.join(","))
     .split(",")
     .map((format) => format.trim())
     .filter(Boolean);
-  const unavailable = requestedFormats.filter((format) => !AVAILABLE_FORMATS.includes(format));
+  const unavailable = requestedFormats.filter((format) => !(AVAILABLE_FORMATS as readonly string[]).includes(format));
 
   if (unavailable.length > 0) {
     const reason = unavailable.every((format) => PLANNED_FORMATS.includes(format)) ? "not available yet" : "unknown";
@@ -161,16 +162,27 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
 
   const benchmark = benchmarkSchema.parse(benchmarkFile);
   const outputFolder = resolve(dirname(benchmarkPath), outOption ?? "dist");
-  const markdownPath = resolve(outputFolder, "benchmark.md");
   const context = {
     generatorVersion: packageVersion,
     buildDate: buildDateFrom(process.env),
     continuousIntegration: continuousIntegrationFrom(process.env),
   };
+  const built = buildOutputs(benchmark, requestedFormats as OutputFormat[], outputFolder, context);
 
-  mkdirSync(outputFolder, { recursive: true });
-  writeFileSync(markdownPath, renderMarkdown(benchmark, context));
-  console.log(`Wrote to ${outputFolder}:\n  benchmark.md`);
+  for (const warning of built.warnings) console.log(`warning: ${warning}`);
+
+  console.log(`Wrote to ${relative(process.cwd(), outputFolder) || "."}:`);
+
+  for (const file of built.files) console.log(`  ${file.path}  ${(file.bytes / 1024).toFixed(1)} KB`);
+
+  if (built.readmeCard) {
+    const fromHere = (path: string) => relative(process.cwd(), resolve(outputFolder, path)).split(sep).join("/");
+    const pathsFromHere = Object.fromEntries(Object.entries(built.readmeCard.paths).map(([mode, path]) => [mode, fromHere(path!)]));
+
+    console.log(
+      `\nTo show the README card, paste into a README in this folder:\n\n${pictureHtml(built.readmeCard.altText, pathsFromHere)}`,
+    );
+  }
 
   return 0;
 }

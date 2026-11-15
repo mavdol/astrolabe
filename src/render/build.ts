@@ -1,0 +1,70 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Benchmark } from "../schema/benchmark.js";
+import { cardContentOf, renderCard, type CardMode } from "./card.js";
+import type { BuildContext } from "./describe.js";
+import { cardFileName, exportPlanOf, pictureHtml } from "./exports.js";
+import { renderMarkdown } from "./markdown.js";
+
+export const AVAILABLE_FORMATS = ["md", "svg"] as const;
+
+export type OutputFormat = (typeof AVAILABLE_FORMATS)[number];
+
+const EXPORTS_FOLDER = "exports";
+
+export interface BuildResult {
+  /** Files written, relative to the output folder, with their size in bytes. */
+  files: { path: string; bytes: number }[];
+  warnings: string[];
+  /** The first README card: its text alternative and its files, relative to the output folder. */
+  readmeCard?: { altText: string; paths: Partial<Record<CardMode, string>> };
+}
+
+/** Writes the outputs of a computed benchmark into the output folder: the README cards, then the Markdown that shows the first one. */
+export function buildOutputs(benchmark: Benchmark, formats: OutputFormat[], outputFolder: string, context: BuildContext): BuildResult {
+  const result: BuildResult = { files: [], warnings: [] };
+  const write = (relativePath: string, content: string) => {
+    const path = join(outputFolder, relativePath);
+
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, content);
+    result.files.push({ path: relativePath, bytes: Buffer.byteLength(content) });
+  };
+
+  if (formats.includes("svg")) {
+    const plan = exportPlanOf(benchmark);
+
+    for (const skipped of plan.skipped) result.warnings.push(`export "${skipped.id}" skipped: ${skipped.reason}`);
+
+    for (const card of plan.cards) {
+      const content = cardContentOf(benchmark, card.blockIds);
+      const paths: Partial<Record<CardMode, string>> = {};
+      let altText = "";
+
+      for (const mode of card.modes) {
+        const rendered = renderCard(benchmark, content, mode, context);
+        const relativePath = `${EXPORTS_FOLDER}/${cardFileName(card.id, mode)}`;
+
+        write(relativePath, rendered.svg);
+        paths[mode] = relativePath;
+        altText = rendered.altText;
+
+        if (rendered.charactersWithoutGlyph.length > 0) {
+          result.warnings.push(
+            `card "${card.id}": no glyph in the bundled font for ${rendered.charactersWithoutGlyph.map((character) => `"${character}"`).join(", ")}, drawn as "?"`,
+          );
+        }
+      }
+
+      result.readmeCard ??= { altText, paths };
+    }
+  }
+
+  if (formats.includes("md")) {
+    const cardPicture = result.readmeCard ? pictureHtml(result.readmeCard.altText, result.readmeCard.paths) : undefined;
+
+    write("benchmark.md", renderMarkdown(benchmark, { ...context, cardPicture }));
+  }
+
+  return result;
+}

@@ -1,5 +1,10 @@
 # Which command-line JSON parser should our build scripts use for 100 MB files?
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="exports/readme-card-dark.svg">
+  <img alt="fastjson against stdjson: wall time −50%, better; peak memory +188%, worse." src="exports/readme-card-light.svg">
+</picture>
+
 Benchmark `json-cli-parse`, version 1.0.0. Baseline: stdjson.
 
 ## Results

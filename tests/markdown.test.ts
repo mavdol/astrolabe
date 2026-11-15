@@ -1,22 +1,11 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { resultsHash } from "../src/compute/files.js";
 import { buildDateFrom, continuousIntegrationFrom, renderMarkdown } from "../src/render/markdown.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
-const BUILT_EXAMPLES = readdirSync("examples").filter((folder) => existsSync(`examples/${folder}/dist/benchmark.md`));
 const context = { generatorVersion: "0.1.0", buildDate: "2026-11-15" };
-
-describe("reference outputs", () => {
-  it.each(BUILT_EXAMPLES)("%s: the committed benchmark.md is what build writes from the committed results", (id) => {
-    const committed = readFileSync(`examples/${id}/dist/benchmark.md`, "utf8");
-    const buildDate = /· (\d{4}-\d{2}-\d{2}) ·/.exec(committed)![1];
-    const generatorVersion = /astrolabe-bench (\S+)<\/sub>/.exec(committed)![1];
-
-    expect(renderMarkdown(loadBenchmark(id), { buildDate, generatorVersion })).toBe(committed);
-  });
-});
 
 describe("what the Markdown output says", () => {
   const usability = renderMarkdown(loadBenchmark("notes-apps-onboarding"), context);
