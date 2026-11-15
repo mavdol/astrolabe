@@ -43,4 +43,4 @@ Requires Node 22 or later.
 
 ## Licence
 
-The code is under the MIT licence (`LICENSE`). The Inter font in `assets/fonts/` and the data derived from it in `src/render/fonts/inter.json` are under the SIL Open Font License 1.1 (`assets/fonts/OFL.txt`), copyright 2016 The Inter Project Authors. The cards and pages Astrolabe generates are documents made with the font: the font licence does not apply to them.
+The code is under the MIT licence (`LICENSE`).
