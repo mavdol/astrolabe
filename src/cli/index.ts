@@ -4,7 +4,8 @@ import { parseArgs } from "node:util";
 import { compute, ComputeError } from "../compute/compute.js";
 import { findBenchmark, formatBenchmark, loadRaw, resultsHash } from "../compute/files.js";
 import { allRules, formatIssue, rule as findRule, type Issue } from "../rules/registry.js";
-import { benchmarkSchema, jsonSchema } from "../schema/benchmark.js";
+import { benchmarkSchema } from "../schema/benchmark.js";
+import { jsonSchemaFileContent } from "../schema/json-schema.js";
 import { validate } from "../validate/validate.js";
 
 const packageVersion: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -155,7 +156,7 @@ function main(): number {
     case "explain":
       return runExplain(argument);
     case "schema":
-      return (console.log(JSON.stringify(jsonSchema(), null, 2)), 0);
+      return (process.stdout.write(jsonSchemaFileContent()), 0);
     default:
       console.error(`unknown command "${command}"\n\n${HELP}`);
 

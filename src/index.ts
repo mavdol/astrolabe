@@ -3,4 +3,5 @@ export { canonicalJson, formatBenchmark, loadRaw, resultsHash } from "./compute/
 export { verdictOf, verdictRank, type Verdict, type VerdictResult } from "./compute/verdict.js";
 export { validate, type ValidationReport } from "./validate/validate.js";
 export { allRules, rule, formatIssue, type Issue, type Rule } from "./rules/registry.js";
-export { benchmarkSchema, resultsSchema, jsonSchema, SCHEMA_VERSION, type Benchmark, type Results } from "./schema/benchmark.js";
+export { benchmarkSchema, resultsSchema, SCHEMA_VERSION, type Benchmark, type Results } from "./schema/benchmark.js";
+export { jsonSchema } from "./schema/json-schema.js";
