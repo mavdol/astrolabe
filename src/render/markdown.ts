@@ -1,35 +1,19 @@
-import { resultsHash } from "../compute/files.js";
-import { descendantsOf, nodeTreeOf, type NodeTree } from "../compute/structure.js";
-import type { Benchmark, Comparison, Failure, Metric, Results, Value } from "../schema/benchmark.js";
+import { descendantsOf } from "../compute/structure.js";
+import type { Benchmark, Comparison, Failure, Metric, Value } from "../schema/benchmark.js";
 import {
-  decimalsForPercentage,
-  decimalsForUncertainty,
-  formatInterval,
-  formatLevel,
-  formatNumber,
-  type Decimals,
-} from "./number-format.js";
+  effectAndInterval,
+  isPercentage,
+  lowerFirstLetterOfWord,
+  provenanceParts,
+  STATISTIC_WORD,
+  verdictLabel,
+  lookupOf,
+  type BuildContext,
+  type Lookup,
+} from "./describe.js";
+import { decimalsForPercentage, decimalsForUncertainty, formatInterval, formatNumber, type Decimals } from "./number-format.js";
 
-export interface BuildContext {
-  /** Version of the generator writing the output. */
-  generatorVersion: string;
-  /** Day of the build, YYYY-MM-DD. */
-  buildDate: string;
-  /** Present when the build runs in CI: the commit and a link to the run. */
-  continuousIntegration?: { commit: string; runUrl?: string };
-}
-
-const SHORT_HASH_LENGTH = 12;
-const STATISTIC_WORD: Record<Metric["statistic"], string> = {
-  mean: "Mean",
-  median: "Median",
-  p50: "Median",
-  p95: "95th percentile",
-  p99: "99th percentile",
-  rate: "Rate",
-  share: "Share",
-  total: "Total",
-};
+export { buildDateFrom, continuousIntegrationFrom, type BuildContext } from "./describe.js";
 
 const escapeCell = (text: string) => text.replace(/\|/g, "\\|").replace(/\n/g, " ");
 const tableRow = (cells: string[]) => `| ${cells.map(escapeCell).join(" | ")} |`;
@@ -39,38 +23,6 @@ function table(header: string[], alignments: ("left" | "right")[], rows: string[
 
   return [tableRow(header), `| ${separator.join(" | ")} |`, ...rows.map(tableRow)].join("\n");
 }
-
-interface Lookup {
-  results: Results;
-  tree: NodeTree;
-  candidateName: Map<string, string>;
-  nodeLabel: Map<string, string>;
-  nodeDepth: Map<string, number>;
-  metricById: Map<string, Metric>;
-}
-
-function lookupOf(results: Results): Lookup {
-  const tree = nodeTreeOf(results);
-  const nodeDepth = new Map<string, number>();
-  const depthOf = (node: string): number => {
-    const parent = tree.parentOf.get(node);
-
-    return parent === undefined ? 0 : depthOf(parent) + 1;
-  };
-
-  for (const node of results.structure?.nodes ?? []) nodeDepth.set(node.id, depthOf(node.id));
-
-  return {
-    results,
-    tree,
-    candidateName: new Map(results.candidates.map((candidate) => [candidate.id, candidate.name])),
-    nodeLabel: new Map((results.structure?.nodes ?? []).map((node) => [node.id, node.label])),
-    nodeDepth,
-    metricById: new Map(results.metrics.map((metric) => [metric.id, metric])),
-  };
-}
-
-const isPercentage = (metric: Metric) => metric.unit === "%";
 
 /** A median latency is shown with its tail: the median alone hides the slow requests. */
 const PERCENTILE_COLUMNS = ["p95", "p99", "max"];
@@ -82,31 +34,10 @@ function finestDecimals(decimalsOfRows: (Decimals | null)[]): Decimals | null {
   return known.length > 0 ? Math.max(...known) : null;
 }
 
-/** "Wall time" becomes "wall time" inside a sentence; "SUS score" keeps its acronym. */
-const lowerFirstLetterOfWord = (label: string) => (/^[A-Z][a-z]/.test(label) ? label.charAt(0).toLowerCase() + label.slice(1) : label);
-
 function valueDecimals(metric: Metric, value: Value): Decimals | null {
   if (isPercentage(metric)) return decimalsForPercentage(value.value);
 
   return decimalsForUncertainty(value.se, value.ci, value.ci_level);
-}
-
-function effectUnit(metric: Metric): string {
-  if (metric.compare_as === "relative") return "%";
-
-  return isPercentage(metric) ? " points" : ` ${metric.unit}`;
-}
-
-function effectDecimals(metric: Metric, comparison: Comparison): Decimals | null {
-  const isInPercent = metric.compare_as === "relative" || isPercentage(metric);
-
-  if (isInPercent) return decimalsForPercentage(comparison.effect);
-
-  return decimalsForUncertainty(undefined, comparison.ci, comparison.ci_level);
-}
-
-function verdictLabel(comparison: Comparison): string {
-  return comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
 }
 
 /** Failures under a node: counted where they were recorded, so a parent shows the total of its children. */
@@ -225,8 +156,6 @@ function comparisonNotes(lookup: Lookup, comparison: Comparison): string {
 function comparisonRows(lookup: Lookup, comparisons: Comparison[]): string[][] {
   return comparisons.map((comparison) => {
     const metric = lookup.metricById.get(comparison.metric)!;
-    const decimals = effectDecimals(metric, comparison);
-    const unit = effectUnit(metric);
     const subject = [
       lookup.candidateName.get(comparison.candidate),
       lowerFirstLetterOfWord(metric.label),
@@ -234,19 +163,9 @@ function comparisonRows(lookup: Lookup, comparisons: Comparison[]): string[][] {
     ]
       .filter(Boolean)
       .join(", ");
-    const isDeclared = comparison.source === "declared";
-    const intervalText =
-      comparison.ci && !isDeclared
-        ? `${formatInterval(comparison.ci, decimals, { signed: true })}${unit} (${formatLevel(comparison.ci_level!)}%)`
-        : "—";
+    const { effect, interval, level } = effectAndInterval(metric, comparison);
 
-    return [
-      subject,
-      `${formatNumber(comparison.effect, decimals, { signed: true })}${unit}`,
-      intervalText,
-      verdictLabel(comparison),
-      comparisonNotes(lookup, comparison),
-    ];
+    return [subject, effect, interval ? `${interval} (${level})` : "—", verdictLabel(comparison), comparisonNotes(lookup, comparison)];
   });
 }
 
@@ -327,23 +246,13 @@ function methodSection(lookup: Lookup): string {
 }
 
 function provenanceLine(benchmark: Benchmark, context: BuildContext): string {
-  const results = benchmark.results;
-  const attribution = (benchmark.style as { attribution?: boolean } | undefined)?.attribution !== false;
-  const parts = [
-    `results sha256 \`${resultsHash(results).slice(0, SHORT_HASH_LENGTH)}\``,
-    context.buildDate,
-    `source ${results.artifacts.repo}`,
-  ];
+  const provenance = provenanceParts(benchmark, context);
+  const ciRun = provenance.continuousIntegration;
+  const parts = [`results sha256 \`${provenance.hash}\``, provenance.date, `source ${provenance.source}`];
 
-  if (context.continuousIntegration) {
-    const commit = context.continuousIntegration.commit.slice(0, SHORT_HASH_LENGTH);
+  if (ciRun) parts.push(ciRun.runUrl ? `commit ${ciRun.commit}, [CI run](${ciRun.runUrl})` : `commit ${ciRun.commit}`);
 
-    parts.push(
-      context.continuousIntegration.runUrl ? `commit ${commit}, [CI run](${context.continuousIntegration.runUrl})` : `commit ${commit}`,
-    );
-  }
-
-  parts.push(attribution ? `built with astrolabe-bench ${context.generatorVersion}` : `astrolabe-bench ${context.generatorVersion}`);
+  parts.push(provenance.generator);
 
   return `<sub>${parts.join(" · ")}</sub>`;
 }
@@ -359,6 +268,7 @@ export function renderMarkdown(benchmark: Benchmark, context: BuildContext): str
 
   return [
     `# ${results.benchmark.goal}${scope}`,
+    ...(context.cardPicture ? [context.cardPicture] : []),
     `Benchmark \`${results.benchmark.id}\`, version ${results.benchmark.version}. Baseline: ${lookup.candidateName.get(results.baseline)}.`,
     "## Results",
     ...results.metrics.map((metric) => metricSection(lookup, metric)),
@@ -369,24 +279,4 @@ export function renderMarkdown(benchmark: Benchmark, context: BuildContext): str
   ]
     .join("\n\n")
     .concat("\n");
-}
-
-/** The build date: SOURCE_DATE_EPOCH when set, as reproducible builds expect, otherwise today. */
-export function buildDateFrom(environment: NodeJS.ProcessEnv, now: Date = new Date()): string {
-  const epoch = environment.SOURCE_DATE_EPOCH;
-  const date = epoch && /^\d+$/.test(epoch) ? new Date(Number(epoch) * 1000) : now;
-
-  return date.toISOString().slice(0, 10);
-}
-
-/** The commit and run link GitHub Actions exposes; other CI systems can be added here. */
-export function continuousIntegrationFrom(environment: NodeJS.ProcessEnv): BuildContext["continuousIntegration"] {
-  if (environment.GITHUB_ACTIONS !== "true" || !environment.GITHUB_SHA) return undefined;
-
-  const runUrl =
-    environment.GITHUB_SERVER_URL && environment.GITHUB_REPOSITORY && environment.GITHUB_RUN_ID
-      ? `${environment.GITHUB_SERVER_URL}/${environment.GITHUB_REPOSITORY}/actions/runs/${environment.GITHUB_RUN_ID}`
-      : undefined;
-
-  return { commit: environment.GITHUB_SHA, runUrl };
 }

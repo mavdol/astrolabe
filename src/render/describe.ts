@@ -1,0 +1,165 @@
+import { resultsHash } from "../compute/files.js";
+import { nodeTreeOf, type NodeTree } from "../compute/structure.js";
+import type { Benchmark, Comparison, Metric, Results } from "../schema/benchmark.js";
+import {
+  decimalsForPercentage,
+  decimalsForUncertainty,
+  formatInterval,
+  formatLevel,
+  formatNumber,
+  type Decimals,
+} from "./number-format.js";
+
+export interface BuildContext {
+  /** Version of the generator writing the output. */
+  generatorVersion: string;
+  /** Day of the build, YYYY-MM-DD. */
+  buildDate: string;
+  /** Present when the build runs in CI: the commit and a link to the run. */
+  continuousIntegration?: { commit: string; runUrl?: string };
+  /** The README card to show at the top of the Markdown, as a <picture> with paths relative to it. */
+  cardPicture?: string;
+}
+
+export const SHORT_HASH_LENGTH = 12;
+export const STATISTIC_WORD: Record<Metric["statistic"], string> = {
+  mean: "Mean",
+  median: "Median",
+  p50: "Median",
+  p95: "95th percentile",
+  p99: "99th percentile",
+  rate: "Rate",
+  share: "Share",
+  total: "Total",
+};
+
+export interface Lookup {
+  results: Results;
+  tree: NodeTree;
+  candidateName: Map<string, string>;
+  nodeLabel: Map<string, string>;
+  nodeDepth: Map<string, number>;
+  metricById: Map<string, Metric>;
+}
+
+export function lookupOf(results: Results): Lookup {
+  const tree = nodeTreeOf(results);
+  const nodeDepth = new Map<string, number>();
+  const depthOf = (node: string): number => {
+    const parent = tree.parentOf.get(node);
+
+    return parent === undefined ? 0 : depthOf(parent) + 1;
+  };
+
+  for (const node of results.structure?.nodes ?? []) nodeDepth.set(node.id, depthOf(node.id));
+
+  return {
+    results,
+    tree,
+    candidateName: new Map(results.candidates.map((candidate) => [candidate.id, candidate.name])),
+    nodeLabel: new Map((results.structure?.nodes ?? []).map((node) => [node.id, node.label])),
+    nodeDepth,
+    metricById: new Map(results.metrics.map((metric) => [metric.id, metric])),
+  };
+}
+
+export const isPercentage = (metric: Metric) => metric.unit === "%";
+
+/** "Wall time" becomes "wall time" inside a sentence; "SUS score" keeps its acronym. */
+export const lowerFirstLetterOfWord = (label: string) =>
+  /^[A-Z][a-z]/.test(label) ? label.charAt(0).toLowerCase() + label.slice(1) : label;
+
+export function effectUnit(metric: Metric): string {
+  if (metric.compare_as === "relative") return "%";
+
+  return isPercentage(metric) ? " points" : ` ${metric.unit}`;
+}
+
+export function effectDecimals(metric: Metric, comparison: Comparison): Decimals | null {
+  const isInPercent = metric.compare_as === "relative" || isPercentage(metric);
+
+  if (isInPercent) return decimalsForPercentage(comparison.effect);
+
+  return decimalsForUncertainty(undefined, comparison.ci, comparison.ci_level);
+}
+
+export function verdictLabel(comparison: Comparison): string {
+  return comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
+}
+
+/** The effect of a comparison and its interval, rounded to what the interval supports, with their unit. */
+export function effectAndInterval(
+  metric: Metric,
+  comparison: Comparison,
+): { effect: string; effectNumber: string; unit: string; interval: string | null; level: string | null } {
+  const decimals = effectDecimals(metric, comparison);
+  const unit = effectUnit(metric);
+  const effectNumber = formatNumber(comparison.effect, decimals, { signed: true });
+  const hasMeasuredInterval = comparison.ci !== undefined && comparison.source !== "declared";
+
+  return {
+    effect: `${effectNumber}${unit}`,
+    effectNumber,
+    unit,
+    interval: hasMeasuredInterval ? `${formatInterval(comparison.ci!, decimals, { signed: true })}${unit}` : null,
+    level: hasMeasuredInterval ? `${formatLevel(comparison.ci_level!)}%` : null,
+  };
+}
+
+const TEMPLATE = /\{(candidate|metric|node|effect|verdict):([^}]+)\}/g;
+
+/** Fills the templates of a block title or description: names, effects and verdicts always come from the results. */
+export function resolveTemplates(text: string, lookup: Lookup): string {
+  const comparisonById = new Map((lookup.results.comparisons ?? []).map((comparison) => [comparison.id, comparison]));
+
+  return text.replace(TEMPLATE, (template, kind: string, id: string) => {
+    if (kind === "candidate") return lookup.candidateName.get(id) ?? template;
+
+    if (kind === "metric") return lookup.metricById.get(id)?.label ?? template;
+
+    if (kind === "node") return lookup.nodeLabel.get(id) ?? template;
+
+    const comparison = comparisonById.get(id);
+
+    if (!comparison) return template;
+
+    return kind === "verdict" ? verdictLabel(comparison) : effectAndInterval(lookup.metricById.get(comparison.metric)!, comparison).effect;
+  });
+}
+
+/** The parts of the provenance line every output carries: hash of the results, date, source, CI run, generator. */
+export function provenanceParts(
+  benchmark: Benchmark,
+  context: BuildContext,
+): { hash: string; date: string; source: string; continuousIntegration?: { commit: string; runUrl?: string }; generator: string } {
+  const attribution = (benchmark.style as { attribution?: boolean } | undefined)?.attribution !== false;
+  const commit = context.continuousIntegration?.commit.slice(0, SHORT_HASH_LENGTH);
+
+  return {
+    hash: resultsHash(benchmark.results).slice(0, SHORT_HASH_LENGTH),
+    date: context.buildDate,
+    source: benchmark.results.artifacts.repo,
+    ...(commit ? { continuousIntegration: { commit, runUrl: context.continuousIntegration!.runUrl } } : {}),
+    generator: attribution ? `built with astrolabe-bench ${context.generatorVersion}` : `astrolabe-bench ${context.generatorVersion}`,
+  };
+}
+
+/** The build date: SOURCE_DATE_EPOCH when set, as reproducible builds expect, otherwise today. */
+export function buildDateFrom(environment: NodeJS.ProcessEnv, now: Date = new Date()): string {
+  const epoch = environment.SOURCE_DATE_EPOCH;
+  const date = epoch && /^\d+$/.test(epoch) ? new Date(Number(epoch) * 1000) : now;
+
+  return date.toISOString().slice(0, 10);
+}
+
+/** The commit and run link GitHub Actions exposes; other CI systems can be added here. */
+export function continuousIntegrationFrom(environment: NodeJS.ProcessEnv): BuildContext["continuousIntegration"] {
+  if (environment.GITHUB_ACTIONS !== "true" || !environment.GITHUB_SHA) return undefined;
+
+  const runUrl =
+    environment.GITHUB_SERVER_URL && environment.GITHUB_REPOSITORY && environment.GITHUB_RUN_ID
+      ? `${environment.GITHUB_SERVER_URL}/${environment.GITHUB_REPOSITORY}/actions/runs/${environment.GITHUB_RUN_ID}`
+      : undefined;
+
+  return { commit: environment.GITHUB_SHA, runUrl };
+}

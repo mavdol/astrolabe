@@ -11,7 +11,8 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "schema"
+    "schema",
+    "assets/fonts/OFL.txt"
   ],
   "engines": {
     "node": ">=22"
