@@ -4,9 +4,12 @@ import { dirname, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { compute, ComputeError } from "../compute/compute.js";
 import { findBenchmark, formatBenchmark, loadRaw, resultsHash, resultsKeepingPlanAsWritten } from "../compute/files.js";
-import { importHyperfine, ImportError, rawFileContent } from "../import/hyperfine.js";
+import type { RawRow } from "../compute/raw-data.js";
+import { importHyperfine } from "../import/hyperfine.js";
+import { importInspect, readInspectLog } from "../import/inspect.js";
+import { ImportError, rawFileContent } from "../import/raw-file.js";
 import { allRules, formatIssue, rule as findRule, type Issue } from "../rules/registry.js";
-import { benchmarkSchema } from "../schema/benchmark.js";
+import { benchmarkSchema, type Benchmark } from "../schema/benchmark.js";
 import { jsonSchemaFileContent } from "../schema/json-schema.js";
 import { AVAILABLE_FORMATS, buildOutputs, type OutputFormat } from "../render/build.js";
 import { buildDateFrom, continuousIntegrationFrom } from "../render/describe.js";
@@ -32,6 +35,13 @@ Usage
                               declared as <id> in raw_data. Name each command after its
                               candidate id with hyperfine --command-name. Several exports
                               are numbered as successive runs, to alternate the order.
+  astrolabe import inspect <log...> --raw <id> [--benchmark file]
+                              Convert Inspect logs (.eval or .json) into the raw file
+                              declared as <id>: sample id as item, epoch as repeat, task
+                              as node, one measure per scorer, plus tokens and times.
+                              A log names its candidate by model, or by
+                              inspect eval --metadata candidate=<id>; a task names its
+                              node by its name, or by --metadata node=<id>.
   astrolabe explain <rule>    Print one rule: instruction, pitfall, level, field.
   astrolabe schema            Print the JSON Schema of benchmark.json.
 
@@ -188,7 +198,7 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
   return 0;
 }
 
-const SUPPORTED_IMPORT_TOOLS = ["hyperfine"];
+const SUPPORTED_IMPORT_TOOLS = ["hyperfine", "inspect"];
 
 function runImport(tool: string | undefined, exportPaths: string[], rawFileId: string | undefined, benchmarkArgument?: string): number {
   if (!tool || !SUPPORTED_IMPORT_TOOLS.includes(tool)) {
@@ -217,34 +227,59 @@ function runImport(tool: string | undefined, exportPaths: string[], rawFileId: s
     throw new Error(`raw_data has no entry "${rawFileId}" (declared: ${declaredIds}): declare the raw file in the plan first`);
   }
 
-  const exports = exportPaths.map((path) => ({ name: path, content: readJson(path) }));
-  const imported = importHyperfine(exports, results.candidates);
+  const imported = tool === "hyperfine" ? importFromHyperfine(exportPaths, results) : importFromInspect(exportPaths, results);
   const rawFilePath = resolve(dirname(benchmarkPath), declaredRawFile.path);
 
   mkdirSync(dirname(rawFilePath), { recursive: true });
   writeFileSync(rawFilePath, rawFileContent(imported.rows));
 
-  const runCounts = [...imported.runsPerCandidate].map(([candidate, runs]) => `${candidate} ${runs}`).join(", ");
+  const counts = [...imported.countPerCandidate].map(([candidate, count]) => `${candidate} ${count}`).join(", ");
 
   console.log(
-    `Wrote ${imported.rows.length} rows to ${declaredRawFile.path}: runs per candidate ${runCounts}; measures ${imported.measures.join(", ")}.`,
+    `Wrote ${imported.rows.length} rows to ${declaredRawFile.path}: ${imported.countName} per candidate ${counts}; measures ${imported.measures.join(", ")}.`,
   );
 
-  const missingCandidates = results.candidates.filter((candidate) => !imported.runsPerCandidate.has(candidate.id));
+  const missingCandidates = results.candidates.filter((candidate) => !imported.countPerCandidate.has(candidate.id));
 
-  for (const candidate of missingCandidates) console.log(`warning: no hyperfine run for candidate "${candidate.id}"`);
+  for (const candidate of missingCandidates) console.log(`warning: no ${tool} data for candidate "${candidate.id}"`);
 
   const metricsReadingMissingMeasures = results.metrics.filter(
     (metric) => metric.from?.raw === rawFileId && !imported.measures.includes(metric.from.measure),
   );
 
   for (const metric of metricsReadingMissingMeasures) {
-    console.log(`warning: metric "${metric.id}" reads measure "${metric.from!.measure}", which these exports do not contain`);
+    console.log(`warning: metric "${metric.id}" reads measure "${metric.from!.measure}", which these files do not contain`);
   }
 
   console.log("Next: astrolabe compute.");
 
   return 0;
+}
+
+type Results = Benchmark["results"];
+
+interface ImportedRows {
+  rows: RawRow[];
+  countPerCandidate: Map<string, number>;
+  countName: string;
+  measures: string[];
+}
+
+function importFromHyperfine(exportPaths: string[], results: Results): ImportedRows {
+  const exports = exportPaths.map((path) => ({ name: path, content: readJson(path) }));
+  const imported = importHyperfine(exports, results.candidates);
+
+  return { rows: imported.rows, countPerCandidate: imported.runsPerCandidate, countName: "runs", measures: imported.measures };
+}
+
+function importFromInspect(logPaths: string[], results: Results): ImportedRows {
+  const logs = logPaths.map((path) => readInspectLog(path, readFileSync(path)));
+  const nodes = results.structure?.nodes;
+  const parents = new Set(nodes?.map((node) => node.parent).filter(Boolean));
+  const leafNodes = nodes?.filter((node) => !parents.has(node.id)).map((node) => node.id);
+  const imported = importInspect(logs, results.candidates, leafNodes);
+
+  return { rows: imported.rows, countPerCandidate: imported.samplesPerCandidate, countName: "samples", measures: imported.measures };
 }
 
 function runExplain(ruleId?: string): number {

@@ -1,0 +1,200 @@
+{
+ "version": 2,
+ "status": "success",
+ "eval": {
+  "eval_id": "oPkTmm2f4jWYRUDR4EAqCN",
+  "run_id": "TRD4XWgBg2tSaf9ng8dxYL",
+  "created": "2026-11-15T22:18:58+00:00",
+  "task": "limited",
+  "task_id": "a8KtpKuZooJPxSwgX9G2pJ",
+  "task_version": 0,
+  "task_file": "tasks.py",
+  "task_display_name": "limited",
+  "task_registry_name": "limited",
+  "task_attribs": {},
+  "task_args": {},
+  "task_args_passed": {},
+  "dataset": {
+   "samples": 1,
+   "sample_ids": [
+    1
+   ],
+   "shuffled": false
+  },
+  "model": "mockllm/model",
+  "model_generate_config": {},
+  "model_args": {},
+  "model_roles": {
+   "grader": {
+    "model": "mockllm/model",
+    "config": {},
+    "args": {}
+   }
+  },
+  "config": {
+   "epochs": 2,
+   "fail_on_error": false,
+   "continue_on_fail": false,
+   "score_on_error": false,
+   "message_limit": 1,
+   "sandbox_cleanup": true,
+   "sandbox_prebuilt": false,
+   "log_samples": true,
+   "log_realtime": true,
+   "log_images": true,
+   "log_shared": 0,
+   "score_display": true
+  },
+  "revision": {
+   "type": "git",
+   "origin": "https://github.com/mavdol/astrolabe",
+   "commit": "9dd1fca",
+   "dirty": true
+  },
+  "packages": {
+   "inspect_ai": "0.3.290"
+  },
+  "scorers": [
+   {
+    "name": "graded",
+    "options": {},
+    "metrics": [
+     {
+      "name": "inspect_ai/accuracy",
+      "options": {}
+     }
+    ],
+    "metadata": {}
+   }
+  ]
+ },
+ "plan": {
+  "name": "plan",
+  "steps": [
+   {
+    "solver": "generate",
+    "params": {
+     "tool_calls": "loop"
+    },
+    "params_passed": {}
+   }
+  ],
+  "config": {}
+ },
+ "results": {
+  "total_samples": 2,
+  "completed_samples": 2,
+  "scores": [
+   {
+    "name": "graded",
+    "scorer": "graded",
+    "scored_samples": 1,
+    "unscored_samples": 0,
+    "params": {},
+    "metrics": {
+     "accuracy": {
+      "name": "accuracy",
+      "value": 0.25,
+      "params": {}
+     }
+    }
+   }
+  ],
+  "headline": {
+   "scorer": "graded",
+   "score": "graded",
+   "metric": "accuracy"
+  }
+ },
+ "stats": {
+  "started_at": "2026-11-15T22:18:58+00:00",
+  "completed_at": "2026-11-15T22:18:58+00:00",
+  "model_usage": {},
+  "role_usage": {},
+  "connection_limit_history": []
+ },
+ "invalidated": false,
+ "total_samples": 2,
+ "tags": [],
+ "metadata": {},
+ "samples": [
+  {
+   "id": 1,
+   "epoch": 1,
+   "input": "hi",
+   "target": "x",
+   "output": {
+    "model": "mockllm/model",
+    "choices": [],
+    "completion": ""
+   },
+   "scores": {
+    "graded": {
+     "value": 0.25,
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {},
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:58.660336+00:00",
+   "completed_at": "2026-11-15T22:18:58.665466+00:00",
+   "total_time": 0.005,
+   "working_time": 0.005,
+   "uuid": "9eUqNvQL3RPns9coTjXgGa",
+   "error_retries": [],
+   "limit": {
+    "type": "message",
+    "limit": 1.0,
+    "reason": "Message limit reached. count: 1; limit: 1"
+   },
+   "turn_count": 0,
+   "message_limit": 1
+  },
+  {
+   "id": 1,
+   "epoch": 2,
+   "input": "hi",
+   "target": "x",
+   "output": {
+    "model": "mockllm/model",
+    "choices": [],
+    "completion": ""
+   },
+   "scores": {
+    "graded": {
+     "value": 0.25,
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {},
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:58.662408+00:00",
+   "completed_at": "2026-11-15T22:18:58.665869+00:00",
+   "total_time": 0.003,
+   "working_time": 0.003,
+   "uuid": "5rFpsZMNrRurq3scpDiZBN",
+   "error_retries": [],
+   "limit": {
+    "type": "message",
+    "limit": 1.0,
+    "reason": "Message limit reached. count: 1; limit: 1"
+   },
+   "turn_count": 0,
+   "message_limit": 1
+  }
+ ],
+ "reductions": [
+  {
+   "scorer": "graded",
+   "samples": [
+    {
+     "value": 0.25,
+     "history": [],
+     "sample_id": 1
+    }
+   ]
+  }
+ ]
+}
