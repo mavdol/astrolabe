@@ -41,11 +41,8 @@ describe("the README card", () => {
       "Interval +1.0 to +1.2%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Dot: effect against Node.js. Line: 95% interval, adjusted for 2 comparisons. Shaded band: smaller than the difference that",
-      "matters. Each strip has its own scale.",
-      expect.stringMatching(
-        /^results sha256 [0-9a-f]{12} · 2026-11-15 · github\.com\/mavdol\/astrolabe · built with astrolabe-bench 0\.1\.0$/,
-      ),
+      "Effects against Node.js, with their 95% intervals, adjusted for 2 comparisons. Shaded band: too small to matter.",
+      expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
 
@@ -126,10 +123,11 @@ describe("reading a card at a glance", () => {
     expect(icons[1].match(/M/g)).toHaveLength(2);
   });
 
-  it("cuts the axis when the interval lies far beyond the band, so both stay readable", () => {
-    expect(parsersCard.svg.match(/stroke-width="1.2" stroke-linecap="round"/g)).toHaveLength(2);
+  it("never cuts the axis, even when the interval lies far beyond the band", () => {
+    const horizontalRules = parsersCard.svg.match(/H[\d.]+" stroke="#e5e5e5"/g);
+
+    expect(horizontalRules, "one unbroken baseline per strip, plus the rule above the footer").toHaveLength(3);
     expect(parsersCard.textLines).toContain("+10%  0  \u221210%");
-    expect(parsersCard.textLines).toContain("+20%  0  \u221220%");
   });
 
   it("leaves out a block title that only restates the metric and the effect", () => {

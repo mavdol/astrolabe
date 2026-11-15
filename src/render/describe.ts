@@ -131,7 +131,14 @@ export function resolveTemplates(text: string, lookup: Lookup): string {
 export function provenanceParts(
   benchmark: Benchmark,
   context: BuildContext,
-): { hash: string; date: string; source: string; continuousIntegration?: { commit: string; runUrl?: string }; generator: string } {
+): {
+  hash: string;
+  date: string;
+  source: string;
+  continuousIntegration?: { commit: string; runUrl?: string };
+  generator: string;
+  attribution: boolean;
+} {
   const attribution = (benchmark.style as { attribution?: boolean } | undefined)?.attribution !== false;
   const commit = context.continuousIntegration?.commit.slice(0, SHORT_HASH_LENGTH);
 
@@ -141,6 +148,7 @@ export function provenanceParts(
     source: benchmark.results.artifacts.repo,
     ...(commit ? { continuousIntegration: { commit, runUrl: context.continuousIntegration!.runUrl } } : {}),
     generator: attribution ? `built with astrolabe-bench ${context.generatorVersion}` : `astrolabe-bench ${context.generatorVersion}`,
+    attribution,
   };
 }
 
