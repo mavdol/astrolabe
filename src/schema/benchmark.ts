@@ -281,7 +281,3 @@ export type Exclusion = NonNullable<Results["exclusions"]>[number];
 
 /** Keys of results that astrolabe compute writes; everything else is the plan. */
 export const COMPUTED_KEYS = ["values", "failures", "exclusions", "comparisons", "observed", "computed"] as const;
-
-export function jsonSchema(): unknown {
-  return z.toJSONSchema(benchmarkSchema, { unrepresentable: "any" });
-}

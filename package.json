@@ -20,13 +20,14 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "astrolabe": "tsx src/cli/index.ts",
-    "gen:rules": "node scripts/gen-rules.mjs",
-    "gen:example-data": "tsx scripts/make-example-data.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "astrolabe": "tsx src/cli/index.ts",
+    "gen:schema": "tsx scripts/gen-schema.ts",
+    "gen:rules": "node scripts/gen-rules.mjs",
+    "gen:example-data": "tsx scripts/make-example-data.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"
