@@ -17,7 +17,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint .",
@@ -26,7 +26,6 @@
     "format:check": "prettier --check .",
     "astrolabe": "tsx src/cli/index.ts",
     "gen:schema": "tsx scripts/gen-schema.ts",
-    "gen:rules": "node scripts/gen-rules.mjs",
     "gen:example-data": "tsx scripts/make-example-data.ts"
   },
   "dependencies": {

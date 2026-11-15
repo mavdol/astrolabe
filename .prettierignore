@@ -3,5 +3,4 @@ node_modules
 pnpm-lock.yaml
 examples
 .artifacts
-src/rules/registry.generated.ts
 schema

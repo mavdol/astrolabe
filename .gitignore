@@ -80,7 +80,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+/dist
 .output
 
 # Gatsby files
@@ -151,3 +151,6 @@ vite.config.ts.timestamp-*
 
 # macOS
 .DS_Store
+
+# Built pages of a benchmark: rebuilt by the host or by CI, never committed
+dist/site/

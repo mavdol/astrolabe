@@ -1,21 +1,25 @@
-import { RULES } from "./registry.generated.js";
+import { z } from "zod";
+import rulesFile from "./rules.json" with { type: "json" };
 
-export interface Rule {
-  id: string;
-  level: "must" | "should";
+const ruleSchema = z.strictObject({
+  id: z.string().regex(/^[A-Z]\d+$/),
+  level: z.enum(["must", "should"]),
   /** The instruction to the agent. */
-  text: string;
-  pitfall: string;
-  /** Schema field or check that proves the rule. */
-  field: string;
-  /** File of the skill that explains the rule. */
-  file: string;
-}
+  text: z.string().min(1),
+  pitfall: z.string().min(1).optional(),
+  /** The schema field or the check of the tool that proves the rule was followed. */
+  proved_by: z.string().min(1).optional(),
+  /** The file of the skill that explains the rule. */
+  explained_in: z.string().min(1),
+});
 
-const byId = new Map(RULES.map((r) => [r.id, r]));
+export type Rule = z.infer<typeof ruleSchema>;
+
+const RULES: Rule[] = z.array(ruleSchema).parse(rulesFile);
+const ruleById = new Map(RULES.map((entry) => [entry.id, entry]));
 
 export function rule(id: string): Rule | undefined {
-  return byId.get(id.toUpperCase());
+  return ruleById.get(id.toUpperCase());
 }
 
 export function allRules(): Rule[] {
@@ -32,9 +36,9 @@ export interface Issue {
 }
 
 /** One line per issue: severity, rule id, field, message and the skill file that explains it. */
-export function formatIssue(i: Issue): string {
-  const r = rule(i.rule);
-  const where = r ? ` (see ${r.file})` : "";
+export function formatIssue(issue: Issue): string {
+  const explainingRule = rule(issue.rule);
+  const where = explainingRule ? ` (see ${explainingRule.explained_in})` : "";
 
-  return `${i.severity} ${i.rule} ${i.path}: ${i.message}${where}`;
+  return `${issue.severity} ${issue.rule} ${issue.path}: ${issue.message}${where}`;
 }
