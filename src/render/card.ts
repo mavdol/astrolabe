@@ -299,48 +299,22 @@ function rightArrow(x: number, centreY: number, colour: string): string {
   return `<path d="M${x} ${centreY}H${x + 9}M${x + 5.5} ${centreY - 3.5}L${x + 9} ${centreY}L${x + 5.5} ${centreY + 3.5}" fill="none" stroke="${colour}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-interface StripScale {
-  positionOf: (gain: number) => number;
-  /** Where the axis is cut, when the interval lies far beyond the band and the strip is drawn in two parts. */
-  gap?: [number, number];
-}
-
-/** The part of the strip around zero keeps the band readable when the interval lies far beyond it. */
-const NEAR_EXTENT_IN_MINIMUMS = 1.6;
-const FAR_THRESHOLD_IN_MINIMUMS = 4;
+/** Share of the strip's range left empty on each side, so the caps and the dot never touch its ends. */
+const STRIP_PADDING = 0.08;
 
 /**
  * The strip is drawn in gain: better is always on the right, whatever the
- * direction of the metric. When the whole interval lies far beyond the band,
- * the axis is cut so that both the band and the interval stay readable.
+ * direction of the metric. The axis is linear and never cut: it always holds
+ * zero, the whole band and the whole interval, so a large effect looks large.
  */
-function stripScale(gainInterval: [number, number], minimum: number, x: number, width: number): StripScale {
-  const [lowest, highest] = gainInterval;
-  const linearScale = (domainLow: number, domainHigh: number, rangeLow: number, rangeHigh: number) => (gain: number) =>
-    rangeLow + ((gain - domainLow) / (domainHigh - domainLow)) * (rangeHigh - rangeLow);
-  const farOnTheBetterSide = lowest > 2 * minimum && highest > FAR_THRESHOLD_IN_MINIMUMS * minimum;
-  const farOnTheWorseSide = highest < -2 * minimum && lowest < -FAR_THRESHOLD_IN_MINIMUMS * minimum;
+function stripScale(gainInterval: [number, number], minimum: number, x: number, width: number): (gain: number) => number {
+  const lowest = Math.min(-minimum, gainInterval[0]);
+  const highest = Math.max(minimum, gainInterval[1]);
+  const padding = (highest - lowest) * STRIP_PADDING;
+  const domainLow = lowest - padding;
+  const domainHigh = highest + padding;
 
-  if (!farOnTheBetterSide && !farOnTheWorseSide) {
-    const extent = Math.max(minimum, Math.abs(lowest), Math.abs(highest)) * 1.15;
-
-    return { positionOf: linearScale(-extent, extent, x, x + width) };
-  }
-
-  const near = NEAR_EXTENT_IN_MINIMUMS * minimum;
-  const padding = Math.max((highest - lowest) * 0.35, minimum * 0.35);
-
-  if (farOnTheBetterSide) {
-    const nearScale = linearScale(-near, near, x, x + 0.4 * width);
-    const farScale = linearScale(lowest - padding, highest + padding, x + 0.5 * width, x + width);
-
-    return { positionOf: (gain) => (gain <= near ? nearScale(gain) : farScale(gain)), gap: [x + 0.4 * width, x + 0.5 * width] };
-  }
-
-  const farScale = linearScale(lowest - padding, highest + padding, x, x + 0.5 * width);
-  const nearScale = linearScale(-near, near, x + 0.6 * width, x + width);
-
-  return { positionOf: (gain) => (gain >= -near ? nearScale(gain) : farScale(gain)), gap: [x + 0.5 * width, x + 0.6 * width] };
+  return (gain) => x + ((gain - domainLow) / (domainHigh - domainLow)) * width;
 }
 
 /** The value of the band's edge on the better side, in the metric's own sign: −10% for a time, +3 points for a score. */
@@ -375,21 +349,14 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
         Math.max(toGain(measuredInterval[0]), toGain(measuredInterval[1])),
       ]
     : [gainEffect, gainEffect];
-  const scale = stripScale(gainInterval, minimum, x, width);
+  const positionOf = stripScale(gainInterval, minimum, x, width);
   const middle = y + STRIP_HEIGHT / 2;
-  const left = scale.positionOf(-minimum);
-  const right = scale.positionOf(minimum);
-  const zero = scale.positionOf(0);
+  const left = positionOf(-minimum);
+  const right = positionOf(minimum);
+  const zero = positionOf(0);
   const marks: string[] = [];
-  const baselineSegments = scale.gap
-    ? [
-        [x, scale.gap[0]],
-        [scale.gap[1], x + width],
-      ]
-    : [[x, x + width]];
 
-  for (const [start, end] of baselineSegments)
-    marks.push(`<path d="M${round(start)} ${middle}H${round(end)}" stroke="${colours.rule}" stroke-width="1"/>`);
+  marks.push(`<path d="M${x} ${middle}H${round(x + width)}" stroke="${colours.rule}" stroke-width="1"/>`);
 
   marks.push(`<rect x="${round(left)}" y="${y}" width="${round(right - left)}" height="${STRIP_HEIGHT}" fill="${colours.band}"/>`);
   marks.push(
@@ -397,17 +364,9 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
   );
   marks.push(`<path d="M${round(zero)} ${y - 2}V${y + STRIP_HEIGHT + 2}" stroke="${colours.secondary}" stroke-width="1"/>`);
 
-  if (scale.gap) {
-    const centre = (scale.gap[0] + scale.gap[1]) / 2;
-
-    marks.push(
-      `<path d="M${round(centre - 5)} ${middle + 5}L${round(centre - 1)} ${middle - 5}M${round(centre + 1)} ${middle + 5}L${round(centre + 5)} ${middle - 5}" stroke="${colours.secondary}" stroke-width="1.2" stroke-linecap="round"/>`,
-    );
-  }
-
   if (measuredInterval) {
-    const start = scale.positionOf(gainInterval[0]);
-    const end = scale.positionOf(gainInterval[1]);
+    const start = positionOf(gainInterval[0]);
+    const end = positionOf(gainInterval[1]);
 
     marks.push(
       `<path d="M${round(start)} ${middle}H${round(end)}M${round(start)} ${middle - 5}V${middle + 5}M${round(end)} ${middle - 5}V${middle + 5}" stroke="${colours.ink}" stroke-width="2.5" stroke-linecap="round"/>`,
@@ -415,7 +374,7 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
   }
 
   marks.push(
-    `<circle cx="${round(scale.positionOf(gainEffect))}" cy="${middle}" r="4.5" fill="${colours.ink}" stroke="${colours.background}" stroke-width="1.5"/>`,
+    `<circle cx="${round(positionOf(gainEffect))}" cy="${middle}" r="4.5" fill="${colours.ink}" stroke="${colours.background}" stroke-width="1.5"/>`,
   );
 
   const thresholds = thresholdLabels(metric);
@@ -611,14 +570,17 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
   const primaryCount = results.computed.primary_comparisons;
   const everyHeadlineAdjusted = content.headlines.every(({ comparison }) => comparison.adjusted);
-  const intervalWords =
+  const isSingle = content.headlines.length === 1;
+  const possessive = isSingle ? "its" : "their";
+  const intervalNoun = isSingle ? "interval" : "intervals";
+  const intervalPhrase =
     sharedLevel && everyHeadlineAdjusted
-      ? `${formatLevel(1 - results.computed.alpha)}% interval, adjusted for ${primaryCount} comparisons`
+      ? `${possessive} ${formatLevel(1 - results.computed.alpha)}% ${intervalNoun}, adjusted for ${primaryCount} comparisons`
       : sharedLevel
-        ? `${sharedLevel} interval`
-        : "interval";
+        ? `${possessive} ${sharedLevel} ${intervalNoun}`
+        : `${possessive} ${intervalNoun}`;
   const legend = [
-    `Dot: effect against ${lookup.candidateName.get(results.baseline)}. Line: ${intervalWords}. Shaded band: smaller than the difference that matters. Each strip has its own scale.`,
+    `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}. Shaded band: too small to matter.`,
     ...(content.omittedCount > 0
       ? [`${content.omittedCount} more primary comparison${content.omittedCount === 1 ? "" : "s"} in the full results.`]
       : []),
@@ -629,11 +591,11 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
   const provenance = provenanceParts(benchmark, context);
   const provenanceText = [
-    `results sha256 ${provenance.hash}`,
-    provenance.date,
     provenance.source.replace(/^https?:\/\//, ""),
+    `results ${provenance.hash}`,
+    provenance.date,
     ...(provenance.continuousIntegration ? [`commit ${provenance.continuousIntegration.commit}`] : []),
-    provenance.generator,
+    ...(provenance.attribution ? ["Built with Astrolabe"] : []),
   ].join(" · ");
 
   cursorY = drawLines(text.wrap(provenanceText, STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
