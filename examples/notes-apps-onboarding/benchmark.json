@@ -1,0 +1,261 @@
+{
+  "schema_version": "0.5",
+  "results": {
+    "benchmark": {
+      "id": "notes-apps-onboarding",
+      "version": "1.0.0",
+      "goal": "Which note-taking app should the team adopt, judged on first-week tasks and the three features we need?",
+      "conditions": []
+    },
+    "domain_research": {
+      "reference_suites": ["none; usability studies are specific to their tasks"],
+      "standard_metrics": ["task success", "time on task", "System Usability Scale"],
+      "pitfalls": ["five users are enough to find problems, not to compare numbers", "time on failed tasks mixed with successes"],
+      "sources": ["https://www.nngroup.com/articles/quant-vs-qual/"]
+    },
+    "candidates": [
+      {
+        "id": "notes_a",
+        "name": "Notes A",
+        "version": "7.2 (web)",
+        "config": {"plan": "team", "onboarding": "default"},
+        "publication_terms": {
+          "terms": "terms of service, 2026-05",
+          "restriction": "none found",
+          "checked_url": "https://example.com/notes_a/terms",
+          "checked_on": "2026-11-02"
+        },
+        "variants": {"tested": [], "selected": null}
+      },
+      {
+        "id": "notes_b",
+        "name": "Notes B",
+        "version": "3.14 (web)",
+        "config": {"plan": "team", "onboarding": "default"},
+        "publication_terms": {
+          "terms": "terms of service, 2026-08",
+          "restriction": "none found",
+          "checked_url": "https://example.com/notes_b/terms",
+          "checked_on": "2026-11-02"
+        },
+        "variants": {"tested": [], "selected": null}
+      }
+    ],
+    "baseline": "notes_a",
+    "structure": {
+      "levels": ["study", "group", "item"],
+      "nodes": [
+        {"id": "study", "level": "study", "label": "Onboarding study"},
+        {"id": "tasks", "level": "group", "label": "Tasks", "parent": "study"},
+        {"id": "t_create", "level": "item", "label": "Create and format a note", "parent": "tasks"},
+        {"id": "t_share", "level": "item", "label": "Share a note with a colleague", "parent": "tasks"},
+        {"id": "t_find", "level": "item", "label": "Find a note from last week", "parent": "tasks"},
+        {"id": "features", "level": "group", "label": "Features", "parent": "study"},
+        {"id": "f_offline", "level": "item", "label": "Offline editing", "parent": "features"},
+        {"id": "f_export", "level": "item", "label": "Markdown export", "parent": "features"},
+        {"id": "f_collab", "level": "item", "label": "Live co-editing", "parent": "features"}
+      ]
+    },
+    "metrics": [
+      {
+        "id": "success",
+        "label": "Task success",
+        "unit": "%",
+        "direction": "higher",
+        "kind": "usability",
+        "statistic": "share",
+        "definition": "Share of participants completing the task unaided within 5 minutes",
+        "compare_as": "difference",
+        "minimum_meaningful": 15,
+        "weight": 0.4,
+        "aggregation": {"items": "mean", "groups": "macro"},
+        "failures_count_as": "zero",
+        "from": {"raw": "sessions", "measure": "success"}
+      },
+      {
+        "id": "time",
+        "label": "Time on task",
+        "unit": "s",
+        "direction": "lower",
+        "kind": "usability",
+        "statistic": "median",
+        "definition": "Time per task, successful attempts only",
+        "compare_as": "relative",
+        "minimum_meaningful": 20,
+        "weight": 0.2,
+        "aggregation": {"groups": "micro"},
+        "failures_count_as": "excluded",
+        "from": {"raw": "sessions", "measure": "seconds"}
+      },
+      {
+        "id": "sus",
+        "label": "SUS score",
+        "unit": "points",
+        "direction": "higher",
+        "kind": "usability",
+        "statistic": "mean",
+        "definition": "System Usability Scale, 0 to 100, filled in after the three tasks",
+        "compare_as": "difference",
+        "minimum_meaningful": 8,
+        "weight": 0.2,
+        "reference_points": [{"label": "average product", "value": 68}],
+        "from": {"raw": "sessions", "measure": "sus"}
+      },
+      {
+        "id": "features",
+        "label": "Feature coverage",
+        "unit": "%",
+        "direction": "higher",
+        "kind": "feature",
+        "statistic": "share",
+        "definition": "Present 100, partial 50, absent 0; each verified by using it",
+        "compare_as": "difference",
+        "minimum_meaningful": 10,
+        "weight": 0.2,
+        "aggregation": {"items": "mean", "groups": "macro"}
+      }
+    ],
+    "composite": {"computed": false, "note": "Weights record priorities only"},
+    "workload": {
+      "description": "Three tasks from a new employee's first week, and three required features",
+      "usage_pattern": "Moderated remote sessions of 30 minutes",
+      "tasks": [
+        "Create and format a note: title, list, image",
+        "Share a note with a named colleague, edit rights",
+        "Find a note written last week from two keywords"
+      ],
+      "users": "48 office workers who had used neither app, 24 per app"
+    },
+    "environment": {"setting": "Remote sessions, participant's own laptop, Chrome 142", "moderation": "Same script and moderator for both apps"},
+    "runs": {"levels": [{"level": "participant", "field": "item", "planned": 24}], "order": "apps assigned at random; task order rotated"},
+    "artifacts": {
+      "repo": "https://github.com/example/notes-apps-onboarding",
+      "command": "python analyse.py",
+      "scripts": ["analyse.py", "session-script.md"]
+    },
+    "raw_data": [
+      {
+        "id": "sessions",
+        "kind": "items",
+        "path": "data/sessions.jsonl",
+        "format": "jsonl",
+        "rows": 336,
+        "sha256": "97afd4d9d9af1c85c2773e8fa2b6b08887c9856f11fa33e1952985aaccfd93f4"
+      }
+    ],
+    "limitations": [
+      "24 participants per app: enough to compare, but intervals stay wide.",
+      "Web versions only; mobile apps were not tested.",
+      "Three features chosen by the team; other features were not checked."
+    ],
+    "values": [
+      {"candidate": "notes_a", "metric": "success", "node": "tasks", "value": 80.5556, "n": 72, "source": "computed", "ci": [70.8333, 88.8889], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "success", "node": "tasks", "value": 86.1111, "n": 72, "source": "computed", "ci": [76.3889, 94.4444], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "success", "node": "t_create", "value": 79.1667, "n": 24, "source": "computed", "ci": [59.5295, 90.7552], "method": "wilson", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "success", "node": "t_create", "value": 100, "n": 24, "source": "computed", "ci": [86.2024, 100], "method": "wilson", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "success", "node": "t_share", "value": 83.3333, "n": 24, "source": "computed", "ci": [64.1469, 93.3213], "method": "wilson", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "success", "node": "t_share", "value": 83.3333, "n": 24, "source": "computed", "ci": [64.1469, 93.3213], "method": "wilson", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "success", "node": "t_find", "value": 79.1667, "n": 24, "source": "computed", "ci": [59.5295, 90.7552], "method": "wilson", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "success", "node": "t_find", "value": 75, "n": 24, "source": "computed", "ci": [55.1006, 88.0006], "method": "wilson", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "time", "node": "tasks", "value": 136, "n": 58, "source": "computed", "ci": [120, 147], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "time", "node": "tasks", "value": 111.5, "n": 62, "source": "computed", "ci": [100, 129], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "time", "node": "t_create", "value": 122, "n": 19, "source": "computed", "ci": [107, 148], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "time", "node": "t_create", "value": 110.5, "n": 24, "source": "computed", "ci": [90, 137], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "time", "node": "t_share", "value": 133.5, "n": 20, "source": "computed", "ci": [123, 159], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "time", "node": "t_share", "value": 102.5, "n": 20, "source": "computed", "ci": [83, 113], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "time", "node": "t_find", "value": 142, "n": 19, "source": "computed", "ci": [110, 178], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "time", "node": "t_find", "value": 139.5, "n": 18, "source": "computed", "ci": [111, 166], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "sus", "node": "study", "value": 72.6042, "n": 24, "source": "computed", "ci": [66.1155, 79.0929], "se": 3.13668, "method": "t", "ci_level": 0.95},
+      {"candidate": "notes_b", "metric": "sus", "node": "study", "value": 75, "n": 24, "source": "computed", "ci": [70.6978, 79.3022], "se": 2.07971, "method": "t", "ci_level": 0.95},
+      {"candidate": "notes_a", "metric": "features", "node": "features", "value": 83.3333, "n": 3, "source": "declared"},
+      {"candidate": "notes_b", "metric": "features", "node": "features", "value": 66.6667, "n": 3, "source": "declared"},
+      {"candidate": "notes_a", "metric": "features", "node": "f_offline", "value": 100, "n": 1, "evidence": "Edited a note in airplane mode; synced on reconnect", "source": "declared"},
+      {"candidate": "notes_b", "metric": "features", "node": "f_offline", "value": 0, "n": 1, "evidence": "Read-only when offline (help page and test)", "source": "declared"},
+      {"candidate": "notes_a", "metric": "features", "node": "f_export", "value": 100, "n": 1, "evidence": "Exported one note and a folder to .md", "source": "declared"},
+      {"candidate": "notes_b", "metric": "features", "node": "f_export", "value": 100, "n": 1, "evidence": "Exported one note and a folder to .md", "source": "declared"},
+      {"candidate": "notes_a", "metric": "features", "node": "f_collab", "value": 50, "n": 1, "evidence": "Two cursors shown, but edits appear after a few seconds", "source": "declared"},
+      {"candidate": "notes_b", "metric": "features", "node": "f_collab", "value": 100, "n": 1, "evidence": "Edits appear as typed for both users", "source": "declared"}
+    ],
+    "failures": [
+      {"candidate": "notes_a", "metric": "success", "node": "t_create", "reason": "gave_up", "count": 5, "attempts": 24, "unit": "attempts", "counted_as": "zero"},
+      {"candidate": "notes_a", "metric": "success", "node": "t_share", "reason": "gave_up", "count": 4, "attempts": 24, "unit": "attempts", "counted_as": "zero"},
+      {"candidate": "notes_a", "metric": "success", "node": "t_find", "reason": "gave_up", "count": 5, "attempts": 24, "unit": "attempts", "counted_as": "zero"},
+      {"candidate": "notes_b", "metric": "success", "node": "t_share", "reason": "time_limit", "count": 4, "attempts": 24, "unit": "attempts", "counted_as": "zero"},
+      {"candidate": "notes_b", "metric": "success", "node": "t_find", "reason": "time_limit", "count": 6, "attempts": 24, "unit": "attempts", "counted_as": "zero"},
+      {"candidate": "notes_a", "metric": "time", "node": "t_create", "reason": "gave_up", "count": 5, "attempts": 24, "unit": "attempts", "counted_as": "excluded"},
+      {"candidate": "notes_a", "metric": "time", "node": "t_share", "reason": "gave_up", "count": 4, "attempts": 24, "unit": "attempts", "counted_as": "excluded"},
+      {"candidate": "notes_a", "metric": "time", "node": "t_find", "reason": "gave_up", "count": 5, "attempts": 24, "unit": "attempts", "counted_as": "excluded"},
+      {"candidate": "notes_b", "metric": "time", "node": "t_share", "reason": "time_limit", "count": 4, "attempts": 24, "unit": "attempts", "counted_as": "excluded"},
+      {"candidate": "notes_b", "metric": "time", "node": "t_find", "reason": "time_limit", "count": 6, "attempts": 24, "unit": "attempts", "counted_as": "excluded"}
+    ],
+    "exclusions": [],
+    "comparisons": [
+      {"id": "success__tasks__notes_b", "metric": "success", "node": "tasks", "candidate": "notes_b", "vs": "notes_a", "effect": 5.55556, "ci": [-11.1111, 23.6111], "ci_level": 0.9875, "verdict": "inconclusive", "role": "primary", "adjusted": true, "paired": false, "method": "bootstrap", "source": "computed"},
+      {"id": "success__t_create__notes_b", "metric": "success", "node": "t_create", "candidate": "notes_b", "vs": "notes_a", "effect": 20.8333, "ci": [3.31571, 38.351], "ci_level": 0.95, "verdict": "better", "qualifier": "likely", "role": "exploratory", "adjusted": false, "paired": false, "method": "welch", "source": "computed"},
+      {"id": "success__t_share__notes_b", "metric": "success", "node": "t_share", "candidate": "notes_b", "vs": "notes_a", "effect": 0, "ci": [-22.1211, 22.1211], "ci_level": 0.95, "verdict": "inconclusive", "role": "exploratory", "adjusted": false, "paired": false, "method": "welch", "source": "computed"},
+      {"id": "success__t_find__notes_b", "metric": "success", "node": "t_find", "candidate": "notes_b", "vs": "notes_a", "effect": -4.16667, "ci": [-29.0863, 20.753], "ci_level": 0.95, "verdict": "inconclusive", "role": "exploratory", "adjusted": false, "paired": false, "method": "welch", "source": "computed"},
+      {"id": "time__tasks__notes_b", "metric": "time", "node": "tasks", "candidate": "notes_b", "vs": "notes_a", "effect": -18.0147, "ci": [-31.4286, 5.07036], "ci_level": 0.9875, "verdict": "inconclusive", "role": "primary", "adjusted": true, "paired": false, "method": "bootstrap", "source": "computed", "successful_only": true, "failure_share": {"candidate": 13.8889, "baseline": 19.4444, "difference_ci": [-17.8085, 6.80007]}, "failure_warning": true, "failure_warning_nodes": ["t_create"]},
+      {"id": "time__t_create__notes_b", "metric": "time", "node": "t_create", "candidate": "notes_b", "vs": "notes_a", "effect": -9.42623, "ci": [-31.5068, 14.8148], "ci_level": 0.95, "verdict": "inconclusive", "role": "exploratory", "adjusted": false, "paired": false, "method": "bootstrap", "source": "computed", "successful_only": true, "failure_share": {"candidate": 0, "baseline": 20.8333, "difference_ci": [-40.4705, -2.81479]}, "failure_warning": true},
+      {"id": "time__t_share__notes_b", "metric": "time", "node": "t_share", "candidate": "notes_b", "vs": "notes_a", "effect": -23.221, "ci": [-37.7358, -15.0376], "ci_level": 0.95, "verdict": "better", "qualifier": "likely", "role": "exploratory", "adjusted": false, "paired": false, "method": "bootstrap", "source": "computed", "successful_only": true, "failure_share": {"candidate": 16.6667, "baseline": 16.6667, "difference_ci": [-21.6305, 21.6305]}, "failure_warning": false},
+      {"id": "time__t_find__notes_b", "metric": "time", "node": "t_find", "candidate": "notes_b", "vs": "notes_a", "effect": -1.76056, "ci": [-27.439, 21.4286], "ci_level": 0.95, "verdict": "inconclusive", "role": "exploratory", "adjusted": false, "paired": false, "method": "bootstrap", "source": "computed", "successful_only": true, "failure_share": {"candidate": 25, "baseline": 20.8333, "difference_ci": [-19.384, 27.1945]}, "failure_warning": false},
+      {"id": "sus__study__notes_b", "metric": "sus", "node": "study", "candidate": "notes_b", "vs": "notes_a", "effect": 2.39583, "ci": [-7.44898, 12.2406], "ci_level": 0.9875, "verdict": "inconclusive", "role": "primary", "adjusted": true, "paired": false, "method": "welch", "source": "computed"},
+      {"id": "features__features__notes_b", "metric": "features", "node": "features", "candidate": "notes_b", "vs": "notes_a", "effect": -16.6666, "ci": [-16.6666, -16.6666], "ci_level": 0.9875, "verdict": "worse", "role": "primary", "adjusted": true, "paired": false, "method": "declared values", "source": "declared"},
+      {"id": "features__f_offline__notes_b", "metric": "features", "node": "f_offline", "candidate": "notes_b", "vs": "notes_a", "effect": -100, "ci": [-100, -100], "ci_level": 0.95, "verdict": "worse", "role": "exploratory", "adjusted": false, "paired": false, "method": "declared values", "source": "declared"},
+      {"id": "features__f_export__notes_b", "metric": "features", "node": "f_export", "candidate": "notes_b", "vs": "notes_a", "effect": 0, "ci": [0, 0], "ci_level": 0.95, "verdict": "equivalent", "role": "exploratory", "adjusted": false, "paired": false, "method": "declared values", "source": "declared"},
+      {"id": "features__f_collab__notes_b", "metric": "features", "node": "f_collab", "candidate": "notes_b", "vs": "notes_a", "effect": 50, "ci": [50, 50], "ci_level": 0.95, "verdict": "better", "role": "exploratory", "adjusted": false, "paired": false, "method": "declared values", "source": "declared"}
+    ],
+    "observed": {"levels": [{"level": "participant", "field": "item", "n": 24}]},
+    "computed": {
+      "by": "astrolabe-bench 0.1.0",
+      "methods_version": "3",
+      "resamples": 10000,
+      "seed": "c4233588c5d94c7d01bcde89ac650b87201b87a20ebf7780bcda17f7e3f52800",
+      "alpha": 0.05,
+      "primary_comparisons": 4,
+      "exploratory_comparisons": 9,
+      "raw_sha256": {"sessions": "97afd4d9d9af1c85c2773e8fa2b6b08887c9856f11fa33e1952985aaccfd93f4"}
+    }
+  },
+  "filters": [{"id": "group", "label": "Part", "level": "group", "options": "from_structure", "default": "tasks"}],
+  "layout": [["headline-sus", "headline-features"], ["chart-tasks", "table-features"], ["methodology", "environment"], ["limitations", "provenance"]],
+  "blocks": [
+    {
+      "id": "headline-sus",
+      "type": "headline",
+      "comparison": "sus__study__notes_b",
+      "title": "SUS score: {verdict:sus__study__notes_b} ({effect:sus__study__notes_b})"
+    },
+    {
+      "id": "headline-features",
+      "type": "headline",
+      "comparison": "features__features__notes_b",
+      "title": "{candidate:notes_b} lacks offline editing: {effect:features__features__notes_b} feature coverage"
+    },
+    {
+      "id": "chart-tasks",
+      "type": "chart",
+      "chart": "dot-interval",
+      "metric": "success",
+      "node": "tasks",
+      "breakdown": "item",
+      "series": "candidate",
+      "uncertainty": "ci",
+      "title": "Task success by task",
+      "description": "Overall: {verdict:success__tasks__notes_b}."
+    },
+    {
+      "id": "table-features",
+      "type": "table",
+      "metrics": ["features"],
+      "node": "features",
+      "rows": "item",
+      "columns": "candidate",
+      "show": ["n", "evidence"]
+    },
+    {"id": "methodology", "type": "methodology"},
+    {"id": "environment", "type": "environment"},
+    {"id": "limitations", "type": "limitations"},
+    {"id": "provenance", "type": "provenance"}
+  ],
+  "exports": []
+}

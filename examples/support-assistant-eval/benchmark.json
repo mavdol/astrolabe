@@ -1,0 +1,271 @@
+{
+  "schema_version": "0.5",
+  "results": {
+    "benchmark": {
+      "id": "support-assistant-eval",
+      "version": "1.2.0",
+      "goal": "Which model should power our customer-support assistant, given accuracy and running cost?",
+      "scope": "Internal tasks only; does not measure latency or safety.",
+      "conditions": ["non_deterministic", "trained_or_tuned"]
+    },
+    "domain_research": {
+      "reference_suites": ["none matched our support tasks; public suites used only as a sanity check"],
+      "standard_metrics": ["accuracy", "pass rate on unit tests", "cost per task"],
+      "pitfalls": ["contamination of public test sets", "judge self-preference", "position bias"],
+      "sources": ["https://arxiv.org/html/2411.00640v1", "https://arxiv.org/html/2306.05685v4"]
+    },
+    "candidates": [
+      {
+        "id": "model_a",
+        "name": "Model A",
+        "version": "2026-10-01",
+        "config": {"temperature": 0.7, "max_output_tokens": 2048, "prompt_template": "support-v3"},
+        "publication_terms": {
+          "terms": "provider terms of service, 2026-10",
+          "restriction": "none found",
+          "checked_url": "https://example.com/model_a/terms",
+          "checked_on": "2026-11-02"
+        },
+        "variants": {"tested": ["support-v2", "support-v3"], "selected": "support-v3", "remeasured_on_fresh_runs": true},
+        "service": {"region": "eu-west", "plan": "pay as you go", "api_version": "2026-10-01"},
+        "pricing": {"model": "per token", "source": "public price page", "date": "2026-11-02"},
+        "family": "provider-x"
+      },
+      {
+        "id": "model_b",
+        "name": "Model B",
+        "version": "2026-09-15",
+        "config": {"temperature": 0.7, "max_output_tokens": 2048, "prompt_template": "support-v3"},
+        "publication_terms": {
+          "terms": "provider terms of service, 2026-08",
+          "restriction": "none found",
+          "checked_url": "https://example.com/model_b/terms",
+          "checked_on": "2026-11-02"
+        },
+        "variants": {"tested": ["support-v2", "support-v3"], "selected": "support-v3", "remeasured_on_fresh_runs": true},
+        "service": {"region": "eu-west", "plan": "pay as you go", "api_version": "2026-09-15"},
+        "pricing": {"model": "per token", "source": "public price page", "date": "2026-11-02"},
+        "family": "provider-y"
+      }
+    ],
+    "baseline": "model_b",
+    "structure": {
+      "levels": ["suite", "category", "task"],
+      "nodes": [
+        {"id": "suite", "level": "suite", "label": "Support assistant eval"},
+        {"id": "reasoning", "level": "category", "label": "Reasoning", "parent": "suite"},
+        {"id": "coding", "level": "category", "label": "Coding", "parent": "suite"},
+        {"id": "math_word", "level": "task", "label": "Math word problems", "parent": "reasoning", "n_items": 200, "scoring": "exact_match"},
+        {"id": "policy_qa", "level": "task", "label": "Policy questions", "parent": "reasoning", "n_items": 150, "scoring": "judge"},
+        {"id": "bugfix", "level": "task", "label": "Bug fixes", "parent": "coding", "n_items": 120, "scoring": "unit_tests"}
+      ]
+    },
+    "metrics": [
+      {
+        "id": "accuracy",
+        "label": "Accuracy",
+        "unit": "%",
+        "direction": "higher",
+        "kind": "quality",
+        "statistic": "share",
+        "definition": "Share of items answered correctly, each item averaged over its 5 repeats",
+        "compare_as": "difference",
+        "minimum_meaningful": 3,
+        "weight": 0.7,
+        "aggregation": {"repeats": "mean", "items": "mean", "groups": "macro"},
+        "failures_count_as": "zero",
+        "from": {"raw": "items", "measure": "correct"}
+      },
+      {
+        "id": "cost_per_item",
+        "label": "Cost per item",
+        "unit": "USD",
+        "direction": "lower",
+        "kind": "cost",
+        "statistic": "mean",
+        "definition": "API cost per item, computed by the eval script from token counts and the list price",
+        "compare_as": "relative",
+        "minimum_meaningful": 10,
+        "weight": 0.3,
+        "aggregation": {"repeats": "mean", "items": "mean", "groups": "micro"},
+        "failures_count_as": "excluded",
+        "from": {"raw": "items", "measure": "cost_usd"}
+      }
+    ],
+    "composite": {"computed": false, "note": "Weights record priorities only"},
+    "workload": {
+      "description": "470 items written in-house from real support tickets",
+      "usage_pattern": "one item per request, no conversation history",
+      "contamination": {"items": "private", "published": false, "risk": "low"}
+    },
+    "judge": {
+      "type": "model",
+      "used_for": ["policy_qa"],
+      "method": "rubric with a reference answer",
+      "blinded": true,
+      "order_policy": "one answer graded at a time; no pairwise order",
+      "model": "Judge Model C",
+      "family": "provider-z",
+      "validation": {"human_rated_items": 120, "krippendorff_alpha": 0.81}
+    },
+    "environment": {"client": "One VM in eu-west", "software": {"internal-eval": "0.9.2"}},
+    "runs": {
+      "levels": [{"level": "item", "field": "item", "planned": 470}, {"level": "repeat", "field": "repeat", "planned": 5}],
+      "order": "randomized per repeat"
+    },
+    "artifacts": {"repo": "https://github.com/example/support-assistant-eval", "command": "./run_eval.sh --repeats 5", "scripts": ["run_eval.sh"]},
+    "raw_data": [
+      {
+        "id": "items",
+        "kind": "items",
+        "path": "data/items.jsonl",
+        "format": "jsonl",
+        "rows": 9400,
+        "sha256": "09c1697cb543866692ed39155832c97b7d50bd78ea5b8dfca6fb9c90ab68fd9f"
+      }
+    ],
+    "limitations": [
+      "Two candidates only; prices change often (usage kept for recomputing costs).",
+      "Policy questions are graded by a model judge, validated on 120 human-rated items."
+    ],
+    "analysis": {
+      "primary": [
+        {"metric": "accuracy", "node": "suite"},
+        {"metric": "accuracy", "node": "reasoning"},
+        {"metric": "accuracy", "node": "coding"},
+        {"metric": "cost_per_item", "node": "suite"}
+      ]
+    },
+    "values": [
+      {"candidate": "model_a", "metric": "accuracy", "node": "suite", "value": 64.9167, "n": 470, "source": "computed", "ci": [61.9162, 67.8068], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "accuracy", "node": "suite", "value": 58.4833, "n": 470, "source": "computed", "ci": [55.4007, 61.525], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "accuracy", "node": "reasoning", "value": 70.5, "n": 350, "source": "computed", "ci": [67.365, 73.5715], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "accuracy", "node": "reasoning", "value": 71.9667, "n": 350, "source": "computed", "ci": [68.9937, 74.7735], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "accuracy", "node": "coding", "value": 59.3333, "n": 120, "source": "computed", "ci": [54.1369, 64.5297], "se": 2.62431, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "accuracy", "node": "coding", "value": 45, "n": 120, "source": "computed", "ci": [39.3322, 50.6678], "se": 2.86239, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "accuracy", "node": "math_word", "value": 72.6, "n": 200, "source": "computed", "ci": [68.6828, 76.5172], "se": 1.98644, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "accuracy", "node": "math_word", "value": 71.4, "n": 200, "source": "computed", "ci": [67.3629, 75.4371], "se": 2.04723, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "accuracy", "node": "policy_qa", "value": 68.4, "n": 150, "source": "computed", "ci": [63.6085, 73.1915], "se": 2.42485, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "accuracy", "node": "policy_qa", "value": 72.5333, "n": 150, "source": "computed", "ci": [68.2782, 76.7884], "se": 2.15337, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "accuracy", "node": "bugfix", "value": 59.3333, "n": 120, "source": "computed", "ci": [54.1369, 64.5297], "se": 2.62431, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "accuracy", "node": "bugfix", "value": 45, "n": 120, "source": "computed", "ci": [39.3322, 50.6678], "se": 2.86239, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "cost_per_item", "node": "suite", "value": 0.00435457, "n": 470, "source": "computed", "ci": [0.00433367, 0.0043758], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "cost_per_item", "node": "suite", "value": 0.00119456, "n": 470, "source": "computed", "ci": [0.00118874, 0.0012005], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "cost_per_item", "node": "reasoning", "value": 0.00435885, "n": 350, "source": "computed", "ci": [0.00433443, 0.00438275], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "cost_per_item", "node": "reasoning", "value": 0.00119577, "n": 350, "source": "computed", "ci": [0.00118931, 0.00120224], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "cost_per_item", "node": "coding", "value": 0.00434209, "n": 120, "source": "computed", "ci": [0.00429674, 0.00438744], "se": 0.0000229022, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "cost_per_item", "node": "coding", "value": 0.00119103, "n": 120, "source": "computed", "ci": [0.0011782, 0.00120387], "se": 0.00000648374, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "cost_per_item", "node": "math_word", "value": 0.00435267, "n": 200, "source": "computed", "ci": [0.00432123, 0.00438411], "se": 0.0000159442, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "cost_per_item", "node": "math_word", "value": 0.00119455, "n": 200, "source": "computed", "ci": [0.001186, 0.00120309], "se": 0.00000433293, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "cost_per_item", "node": "policy_qa", "value": 0.00436709, "n": 150, "source": "computed", "ci": [0.00432917, 0.00440502], "se": 0.0000191927, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "cost_per_item", "node": "policy_qa", "value": 0.00119739, "n": 150, "source": "computed", "ci": [0.00118707, 0.00120771], "se": 0.00000522191, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_a", "metric": "cost_per_item", "node": "bugfix", "value": 0.00434209, "n": 120, "source": "computed", "ci": [0.00429674, 0.00438744], "se": 0.0000229022, "method": "t", "ci_level": 0.95},
+      {"candidate": "model_b", "metric": "cost_per_item", "node": "bugfix", "value": 0.00119103, "n": 120, "source": "computed", "ci": [0.0011782, 0.00120387], "se": 0.00000648374, "method": "t", "ci_level": 0.95}
+    ],
+    "failures": [
+      {"candidate": "model_a", "metric": "accuracy", "node": "policy_qa", "reason": "no_answer", "count": 1, "attempts": 750, "unit": "attempts", "counted_as": "zero"},
+      {"candidate": "model_b", "metric": "accuracy", "node": "bugfix", "reason": "timeout", "count": 10, "attempts": 600, "unit": "attempts", "counted_as": "zero"},
+      {"candidate": "model_a", "metric": "cost_per_item", "node": "policy_qa", "reason": "no_answer", "count": 1, "attempts": 750, "unit": "attempts", "counted_as": "excluded"},
+      {"candidate": "model_b", "metric": "cost_per_item", "node": "bugfix", "reason": "timeout", "count": 10, "attempts": 600, "unit": "attempts", "counted_as": "excluded"}
+    ],
+    "exclusions": [],
+    "comparisons": [
+      {"id": "accuracy__suite__model_a", "metric": "accuracy", "node": "suite", "candidate": "model_a", "vs": "model_b", "effect": 6.43333, "ci": [2.58231, 10.326], "ci_level": 0.9875, "verdict": "better", "qualifier": "likely", "role": "primary", "adjusted": true, "paired": true, "method": "bootstrap, paired by item", "source": "computed"},
+      {"id": "accuracy__reasoning__model_a", "metric": "accuracy", "node": "reasoning", "candidate": "model_a", "vs": "model_b", "effect": -1.46667, "ci": [-4.86848, 1.99007], "ci_level": 0.9875, "verdict": "inconclusive", "role": "primary", "adjusted": true, "paired": true, "method": "bootstrap, paired by item", "source": "computed"},
+      {"id": "accuracy__coding__model_a", "metric": "accuracy", "node": "coding", "candidate": "model_a", "vs": "model_b", "effect": 14.3333, "ci": [7.43158, 21.2351], "ci_level": 0.9875, "verdict": "better", "role": "primary", "adjusted": true, "paired": true, "method": "paired t", "source": "computed"},
+      {"id": "accuracy__math_word__model_a", "metric": "accuracy", "node": "math_word", "candidate": "model_a", "vs": "model_b", "effect": 1.2, "ci": [-1.88346, 4.28346], "ci_level": 0.95, "verdict": "inconclusive", "role": "exploratory", "adjusted": false, "paired": true, "method": "paired t", "source": "computed"},
+      {"id": "accuracy__policy_qa__model_a", "metric": "accuracy", "node": "policy_qa", "candidate": "model_a", "vs": "model_b", "effect": -4.13333, "ci": [-8.76207, 0.495403], "ci_level": 0.95, "verdict": "inconclusive", "role": "exploratory", "adjusted": false, "paired": true, "method": "paired t", "source": "computed"},
+      {"id": "accuracy__bugfix__model_a", "metric": "accuracy", "node": "bugfix", "candidate": "model_a", "vs": "model_b", "effect": 14.3333, "ci": [8.94498, 19.7217], "ci_level": 0.95, "verdict": "better", "role": "exploratory", "adjusted": false, "paired": true, "method": "paired t", "source": "computed"},
+      {"id": "cost_per_item__suite__model_a", "metric": "cost_per_item", "node": "suite", "candidate": "model_a", "vs": "model_b", "effect": 264.534, "ci": [263.421, 265.622], "ci_level": 0.9875, "verdict": "worse", "role": "primary", "adjusted": true, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true, "failure_share": {"candidate": 0.0425532, "baseline": 0.425532, "difference_ci": [-0.740735, -0.105548]}, "failure_warning": false},
+      {"id": "cost_per_item__reasoning__model_a", "metric": "cost_per_item", "node": "reasoning", "candidate": "model_a", "vs": "model_b", "effect": 264.524, "ci": [263.538, 265.532], "ci_level": 0.95, "verdict": "worse", "role": "exploratory", "adjusted": false, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true, "failure_share": {"candidate": 0.0571429, "baseline": 0, "difference_ci": [-0.166886, 0.322979]}, "failure_warning": false},
+      {"id": "cost_per_item__coding__model_a", "metric": "cost_per_item", "node": "coding", "candidate": "model_a", "vs": "model_b", "effect": 264.564, "ci": [262.893, 266.305], "ci_level": 0.95, "verdict": "worse", "role": "exploratory", "adjusted": false, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true, "failure_share": {"candidate": 0, "baseline": 1.66667, "difference_ci": [-3.04052, -0.676398]}, "failure_warning": false},
+      {"id": "cost_per_item__math_word__model_a", "metric": "cost_per_item", "node": "math_word", "candidate": "model_a", "vs": "model_b", "effect": 264.378, "ci": [263.008, 265.72], "ci_level": 0.95, "verdict": "worse", "role": "exploratory", "adjusted": false, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true},
+      {"id": "cost_per_item__policy_qa__model_a", "metric": "cost_per_item", "node": "policy_qa", "candidate": "model_a", "vs": "model_b", "effect": 264.718, "ci": [263.272, 266.21], "ci_level": 0.95, "verdict": "worse", "role": "exploratory", "adjusted": false, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true, "failure_share": {"candidate": 0.133333, "baseline": 0, "difference_ci": [-0.387945, 0.751352]}, "failure_warning": false},
+      {"id": "cost_per_item__bugfix__model_a", "metric": "cost_per_item", "node": "bugfix", "candidate": "model_a", "vs": "model_b", "effect": 264.564, "ci": [262.897, 266.306], "ci_level": 0.95, "verdict": "worse", "role": "exploratory", "adjusted": false, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true, "failure_share": {"candidate": 0, "baseline": 1.66667, "difference_ci": [-3.04052, -0.676398]}, "failure_warning": false}
+    ],
+    "observed": {
+      "levels": [{"level": "item", "field": "item", "n": 470}, {"level": "repeat", "field": "repeat", "n": 5}],
+      "timestamps": {"first": "2026-11-03T08:00:00Z", "last": "2026-11-04T19:30:00Z", "distinct": 2}
+    },
+    "computed": {
+      "by": "astrolabe-bench 0.1.0",
+      "methods_version": "3",
+      "resamples": 10000,
+      "seed": "b9a62fc7515c073249a43aecad615e6663c08d526adedaf11b8065db658f40f7",
+      "alpha": 0.05,
+      "primary_comparisons": 4,
+      "exploratory_comparisons": 8,
+      "raw_sha256": {"items": "09c1697cb543866692ed39155832c97b7d50bd78ea5b8dfca6fb9c90ab68fd9f"}
+    }
+  },
+  "filters": [{"id": "category", "label": "Category", "level": "category", "options": "from_structure", "allow_all": true, "default": "all"}],
+  "layout": [
+    ["headline-accuracy", "headline-cost"],
+    ["chart-by-category", "chart-cost-accuracy"],
+    ["chart-by-task"],
+    ["table-tasks"],
+    ["methodology", "environment"],
+    ["limitations", "provenance"]
+  ],
+  "blocks": [
+    {
+      "id": "headline-accuracy",
+      "type": "headline",
+      "comparison": "accuracy__suite__model_a",
+      "title": "{candidate:model_a} vs {candidate:model_b}: {effect:accuracy__suite__model_a} accuracy overall"
+    },
+    {
+      "id": "headline-cost",
+      "type": "headline",
+      "comparison": "cost_per_item__suite__model_a",
+      "title": "{effect:cost_per_item__suite__model_a} cost per item"
+    },
+    {
+      "id": "chart-by-category",
+      "type": "chart",
+      "chart": "effect",
+      "metric": "accuracy",
+      "node": "suite",
+      "breakdown": "category",
+      "series": "candidate",
+      "uncertainty": "ci",
+      "title": "The gap comes from coding",
+      "description": "Reasoning: {verdict:accuracy__reasoning__model_a}. Coding: {effect:accuracy__coding__model_a}.",
+      "asserts": {"accuracy__coding__model_a": "better", "accuracy__reasoning__model_a": "inconclusive"}
+    },
+    {
+      "id": "chart-cost-accuracy",
+      "type": "chart",
+      "chart": "scatter",
+      "x": "cost_per_item",
+      "y": "accuracy",
+      "node": "suite",
+      "series": "candidate",
+      "uncertainty": "ci",
+      "title": "Accuracy against cost",
+      "description": "{candidate:model_a} is {verdict:accuracy__suite__model_a} overall ({effect:accuracy__suite__model_a}), a lead that comes from coding, for {effect:cost_per_item__suite__model_a} cost per item.",
+      "asserts": {"accuracy__suite__model_a": "better", "cost_per_item__suite__model_a": "worse"}
+    },
+    {
+      "id": "chart-by-task",
+      "type": "chart",
+      "chart": "effect",
+      "metric": "accuracy",
+      "breakdown": "task",
+      "series": "candidate",
+      "uncertainty": "ci",
+      "filters": ["category"],
+      "title": "Difference by task",
+      "description": "Exploratory: tasks were not declared as primary comparisons. Pick a category to see its tasks."
+    },
+    {"id": "table-tasks", "type": "table", "metrics": ["accuracy"], "rows": "task", "columns": "candidate", "show": ["n", "ci", "failures"]},
+    {"id": "methodology", "type": "methodology"},
+    {"id": "environment", "type": "environment"},
+    {"id": "limitations", "type": "limitations"},
+    {"id": "provenance", "type": "provenance"}
+  ],
+  "exports": [
+    {"id": "readme-card", "blocks": ["headline-accuracy", "headline-cost"], "format": "svg", "size": "banner"},
+    {"id": "social", "blocks": ["chart-cost-accuracy"], "format": "png", "size": "square"}
+  ]
+}
