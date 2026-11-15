@@ -239,6 +239,10 @@ function runImport(tool: string | undefined, exportPaths: string[], rawFileId: s
     `Wrote ${imported.rows.length} rows to ${declaredRawFile.path}: ${imported.countName} per candidate ${counts}; measures ${imported.measures.join(", ")}.`,
   );
 
+  const failures = failureSummary(imported.rows);
+
+  if (failures) console.log(`Failed ${imported.countName}: ${failures}.`);
+
   const missingCandidates = results.candidates.filter((candidate) => !imported.countPerCandidate.has(candidate.id));
 
   for (const candidate of missingCandidates) console.log(`warning: no ${tool} data for candidate "${candidate.id}"`);
@@ -254,6 +258,26 @@ function runImport(tool: string | undefined, exportPaths: string[], rawFileId: s
   console.log("Next: astrolabe compute.");
 
   return 0;
+}
+
+/** Failed attempts per candidate and reason, so that errors and limits are seen at import time, not only in the results. */
+function failureSummary(rows: RawRow[]): string {
+  const attemptsByCandidate = new Map<string, Map<string, Set<string>>>();
+
+  for (const row of rows) {
+    if (row.status === undefined) continue;
+
+    const byReason = attemptsByCandidate.get(row.candidate) ?? new Map<string, Set<string>>();
+    const attempts = byReason.get(row.status) ?? new Set<string>();
+
+    attempts.add([row.node, row.item, row.repeat, row.run].join("\u0000"));
+    byReason.set(row.status, attempts);
+    attemptsByCandidate.set(row.candidate, byReason);
+  }
+
+  return [...attemptsByCandidate]
+    .map(([candidate, byReason]) => `${candidate} ${[...byReason].map(([reason, attempts]) => `${reason} ${attempts.size}`).join(", ")}`)
+    .join("; ");
 }
 
 type Results = Benchmark["results"];
