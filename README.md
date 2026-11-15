@@ -1,4 +1,4 @@
-# Astrolabe
+# ✪ Astrolabe
 
 Benchmarks authored by agents, verifiable by humans.
 
