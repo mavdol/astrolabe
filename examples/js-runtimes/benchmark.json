@@ -98,11 +98,43 @@
       "order": "3 rounds of 10 runs; the order of the runtimes alternates between rounds, and hyperfine runs each runtime's runs consecutively within a round"
     },
     "artifacts": {"repo": "https://github.com/mavdol/astrolabe", "command": "./bench.sh", "scripts": ["bench.sh", "workload.mjs"]},
-    "raw_data": [{"id": "runs", "kind": "samples", "path": "data/runs.jsonl", "format": "jsonl"}],
+    "raw_data": [
+      {
+        "id": "runs",
+        "kind": "samples",
+        "path": "data/runs.jsonl",
+        "format": "jsonl",
+        "rows": 420,
+        "sha256": "cc71b7e38d725b6d03b85b53f600c66e171832771fe62f34289e215e68251873"
+      }
+    ],
     "limitations": [
       "One machine and one workload; a different script or a server workload may rank the runtimes differently.",
       "Bun is not included: it was not installed on the measuring machine.",
       "Within a round, the runs of one runtime are consecutive, so a slow drift of the machine can favour one runtime; alternating the order between rounds limits it."
-    ]
+    ],
+    "values": [
+      {"candidate": "node", "metric": "wall_time", "value": 0.26896, "n": 30, "source": "computed", "ci": [0.266466, 0.272919], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "deno", "metric": "wall_time", "value": 0.240863, "n": 30, "source": "computed", "ci": [0.238359, 0.242532], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "node", "metric": "peak_rss", "value": 212.883, "n": 30, "source": "computed", "ci": [212.813, 212.922], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "deno", "metric": "peak_rss", "value": 215.172, "n": 30, "source": "computed", "ci": [215.047, 215.344], "method": "order statistics", "ci_level": 0.95}
+    ],
+    "failures": [],
+    "exclusions": [],
+    "comparisons": [
+      {"id": "wall_time__deno", "metric": "wall_time", "candidate": "deno", "vs": "node", "effect": -10.4466, "ci": [-12.0318, -9.15149], "ci_level": 0.975, "verdict": "better", "qualifier": "likely", "role": "primary", "adjusted": true, "paired": false, "method": "bootstrap", "source": "computed", "successful_only": true},
+      {"id": "peak_rss__deno", "metric": "peak_rss", "candidate": "deno", "vs": "node", "effect": 1.07527, "ci": [1.01644, 1.15972], "ci_level": 0.975, "verdict": "equivalent", "role": "primary", "adjusted": true, "paired": false, "method": "bootstrap", "source": "computed", "successful_only": true}
+    ],
+    "observed": {"levels": [{"level": "process", "field": "run", "n": 30}]},
+    "computed": {
+      "by": "astrolabe-bench 0.1.0",
+      "methods_version": "4",
+      "resamples": 10000,
+      "seed": "ff9637e749c88e3cbf05fcaeee501b68395561c7827eef8989e6cf3700ed4684",
+      "alpha": 0.05,
+      "primary_comparisons": 2,
+      "exploratory_comparisons": 0,
+      "raw_sha256": {"runs": "cc71b7e38d725b6d03b85b53f600c66e171832771fe62f34289e215e68251873"}
+    }
   }
 }

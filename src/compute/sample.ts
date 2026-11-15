@@ -1,7 +1,7 @@
 import type { MetricObservations, Statistic } from "./observations.js";
 import { ComputeError } from "./raw-data.js";
 import type { Xoshiro128 } from "./rng.js";
-import { mean, quantileSelect, quantileSorted } from "./stats.js";
+import { mean, minObservations, quantileSelect, quantileSorted } from "./stats.js";
 import { aggregationPlanFor, type Aggregation, type NodeId, type NodeTree } from "./structure.js";
 
 export type GroupsAggregation = "macro" | "micro";
@@ -206,6 +206,18 @@ export function percentileInterval(resampledStatistics: Float64Array, count: num
 
   return [quantileSorted(sorted, tailProbability, count), quantileSorted(sorted, 1 - tailProbability, count)];
 }
+
+/**
+ * A percentile bootstrap on a few groups gives intervals far too narrow. It is
+ * held to the bar of a distribution-free interval: the observations that
+ * interval would need for the statistic at this level (6 for a median at 95%,
+ * 8 at 98.75%, 72 for a 95th percentile); a mean is held to the bar of a median.
+ */
+export function fewestGroupsForBootstrap(statistic: Statistic, level: number): number {
+  return minObservations(statistic.type === "quantile" ? statistic.probability : 0.5, level);
+}
+
+export const TOO_FEW_FOR_AN_INTERVAL = "too few observations for an interval";
 
 const LARGEST_RESAMPLED_GROUP_COUNT = 2097151;
 

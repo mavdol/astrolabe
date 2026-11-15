@@ -1,12 +1,15 @@
 import type { Metric, Results, Value } from "../schema/benchmark.js";
 import type { MetricObservations } from "./observations.js";
 import { ComputeError } from "./raw-data.js";
-import { generatorFor } from "./rng.js";
+import { generatorFor, type Xoshiro128 } from "./rng.js";
 import {
   createEstimator,
   drawGroupsWithReplacement,
   percentileInterval,
+  TOO_FEW_FOR_AN_INTERVAL,
+  fewestGroupsForBootstrap,
   requireResamplableSize,
+  type Estimator,
   type GroupsAggregation,
   type Sample,
 } from "./sample.js";
@@ -73,28 +76,25 @@ export function measuredValue({ observations, sample, groupsAggregation, candida
 
     if (ranks) value.ci = [sorted[ranks[0] - 1], sorted[ranks[1] - 1]];
 
-    value.method = ranks ? "order statistics" : "order statistics (too few observations for an interval)";
+    value.method = ranks ? "order statistics" : `order statistics (${TOO_FEW_FOR_AN_INTERVAL})`;
   } else {
     const groupCount = sample.groups.length;
+    const bootstrapMethod = `bootstrap, resampling ${observations.hasClusters ? "clusters" : UNIT_KIND_PLURAL[observations.unitKind]}`;
+    const enoughGroups = groupCount >= fewestGroupsForBootstrap(statistic, VALUE_INTERVAL_LEVEL);
 
-    requireResamplableSize(groupCount, `results.metrics[${metric.id}]`);
-    const generator = generatorFor(seed, "value", metric.id, node, candidate);
-    const resampledGroups = new Int32Array(groupCount);
-    const resampledStatistics = new Float64Array(resamples);
-    let finiteCount = 0;
+    if (enoughGroups) {
+      const interval = bootstrapInterval(
+        estimate,
+        groupCount,
+        generatorFor(seed, "value", metric.id, node, candidate),
+        resamples,
+        `results.metrics[${metric.id}]`,
+      );
 
-    for (let resample = 0; resample < resamples; resample++) {
-      drawGroupsWithReplacement(generator, resampledGroups);
-      const resampledStatistic = estimate(resampledGroups);
-
-      if (!Number.isNaN(resampledStatistic)) resampledStatistics[finiteCount++] = resampledStatistic;
+      if (interval) value.ci = interval;
     }
 
-    const interval = groupCount > 1 ? percentileInterval(resampledStatistics, finiteCount, VALUE_INTERVAL_LEVEL) : null;
-
-    if (interval) value.ci = interval;
-
-    value.method = `bootstrap, resampling ${observations.hasClusters ? "clusters" : UNIT_KIND_PLURAL[observations.unitKind]}`;
+    value.method = enoughGroups ? bootstrapMethod : `${bootstrapMethod} (${TOO_FEW_FOR_AN_INTERVAL})`;
   }
 
   if (value.ci) value.ci_level = VALUE_INTERVAL_LEVEL;
@@ -108,6 +108,30 @@ export function measuredValue({ observations, sample, groupsAggregation, candida
   }
 
   return value;
+}
+
+function bootstrapInterval(
+  estimate: Estimator,
+  groupCount: number,
+  generator: Xoshiro128,
+  resamples: number,
+  path: string,
+): [number, number] | null {
+  requireResamplableSize(groupCount, path);
+
+  const resampledGroups = new Int32Array(groupCount);
+  const resampledStatistics = new Float64Array(resamples);
+  let finiteCount = 0;
+
+  for (let resample = 0; resample < resamples; resample++) {
+    drawGroupsWithReplacement(generator, resampledGroups);
+
+    const resampledStatistic = estimate(resampledGroups);
+
+    if (!Number.isNaN(resampledStatistic)) resampledStatistics[finiteCount++] = resampledStatistic;
+  }
+
+  return percentileInterval(resampledStatistics, finiteCount, VALUE_INTERVAL_LEVEL);
 }
 
 /** Declared values of a metric that reads no raw data, and their aggregates on parent nodes. */

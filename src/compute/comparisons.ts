@@ -6,7 +6,9 @@ import {
   buildSample,
   createEstimator,
   drawGroupsWithReplacement,
+  fewestGroupsForBootstrap,
   percentileInterval,
+  TOO_FEW_FOR_AN_INTERVAL,
   requireResamplableSize,
   type Sample,
 } from "./sample.js";
@@ -86,6 +88,12 @@ export function measuredEffect({ observations, tree, candidate, baseline, node, 
 
   if (Number.isNaN(effect)) throw new ComputeError("S3", path, ZERO_BASELINE_MESSAGE);
 
+  const bootstrapMethod = paired ? "bootstrap, paired by item" : "bootstrap";
+  const fewestGroups = fewestGroupsForBootstrap(statistic, level);
+  const enoughGroupsOnBothSides = candidateSample.groups.length >= fewestGroups && baselineSample.groups.length >= fewestGroups;
+
+  if (!enoughGroupsOnBothSides) return { effect, ci: null, paired, method: `${bootstrapMethod} (${TOO_FEW_FOR_AN_INTERVAL})` };
+
   requireResamplableSize(Math.max(candidateSample.groups.length, baselineSample.groups.length), path);
 
   // A paired resample draws the same items on both sides; an unpaired one draws the candidate's groups first, then the baseline's.
@@ -105,14 +113,7 @@ export function measuredEffect({ observations, tree, candidate, baseline, node, 
     if (!Number.isNaN(resampledEffect)) resampledEffects[finiteCount++] = resampledEffect;
   }
 
-  const bothHaveSeveralGroups = candidateSample.groups.length > 1 && baselineSample.groups.length > 1;
-
-  return {
-    effect,
-    ci: bothHaveSeveralGroups ? percentileInterval(resampledEffects, finiteCount, level) : null,
-    paired,
-    method: paired ? "bootstrap, paired by item" : "bootstrap",
-  };
+  return { effect, ci: percentileInterval(resampledEffects, finiteCount, level), paired, method: bootstrapMethod };
 }
 
 /**

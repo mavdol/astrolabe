@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { compute, ComputeError } from "../compute/compute.js";
-import { findBenchmark, formatBenchmark, loadRaw, resultsHash } from "../compute/files.js";
+import { findBenchmark, formatBenchmark, loadRaw, resultsHash, resultsKeepingPlanAsWritten } from "../compute/files.js";
 import { importHyperfine, ImportError, rawFileContent } from "../import/hyperfine.js";
 import { allRules, formatIssue, rule as findRule, type Issue } from "../rules/registry.js";
 import { benchmarkSchema } from "../schema/benchmark.js";
@@ -83,7 +83,13 @@ function runCompute(fileArgument?: string): number {
     by: `astrolabe-bench ${packageVersion}`,
   });
 
-  writeFileSync(benchmarkPath, formatBenchmark({ ...benchmarkFile, results: computedResults }));
+  writeFileSync(
+    benchmarkPath,
+    formatBenchmark({
+      ...benchmarkFile,
+      results: resultsKeepingPlanAsWritten(benchmarkFile.results as Record<string, unknown>, computedResults),
+    }),
+  );
 
   const stamp = computedResults.computed!;
 
