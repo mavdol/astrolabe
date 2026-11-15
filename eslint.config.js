@@ -7,7 +7,7 @@ const LOOPS = ["for", "while", "do"];
 const BLOCKS = ["if", "switch", "try", ...LOOPS];
 
 export default [
-  { ignores: ["dist/**", "node_modules/**", "src/rules/registry.generated.ts"] },
+  { ignores: ["dist/**", "node_modules/**"] },
   {
     files: ["**/*.ts", "**/*.mjs", "**/*.js"],
     languageOptions: { parser: tseslint.parser, ecmaVersion: "latest", sourceType: "module" },
