@@ -1,0 +1,223 @@
+{
+  "schema_version": "0.5",
+  "results": {
+    "benchmark": {
+      "id": "geocoding-apis",
+      "version": "1.0.0",
+      "goal": "Which geocoding API should replace our current one, given latency, match rate and price?",
+      "conditions": []
+    },
+    "domain_research": {
+      "reference_suites": ["none found for our address mix"],
+      "standard_metrics": ["latency percentiles", "match rate", "price per 1,000 requests"],
+      "pitfalls": ["coordinated omission", "time-of-day effects", "free-tier throttling"],
+      "sources": ["https://www.scylladb.com/2021/04/22/on-coordinated-omission/"]
+    },
+    "candidates": [
+      {
+        "id": "geo_a",
+        "name": "Geo A",
+        "version": "v2",
+        "config": {"timeout_ms": 3000, "retries": 0},
+        "publication_terms": {
+          "terms": "terms of service, 2026-06",
+          "restriction": "none found",
+          "checked_url": "https://example.com/geo_a/terms",
+          "checked_on": "2026-11-02"
+        },
+        "variants": {"tested": [], "selected": null},
+        "service": {"region": "eu-west", "plan": "standard", "api_version": "2026-09"},
+        "pricing": {"model": "per request", "source": "public price page", "date": "2026-11-02", "variable": 0.5, "volume": "per 1,000 requests"}
+      },
+      {
+        "id": "geo_b",
+        "name": "Geo B",
+        "version": "v5",
+        "config": {"timeout_ms": 3000, "retries": 0},
+        "publication_terms": {
+          "terms": "terms of service, 2026-03",
+          "restriction": "none found",
+          "checked_url": "https://example.com/geo_b/terms",
+          "checked_on": "2026-11-02"
+        },
+        "variants": {"tested": [], "selected": null},
+        "service": {"region": "eu-central", "plan": "pay as you go", "api_version": "2026-10"},
+        "pricing": {"model": "per request", "source": "public price page", "date": "2026-11-02", "variable": 0.75, "volume": "per 1,000 requests"}
+      }
+    ],
+    "baseline": "geo_a",
+    "metrics": [
+      {
+        "id": "latency_p50",
+        "label": "Median latency",
+        "unit": "ms",
+        "direction": "lower",
+        "kind": "latency",
+        "statistic": "p50",
+        "definition": "Time from scheduled send to full response, successful requests only",
+        "compare_as": "relative",
+        "minimum_meaningful": 10,
+        "weight": 0.3,
+        "failures_count_as": "excluded",
+        "from": {"raw": "requests", "measure": "latency_ms"}
+      },
+      {
+        "id": "latency_p95",
+        "label": "95th percentile latency",
+        "unit": "ms",
+        "direction": "lower",
+        "kind": "latency",
+        "statistic": "p95",
+        "definition": "Same measurement, 95th percentile of the merged samples",
+        "compare_as": "relative",
+        "minimum_meaningful": 10,
+        "weight": 0.2,
+        "failures_count_as": "excluded",
+        "from": {"raw": "requests", "measure": "latency_ms"}
+      },
+      {
+        "id": "match_rate",
+        "label": "Match rate",
+        "unit": "%",
+        "direction": "higher",
+        "kind": "quality",
+        "statistic": "share",
+        "definition": "Share of addresses located within 50 m of our surveyed position",
+        "compare_as": "difference",
+        "minimum_meaningful": 2,
+        "weight": 0.3,
+        "failures_count_as": "zero",
+        "from": {"raw": "requests", "measure": "match"}
+      },
+      {
+        "id": "cost",
+        "label": "Cost per 1,000 requests",
+        "unit": "USD",
+        "direction": "lower",
+        "kind": "cost",
+        "statistic": "total",
+        "definition": "List price per 1,000 requests at the plan tested, read on the public price page (declared)",
+        "compare_as": "relative",
+        "minimum_meaningful": 10,
+        "weight": 0.2
+      }
+    ],
+    "composite": {"computed": false, "note": "Weights record priorities only"},
+    "workload": {
+      "description": "1,000 delivery addresses sampled from our own orders, with surveyed coordinates",
+      "usage_pattern": "One address per request, 5 requests per second, open model",
+      "arrival_model": "open, fixed rate of 5 requests per second"
+    },
+    "environment": {"client": "One VM in eu-west, same for both candidates", "software": {"k6": "1.3"}, "tools": ["k6"]},
+    "runs": {
+      "levels": [{"level": "session", "field": "run", "planned": 4}, {"level": "address", "field": "item", "planned": 1000}],
+      "warmup": "50 untimed requests per session",
+      "state": "warm",
+      "order": "candidates alternate within each session"
+    },
+    "artifacts": {"repo": "https://github.com/example/geocoding-apis", "command": "./run.sh --sessions 4", "scripts": ["run.sh", "load.js"]},
+    "raw_data": [
+      {
+        "id": "requests",
+        "kind": "samples",
+        "path": "data/requests.jsonl",
+        "format": "jsonl",
+        "rows": 16000,
+        "sha256": "bbf03f1d3a14f0b04705090db18a7aaa73967a9d96da4272240aac0d9ee1f4cf"
+      }
+    ],
+    "limitations": ["Two days and one client region; addresses are from one country.", "List prices only; volume discounts were not requested."],
+    "values": [
+      {"candidate": "geo_a", "metric": "latency_p50", "value": 81.7, "n": 1000, "source": "computed", "ci": [80.1, 83.55], "method": "bootstrap, resampling items", "ci_level": 0.95, "percentiles": {"p95": 179.2, "p99": 249.104, "max": 465.8}},
+      {"candidate": "geo_b", "metric": "latency_p50", "value": 58.4, "n": 1000, "source": "computed", "ci": [56.2988, 60.55], "method": "bootstrap, resampling items", "ci_level": 0.95, "percentiles": {"p95": 207.42, "p99": 342.149, "max": 1161.3}},
+      {"candidate": "geo_a", "metric": "latency_p95", "value": 179.2, "n": 1000, "source": "computed", "ci": [172.705, 185.24], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "geo_b", "metric": "latency_p95", "value": 207.42, "n": 1000, "source": "computed", "ci": [194.5, 223.5], "method": "bootstrap, resampling items", "ci_level": 0.95},
+      {"candidate": "geo_a", "metric": "match_rate", "value": 95.05, "n": 1000, "source": "computed", "ci": [94.324, 95.776], "se": 0.369979, "method": "t", "ci_level": 0.95},
+      {"candidate": "geo_b", "metric": "match_rate", "value": 96.25, "n": 1000, "source": "computed", "ci": [95.6499, 96.8501], "se": 0.305828, "method": "t", "ci_level": 0.95},
+      {"candidate": "geo_a", "metric": "cost", "value": 0.5, "n": 1, "usage": {"requests": 8000}, "charged": 4, "evidence": "Public price page, standard plan, read 2026-11-02", "source": "declared"},
+      {"candidate": "geo_b", "metric": "cost", "value": 0.75, "n": 1, "usage": {"requests": 8000}, "charged": 6, "evidence": "Public price page, pay as you go, read 2026-11-02", "source": "declared"}
+    ],
+    "failures": [],
+    "exclusions": [],
+    "comparisons": [
+      {"id": "latency_p50__geo_b", "metric": "latency_p50", "candidate": "geo_b", "vs": "geo_a", "effect": -28.519, "ci": [-31.9988, -24.9384], "ci_level": 0.9875, "verdict": "better", "role": "primary", "adjusted": true, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true},
+      {"id": "latency_p95__geo_b", "metric": "latency_p95", "candidate": "geo_b", "vs": "geo_a", "effect": 15.7478, "ci": [5.16624, 28.544], "ci_level": 0.9875, "verdict": "worse", "qualifier": "likely", "role": "primary", "adjusted": true, "paired": true, "method": "bootstrap, paired by item", "source": "computed", "successful_only": true},
+      {"id": "match_rate__geo_b", "metric": "match_rate", "candidate": "geo_b", "vs": "geo_a", "effect": 1.2, "ci": [0.0329602, 2.36704], "ci_level": 0.9875, "verdict": "better", "qualifier": "likely", "role": "primary", "adjusted": true, "paired": true, "method": "paired t", "source": "computed"},
+      {"id": "cost__geo_b", "metric": "cost", "candidate": "geo_b", "vs": "geo_a", "effect": 50, "ci": [50, 50], "ci_level": 0.9875, "verdict": "worse", "role": "primary", "adjusted": true, "paired": false, "method": "declared values", "source": "declared"}
+    ],
+    "observed": {
+      "levels": [{"level": "session", "field": "run", "n": 4}, {"level": "address", "field": "item", "n": 1000}],
+      "timestamps": {"first": "2026-11-03T08:00:00Z", "last": "2026-11-04T19:30:00Z", "distinct": 4}
+    },
+    "computed": {
+      "by": "astrolabe-bench 0.1.0",
+      "methods_version": "3",
+      "resamples": 10000,
+      "seed": "ea25e9370ae1223e03d080665e4267f103a7c842e029b97653c4efb4fb5ad990",
+      "alpha": 0.05,
+      "primary_comparisons": 4,
+      "exploratory_comparisons": 0,
+      "raw_sha256": {"requests": "bbf03f1d3a14f0b04705090db18a7aaa73967a9d96da4272240aac0d9ee1f4cf"}
+    }
+  },
+  "layout": [
+    ["headline-p50", "headline-p95"],
+    ["headline-match"],
+    ["chart-tradeoff", "chart-latency"],
+    ["table-all"],
+    ["methodology", "environment"],
+    ["limitations", "provenance"]
+  ],
+  "blocks": [
+    {
+      "id": "headline-p50",
+      "type": "headline",
+      "comparison": "latency_p50__geo_b",
+      "title": "{candidate:geo_b}: {effect:latency_p50__geo_b} median latency"
+    },
+    {
+      "id": "headline-p95",
+      "type": "headline",
+      "comparison": "latency_p95__geo_b",
+      "title": "but {effect:latency_p95__geo_b} on {metric:latency_p95}"
+    },
+    {
+      "id": "headline-match",
+      "type": "headline",
+      "comparison": "match_rate__geo_b",
+      "title": "Match rate: {verdict:match_rate__geo_b} ({effect:match_rate__geo_b})"
+    },
+    {
+      "id": "chart-tradeoff",
+      "type": "chart",
+      "chart": "scatter",
+      "x": "cost",
+      "y": "match_rate",
+      "series": "candidate",
+      "uncertainty": "ci",
+      "title": "Match rate against price",
+      "description": "Match rate: {verdict:match_rate__geo_b}."
+    },
+    {
+      "id": "chart-latency",
+      "type": "chart",
+      "chart": "distribution",
+      "metric": "latency_p50",
+      "series": "candidate",
+      "scale": {"type": "log", "reason": "Long tail: the slowest requests take tens of times the median"},
+      "title": "Latency of every request"
+    },
+    {
+      "id": "table-all",
+      "type": "table",
+      "metrics": ["latency_p50", "latency_p95", "match_rate", "cost"],
+      "columns": "candidate",
+      "show": ["n", "ci", "failures"]
+    },
+    {"id": "methodology", "type": "methodology"},
+    {"id": "environment", "type": "environment"},
+    {"id": "limitations", "type": "limitations"},
+    {"id": "provenance", "type": "provenance"}
+  ],
+  "exports": [{"id": "social", "blocks": ["chart-tradeoff"], "format": "png", "size": "wide"}]
+}

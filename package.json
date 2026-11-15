@@ -1,0 +1,46 @@
+{
+  "name": "astrolabe-bench",
+  "version": "0.1.0",
+  "description": "Benchmarks authored by agents, verifiable by humans: schema, validate and compute.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "astrolabe": "dist/cli/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "schema"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "astrolabe": "tsx src/cli/index.ts",
+    "gen:rules": "node scripts/gen-rules.mjs",
+    "gen:example-data": "tsx scripts/make-example-data.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "^6.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  },
+  "packageManager": "pnpm@12.9.1+sha512.06b055fff5cd20dc12781de173ced3310ce0951bf2ec620211a16045d5444d5c93a663210764ef29a653a610459ba0368f0e74f84d80c54723cf95aae7bc0d6d"
+}
