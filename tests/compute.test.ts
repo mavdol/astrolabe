@@ -202,6 +202,51 @@ describe("comparisons", () => {
     expect(comparison.verdict).toBe("better");
   });
 
+  it("a bootstrap on too few runs gives no interval, so no verdict but inconclusive", () => {
+    const plan = planOf({ metrics: [{ compare_as: "relative", minimum_meaningful: 10 }] });
+    const fiveRunsEach = {
+      data: rawFileOf([...runsOf("base", [10, 10.1, 9.9, 10.2, 9.8]), ...runsOf("new", [20, 20.1, 19.9, 20.2, 19.8])]),
+    };
+    const comparison = comparisonOf(compute(plan, fiveRunsEach, FAST), "score__new");
+
+    expect(comparison.ci).toBeUndefined();
+    expect(comparison).toMatchObject({ verdict: "inconclusive", method: "bootstrap (too few observations for an interval)" });
+    expect(comparison.effect).toBeCloseTo(100, 6);
+
+    const sixRunsEach = {
+      data: rawFileOf([...runsOf("base", [10, 10.1, 9.9, 10.2, 9.8, 10]), ...runsOf("new", [20, 20.1, 19.9, 20.2, 19.8, 20])]),
+    };
+
+    expect(comparisonOf(compute(plan, sixRunsEach, FAST), "score__new")).toMatchObject({ verdict: "better", method: "bootstrap" });
+  });
+
+  it("the minimum follows the level: four primary comparisons at 98.75% need 8 runs on each side", () => {
+    const plan = planOf({
+      candidates: ["base", "new", "other"],
+      metrics: [{ compare_as: "relative" }, { id: "speed", compare_as: "relative", from: { raw: "data", measure: "speed" } }],
+    });
+    const rowsWithRuns = (count: number) =>
+      ["base", "new", "other"].flatMap((candidate, shift) => {
+        const values = Array.from({ length: count }, (_, index) => 10 * (shift + 1) + index / 10);
+
+        return [...runsOf(candidate, values), ...runsOf(candidate, values).map((row) => ({ ...row, measure: "speed" }))];
+      });
+
+    for (const comparison of compute(plan, { data: rawFileOf(rowsWithRuns(7)) }, FAST).comparisons!) expect(comparison.ci).toBeUndefined();
+
+    for (const comparison of compute(plan, { data: rawFileOf(rowsWithRuns(8)) }, FAST).comparisons!) expect(comparison.ci).toBeDefined();
+  });
+
+  it("a value resampled on too few clusters has no interval", () => {
+    const plan = planOf({ levels: [{ level: "item", field: "item", planned: 10 }] });
+    const inThreeClusters = (candidate: string) =>
+      itemsOf(candidate, [1, 2, 3, 4, 5, 6, 7, 8, 9]).map((row, index) => ({ ...row, cluster: `c${index % 3}` }));
+    const value = valueOf(compute(plan, { data: rawFileOf([...inThreeClusters("base"), ...inThreeClusters("new")]) }, FAST), "base");
+
+    expect(value.ci).toBeUndefined();
+    expect(value.method).toBe("bootstrap, resampling clusters (too few observations for an interval)");
+  });
+
   it("several primary comparisons share a Bonferroni level", () => {
     const plan = planOf({ candidates: ["base", "new", "other"], metrics: [{}, { id: "speed", from: { raw: "data", measure: "speed" } }] });
     const rows = ["base", "new", "other"].flatMap((candidate) => [

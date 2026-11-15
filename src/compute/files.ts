@@ -103,3 +103,28 @@ export function loadRaw(results: Results, benchmarkPath: string): Record<string,
 
   return rawFiles;
 }
+
+const FIELDS_WRITTEN_BY_COMPUTE = ["values", "failures", "exclusions", "comparisons", "observed", "computed"] as const;
+
+/**
+ * The results as written to disk: the plan exactly as its author wrote it, keys
+ * in their order, followed by the fields compute owns. Only the row counts and
+ * hashes inside raw_data are filled in place.
+ */
+export function resultsKeepingPlanAsWritten(resultsAsWritten: Record<string, unknown>, computed: Results): Record<string, unknown> {
+  const plan = Object.fromEntries(
+    Object.entries(resultsAsWritten).filter(([key]) => !(FIELDS_WRITTEN_BY_COMPUTE as readonly string[]).includes(key)),
+  );
+  const computedRawFileById = new Map(computed.raw_data.map((rawFile) => [rawFile.id, rawFile]));
+  const rawDataAsWritten = Array.isArray(plan.raw_data) ? (plan.raw_data as Record<string, unknown>[]) : [];
+
+  plan.raw_data = rawDataAsWritten.map((rawFile) => {
+    const computedRawFile = computedRawFileById.get(rawFile.id as string);
+
+    return computedRawFile ? { ...rawFile, rows: computedRawFile.rows, sha256: computedRawFile.sha256 } : rawFile;
+  });
+
+  for (const field of FIELDS_WRITTEN_BY_COMPUTE) plan[field] = computed[field];
+
+  return plan;
+}

@@ -1,0 +1,181 @@
+{
+  "schema_version": 2,
+  "metadata": {
+    "hyperfine_version": "2.0.0"
+  },
+  "primary_metric": "time_wall_clock",
+  "results": [
+    {
+      "command": "node workload.mjs",
+      "name": "node",
+      "measurements": [
+        {
+          "time_wall_clock": {
+            "value": 0.0405,
+            "unit": "second"
+          },
+          "time_cpu": {
+            "value": 0.03645,
+            "unit": "second"
+          },
+          "time_user": {
+            "value": 0.02835,
+            "unit": "second"
+          },
+          "time_system": {
+            "value": 0.0081,
+            "unit": "second"
+          },
+          "memory_peak_resident": {
+            "value": 42991616,
+            "unit": "byte"
+          },
+          "exit_code": 0
+        },
+        {
+          "time_wall_clock": {
+            "value": 0.0398,
+            "unit": "second"
+          },
+          "time_cpu": {
+            "value": 0.03582,
+            "unit": "second"
+          },
+          "time_user": {
+            "value": 0.02786,
+            "unit": "second"
+          },
+          "time_system": {
+            "value": 0.00796,
+            "unit": "second"
+          },
+          "memory_peak_resident": {
+            "value": 41943040,
+            "unit": "byte"
+          },
+          "exit_code": 0
+        },
+        {
+          "time_wall_clock": {
+            "value": 0.0412,
+            "unit": "second"
+          },
+          "time_cpu": {
+            "value": 0.03708,
+            "unit": "second"
+          },
+          "time_user": {
+            "value": 0.02884,
+            "unit": "second"
+          },
+          "time_system": {
+            "value": 0.00824,
+            "unit": "second"
+          },
+          "memory_peak_resident": {
+            "value": 42467328,
+            "unit": "byte"
+          },
+          "exit_code": 0
+        }
+      ],
+      "summary": {
+        "time_wall_clock": {
+          "unit": "second",
+          "count": 3,
+          "mean": 0.04,
+          "stddev": 0.001,
+          "median": 0.04,
+          "min": 0.039,
+          "max": 0.041
+        }
+      }
+    },
+    {
+      "command": "deno run --quiet workload.mjs",
+      "name": "deno",
+      "measurements": [
+        {
+          "time_wall_clock": {
+            "value": 0.0352,
+            "unit": "second"
+          },
+          "time_cpu": {
+            "value": 0.03168,
+            "unit": "second"
+          },
+          "time_user": {
+            "value": 0.02464,
+            "unit": "second"
+          },
+          "time_system": {
+            "value": 0.00704,
+            "unit": "second"
+          },
+          "memory_peak_resident": {
+            "value": 36700160,
+            "unit": "byte"
+          },
+          "exit_code": 0
+        },
+        {
+          "time_wall_clock": {
+            "value": 0.0349,
+            "unit": "second"
+          },
+          "time_cpu": {
+            "value": 0.03141,
+            "unit": "second"
+          },
+          "time_user": {
+            "value": 0.02443,
+            "unit": "second"
+          },
+          "time_system": {
+            "value": 0.00698,
+            "unit": "second"
+          },
+          "memory_peak_resident": {
+            "value": 36175872,
+            "unit": "byte"
+          },
+          "exit_code": 0
+        },
+        {
+          "time_wall_clock": {
+            "value": 0.0361,
+            "unit": "second"
+          },
+          "time_cpu": {
+            "value": 0.03249,
+            "unit": "second"
+          },
+          "time_user": {
+            "value": 0.02527,
+            "unit": "second"
+          },
+          "time_system": {
+            "value": 0.00722,
+            "unit": "second"
+          },
+          "memory_peak_resident": {
+            "value": 36700160,
+            "unit": "byte"
+          },
+          "exit_code": 2
+        }
+      ],
+      "summary": {
+        "time_wall_clock": {
+          "unit": "second",
+          "count": 3,
+          "mean": 0.04,
+          "stddev": 0.001,
+          "median": 0.04,
+          "min": 0.039,
+          "max": 0.041
+        }
+      }
+    }
+  ]
+}
