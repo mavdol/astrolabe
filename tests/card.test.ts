@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildOutputs } from "../src/render/build.js";
 import { cardContentOf, MAX_HEADLINES, renderCard } from "../src/render/card.js";
-import { exportPlanOf } from "../src/render/exports.js";
+import { exportPlanOf, pictureHtml } from "../src/render/exports.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -25,19 +25,24 @@ describe("the README card", () => {
       "Deno against Node.js",
       "Which JavaScript runtime runs our short command-line scripts",
       "faster and with less memory: Node.js or Deno?",
-      "Wall time",
+      "Wall time · lower is better",
       "\u221210%",
       "LIKELY BETTER",
+      "better \u2192",
+      "+10%  0  \u221210%",
       "Interval \u221212 to \u22129%",
+      "Median, n = 30 each",
       "Successful attempts only",
-      "Peak memory",
+      "Peak memory · lower is better",
       "+1.1%",
       "EQUIVALENT",
+      "better \u2192",
+      "+20%  0  \u221220%",
       "Interval +1.0 to +1.2%",
+      "Median, n = 30 each",
       "Successful attempts only",
-      "Dot: effect against Node.js. Line: 97.5% interval. Shaded band: the smallest difference that matters.",
-      "Wall time: median in s, lower is better, n = 30 per candidate; smallest difference that matters: 10%.",
-      "Peak memory: median in MiB, lower is better, n = 30 per candidate; smallest difference that matters: 20%.",
+      "Dot: effect against Node.js. Line: 95% interval, adjusted for 2 comparisons. Shaded band: smaller than the difference that",
+      "matters. Each strip has its own scale.",
       expect.stringMatching(
         /^results sha256 [0-9a-f]{12} · 2026-11-15 · github\.com\/mavdol\/astrolabe · built with astrolabe-bench 0\.1\.0$/,
       ),
@@ -47,7 +52,9 @@ describe("the README card", () => {
   it("carries a text alternative for screen readers and for the README image", () => {
     expect(card.svg).toContain('role="img"');
     expect(card.svg).toContain(`<title id="title">${card.altText}</title>`);
-    expect(card.altText).toBe("Deno against Node.js: wall time −10%, likely better; peak memory +1.1%, equivalent.");
+    expect(card.altText).toBe(
+      "Deno against Node.js: wall time (lower is better) −10%, likely better; peak memory (lower is better) +1.1%, equivalent.",
+    );
   });
 
   it("fills the badge of a firm verdict and outlines a likely or inconclusive one", () => {
@@ -55,10 +62,10 @@ describe("the README card", () => {
     expect(card.svg).toMatch(/<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="22" rx="11" fill="#0a0a0a"\/>/);
   });
 
-  it("draws each effect as a dot, its interval as a line and the smallest difference that matters as a band", () => {
+  it("draws each effect as a dot, its interval as a capped line and the smallest difference that matters as a band", () => {
     expect(card.svg.match(/<circle /g)).toHaveLength(2);
     expect(card.svg.match(/stroke-dasharray="2 2"/g)).toHaveLength(2);
-    expect(card.svg.match(/stroke-width="3" stroke-linecap="round"/g)).toHaveLength(2);
+    expect(card.svg.match(/stroke-width="2.5" stroke-linecap="round"/g)).toHaveLength(2);
   });
 
   it("changes only its colours between light and dark", () => {
@@ -82,18 +89,16 @@ describe("what a card shows", () => {
 
     expect(content.headlines).toHaveLength(MAX_HEADLINES);
     expect(content.omittedCount).toBe(1);
-    expect(lines).toContain("1 more primary comparison in the full results.");
-    expect(lines.join(" ")).toContain("Warning: the candidates did not fail equally often");
-    expect(lines.some((line) => line.startsWith("Time on task: median in s, lower is better, n = 58 (Notes A) and 62 (Notes B)"))).toBe(
-      true,
-    );
+    expect(lines.join(" ")).toContain("1 more primary comparison in the full results.");
+    expect(lines.join(" ")).toContain("The candidates did not fail equally often");
+    expect(lines.join(" ")).toContain("Median, n = 62 (Notes B), 58 (Notes A)");
   });
 
   it("never shows a group alone: the best and worst of the groups below it come with it", () => {
     const suite = loadBenchmark("support-assistant-eval");
     const lines = renderCard(suite, cardContentOf(suite), "light", context).textLines;
 
-    expect(lines.join(" ")).toMatch(/From −\S+ points \(Reasoning\) to \+\S+ points \(Coding\)/);
+    expect(lines.join(" ")).toContain("From −1.5 to +14 points across categories");
   });
 
   it("uses the headline blocks an export names, with their titles filled from the results", () => {
@@ -101,12 +106,70 @@ describe("what a card shows", () => {
     const content = cardContentOf(parsers, ["headline-time", "headline-memory"]);
     const lines = renderCard(parsers, content, "light", context).textLines;
 
-    expect(lines).toContain("fastjson: −50% wall time");
+    expect(content.headlines.map((headline) => headline.comparison.id)).toEqual(["wall_time__fastjson", "peak_rss__fastjson"]);
+    expect(lines).toContain("Wall time · lower is better");
     expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline blocks/);
   });
 });
 
+describe("reading a card at a glance", () => {
+  const parsers = loadBenchmark("json-cli-parse");
+  const parsersCard = renderCard(parsers, cardContentOf(parsers, ["headline-time", "headline-memory"]), "light", context);
+
+  it("shows the direction of a verdict inside its badge: a check for better, a cross for worse", () => {
+    const icons = [...parsersCard.svg.matchAll(/<path d="([^"]+)" fill="none" stroke="#ffffff" stroke-width="1.8"/g)].map(
+      (match) => match[1],
+    );
+
+    expect(icons).toHaveLength(2);
+    expect(icons[0].split(/[ML]/).filter(Boolean)).toHaveLength(3);
+    expect(icons[1].match(/M/g)).toHaveLength(2);
+  });
+
+  it("cuts the axis when the interval lies far beyond the band, so both stay readable", () => {
+    expect(parsersCard.svg.match(/stroke-width="1.2" stroke-linecap="round"/g)).toHaveLength(2);
+    expect(parsersCard.textLines).toContain("+10%  0  \u221210%");
+    expect(parsersCard.textLines).toContain("+20%  0  \u221220%");
+  });
+
+  it("leaves out a block title that only restates the metric and the effect", () => {
+    expect(parsersCard.textLines).not.toContain("fastjson: \u221250% wall time");
+  });
+
+  it("keeps a block title that adds information", () => {
+    const usability = loadBenchmark("notes-apps-onboarding");
+    const content = cardContentOf(usability, ["headline-sus", "headline-features"]);
+    const lines = renderCard(usability, content, "light", context).textLines;
+
+    expect(lines.join(" ")).toContain("Notes B lacks offline editing");
+    expect(lines).not.toContain("SUS score: inconclusive (+2 points)");
+  });
+
+  it("names the metric alone when it is measured on the whole benchmark", () => {
+    const suite = loadBenchmark("support-assistant-eval");
+    const lines = renderCard(suite, cardContentOf(suite), "light", context).textLines;
+
+    expect(lines).toContain("Accuracy · higher is better");
+    expect(lines.join(" ")).toContain("Accuracy, Coding");
+    expect(lines.join(" ")).not.toContain("Support assistant eval");
+  });
+
+  it("puts the warning about failures in ink with an icon", () => {
+    const usability = loadBenchmark("notes-apps-onboarding");
+    const svg = renderCard(usability, cardContentOf(usability), "light", context).svg;
+
+    expect(svg).toContain('stroke="#0a0a0a" stroke-width="1.4" stroke-linejoin="round"');
+  });
+});
+
 describe("exports", () => {
+  it("links the README card to the full results", () => {
+    const html = pictureHtml("alt", { light: "a-light.svg", dark: "a-dark.svg" }, "benchmarks/x/dist/benchmark.md");
+
+    expect(html.startsWith('<a href="benchmarks/x/dist/benchmark.md">\n<picture>')).toBe(true);
+    expect(html.endsWith("</picture>\n</a>")).toBe(true);
+  });
+
   it("writes a default README card in both modes when the file declares no export", () => {
     expect(exportPlanOf(loadBenchmark("js-runtimes"))).toEqual({ cards: [{ id: "readme-card", modes: ["light", "dark"] }], skipped: [] });
   });

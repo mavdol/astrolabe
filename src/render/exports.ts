@@ -53,16 +53,18 @@ export function exportPlanOf(benchmark: Benchmark): ExportPlan {
 export const cardFileName = (cardId: string, mode: CardMode) => `${cardId}-${mode}.svg`;
 
 /** The <picture> that shows the light or the dark card following the reader's setting, as GitHub supports. */
-export function pictureHtml(altText: string, paths: Partial<Record<CardMode, string>>): string {
+export function pictureHtml(altText: string, paths: Partial<Record<CardMode, string>>, linkTo?: string): string {
   const alt = altText.replace(/"/g, "&quot;");
   const fallback = paths.light ?? paths.dark!;
+  const image =
+    !paths.light || !paths.dark
+      ? `<img alt="${alt}" src="${fallback}">`
+      : [
+          "<picture>",
+          `  <source media="(prefers-color-scheme: dark)" srcset="${paths.dark}">`,
+          `  <img alt="${alt}" src="${paths.light}">`,
+          "</picture>",
+        ].join("\n");
 
-  if (!paths.light || !paths.dark) return `<img alt="${alt}" src="${fallback}">`;
-
-  return [
-    "<picture>",
-    `  <source media="(prefers-color-scheme: dark)" srcset="${paths.dark}">`,
-    `  <img alt="${alt}" src="${paths.light}">`,
-    "</picture>",
-  ].join("\n");
+  return linkTo ? `<a href="${linkTo}">\n${image}\n</a>` : image;
 }

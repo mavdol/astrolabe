@@ -179,9 +179,10 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
     const fromHere = (path: string) => relative(process.cwd(), resolve(outputFolder, path)).split(sep).join("/");
     const pathsFromHere = Object.fromEntries(Object.entries(built.readmeCard.paths).map(([mode, path]) => [mode, fromHere(path!)]));
 
-    console.log(
-      `\nTo show the README card, paste into a README in this folder:\n\n${pictureHtml(built.readmeCard.altText, pathsFromHere)}`,
-    );
+    const markdownWasBuilt = built.files.some((file) => file.path === "benchmark.md");
+    const snippet = pictureHtml(built.readmeCard.altText, pathsFromHere, markdownWasBuilt ? fromHere("benchmark.md") : undefined);
+
+    console.log(`\nTo show the README card, linked to the full results, paste into a README in this folder:\n\n${snippet}`);
   }
 
   return 0;
