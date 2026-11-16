@@ -8,6 +8,7 @@ const KINDS_NEEDING_WARMUP = new Set(["run_time", "latency", "throughput"]);
 const KINDS_NEEDING_SCOPE = new Set(["cpu", "memory", "energy"]);
 const KINDS_ALLOWED_WITHOUT_RAW_DATA = new Set(["cost", "feature"]);
 const QUANTILE_OF_STATISTIC: Record<string, number> = { median: 0.5, p50: 0.5, p95: 0.95, p99: 0.99 };
+const MINIMUM_PARTICIPANTS_TO_COMPARE = 20;
 
 export function checkPlan(results: Results): Issue[] {
   const issues: Issue[] = [];
@@ -123,9 +124,34 @@ export function checkPlan(results: Results): Issue[] {
       if (severalMetrics && metric.weight === undefined)
         error("F3", `${path}.weight`, "with several metrics, each one has a weight confirmed by the user");
 
-      if (KINDS_NEEDING_SCOPE.has(metric.kind) && !metric.scope)
-        error("R1", `${path}.scope`, `a "${metric.kind}" metric says what its counter covers`);
+      if (KINDS_NEEDING_SCOPE.has(metric.kind) && !metric.scope) {
+        if (metric.kind === "energy")
+          error(
+            "R4",
+            `${path}.scope`,
+            "an energy metric says which domain its counter covers (package, cores, DRAM), not the whole machine",
+          );
+        else error("R1", `${path}.scope`, `a "${metric.kind}" metric says what its counter covers`);
+      }
     });
+
+    results.metrics.forEach((metric, index) => {
+      if (KINDS_NEEDING_SCOPE.has(metric.kind) && metric.unit === "%" && metric.compare_as === "difference") {
+        error(
+          "R2",
+          `metrics[${index}].compare_as`,
+          "a change in usage is a relative increase: 6% to 13% is more than double, not 7 points; compare it as relative",
+        );
+      }
+    });
+
+    const latencyMetrics = results.metrics.filter((metric) => metric.kind === "latency");
+
+    if (latencyMetrics.length > 0 && !latencyMetrics.some((metric) => metric.statistic in QUANTILE_OF_STATISTIC)) {
+      const index = results.metrics.indexOf(latencyMetrics[0]);
+
+      error("T6", `metrics[${index}].statistic`, "latency is read at percentiles: give at least one latency metric a median, p95 or p99");
+    }
 
     if (anyWeight && !results.composite) error("D5", "composite", "weights are given: say whether a single score is computed, and how");
 
@@ -134,6 +160,16 @@ export function checkPlan(results: Results): Issue[] {
 
     if (metricKinds.has("usability") && (!results.workload.tasks?.length || !results.workload.users)) {
       error("U1", "workload", "a usability metric needs workload.tasks, with their success criteria, and workload.users");
+    }
+
+    const participants = results.runs.levels[0].planned;
+
+    if (metricKinds.has("usability") && participants < MINIMUM_PARTICIPANTS_TO_COMPARE) {
+      error(
+        "U6",
+        "runs.levels[0].planned",
+        `${participants} participants can find problems but cannot rank products: plan at least ${MINIMUM_PARTICIPANTS_TO_COMPARE} per candidate`,
+      );
     }
   }
 
@@ -164,8 +200,15 @@ export function checkPlan(results: Results): Issue[] {
       return;
     }
 
-    for (const required of ["used_for", "method", "blinded", "order_policy"] as const) {
+    for (const required of ["used_for", "method"] as const) {
       if (judge[required] === undefined) error("Q6", `judge.${required}`, `a judge needs ${required}`);
+    }
+
+    if (judge.blinded !== true) error("P2", "judge.blinded", "the judge does not see which candidate wrote what: set blinded to true");
+
+    if (judge.order_policy === undefined) {
+      if (judge.type === "model") error("Q6", "judge.order_policy", "a model judge gives its order policy: both orders, or a random order");
+      else error("P2", "judge.order_policy", "human judges see the outputs in a random order: say how it is drawn");
     }
 
     for (const nodeId of judge.used_for ?? [])

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildOutputs } from "../src/render/build.js";
-import { cardContentOf, MAX_HEADLINES, renderCard } from "../src/render/card.js";
+import { cardContentOf, MAX_HEADLINES, renderCard, STYLE } from "../src/render/card.js";
 import { exportPlanOf, pictureHtml } from "../src/render/exports.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 
@@ -71,6 +71,10 @@ describe("the README card", () => {
     expect(dark.textLines).toEqual(card.textLines);
     expect(dark.svg).not.toBe(card.svg);
     expect(dark.svg).toContain('fill="#0a0a0a"');
+  });
+
+  it("draws no text below 12 px", () => {
+    expect(Math.min(...Object.values(STYLE).map((style) => style.size))).toBeGreaterThanOrEqual(12);
   });
 
   it("is the same bytes for the same results and date", () => {
