@@ -1,8 +1,9 @@
 # Which note-taking app should the team adopt, judged on first-week tasks and the three features we need?
 
 <picture>
+  <source media="(prefers-color-scheme: light)" srcset="exports/readme-card-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="exports/readme-card-dark.svg">
-  <img alt="Notes B against Notes A: task success, Tasks (higher is better) +5.6 points, inconclusive; time on task, Tasks (lower is better) −18%, inconclusive; SUS score (higher is better) +2 points, inconclusive." src="exports/readme-card-light.svg">
+  <img alt="Notes B against Notes A: task success, Tasks (higher is better) +5.6 points, inconclusive; time on task, Tasks (lower is better) −18%, inconclusive; SUS score (higher is better) +2 points, inconclusive." src="exports/readme-card-light.png">
 </picture>
 
 Benchmark `notes-apps-onboarding`, version 1.0.0. Baseline: Notes A.

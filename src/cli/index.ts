@@ -28,7 +28,8 @@ Usage
                               failures, aggregates, comparisons and verdicts into results.
   astrolabe build [file] [--format md,svg] [--out dir]
                               Validate, then write the outputs next to the file:
-                              dist/benchmark.md and the README cards in dist/exports/.
+                              dist/benchmark.md and the README cards in dist/exports/:
+                              an SVG per mode, and a PNG for the GitHub mobile app.
                               Nothing is written when a rule fails.
   astrolabe import hyperfine <export.json...> --raw <id> [--benchmark file]
                               Convert hyperfine --export-json files into the raw file
@@ -187,10 +188,11 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
 
   if (built.readmeCard) {
     const fromHere = (path: string) => relative(process.cwd(), resolve(outputFolder, path)).split(sep).join("/");
-    const pathsFromHere = Object.fromEntries(Object.entries(built.readmeCard.paths).map(([mode, path]) => [mode, fromHere(path!)]));
+    const svgFromHere = Object.fromEntries(Object.entries(built.readmeCard.files.svg).map(([mode, path]) => [mode, fromHere(path!)]));
+    const filesFromHere = { svg: svgFromHere, png: fromHere(built.readmeCard.files.png) };
 
     const markdownWasBuilt = built.files.some((file) => file.path === "benchmark.md");
-    const snippet = pictureHtml(built.readmeCard.altText, pathsFromHere, markdownWasBuilt ? fromHere("benchmark.md") : undefined);
+    const snippet = pictureHtml(built.readmeCard.altText, filesFromHere, markdownWasBuilt ? fromHere("benchmark.md") : undefined);
 
     console.log(`\nTo show the README card, linked to the full results, paste into a README in this folder:\n\n${snippet}`);
   }

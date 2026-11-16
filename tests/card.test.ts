@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 import { buildOutputs } from "../src/render/build.js";
 import { cardContentOf, MAX_HEADLINES, renderCard, STYLE } from "../src/render/card.js";
 import { exportPlanOf, pictureHtml } from "../src/render/exports.js";
+import { pngOf } from "../src/render/png.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
+import { decodePng, shareOfDifferentPixels } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
 const context = { generatorVersion: "0.1.0", buildDate: "2026-11-15" };
@@ -168,11 +170,38 @@ describe("reading a card at a glance", () => {
 });
 
 describe("exports", () => {
+  const files = { svg: { light: "a-light.svg", dark: "a-dark.svg" }, png: "a-light.png" };
+
+  it("shows the SVG that matches the reader's setting, and the PNG where SVG files are not shown", () => {
+    expect(pictureHtml("alt", files)).toBe(
+      [
+        "<picture>",
+        '  <source media="(prefers-color-scheme: light)" srcset="a-light.svg">',
+        '  <source media="(prefers-color-scheme: dark)" srcset="a-dark.svg">',
+        '  <img alt="alt" src="a-light.png">',
+        "</picture>",
+      ].join("\n"),
+    );
+    expect(pictureHtml("alt", { svg: { dark: "a-dark.svg" }, png: "a-dark.png" })).toContain('<source srcset="a-dark.svg">');
+  });
+
   it("links the README card to the full results", () => {
-    const html = pictureHtml("alt", { light: "a-light.svg", dark: "a-dark.svg" }, "benchmarks/x/dist/benchmark.md");
+    const html = pictureHtml("alt", files, "benchmarks/x/dist/benchmark.md");
 
     expect(html.startsWith('<a href="benchmarks/x/dist/benchmark.md">\n<picture>')).toBe(true);
     expect(html.endsWith("</picture>\n</a>")).toBe(true);
+  });
+
+  it("renders the PNG at twice the card's size, with the same picture", () => {
+    const runtimes = loadBenchmark("js-runtimes");
+    const svg = renderCard(runtimes, cardContentOf(runtimes), "light", context).svg;
+    const png = decodePng(pngOf(svg));
+    const svgWidth = Number(/width="(\d+)"/.exec(svg)![1]);
+    const svgHeight = Number(/height="(\d+)"/.exec(svg)![1]);
+
+    expect([png.width, png.height]).toEqual([2 * svgWidth, 2 * svgHeight]);
+    expect(png.pixels.subarray(0, 4)).toEqual(Buffer.from([0, 0, 0, 0]));
+    expect(shareOfDifferentPixels(png, decodePng(pngOf(svg)))).toBe(0);
   });
 
   it("writes a default README card in both modes when the file declares no export", () => {
@@ -203,8 +232,14 @@ describe("reference outputs", () => {
     const outputFolder = mkdtempSync(join(tmpdir(), "astrolabe-build-"));
     const built = buildOutputs(loadBenchmark(id), ["md", "svg"], outputFolder, { buildDate, generatorVersion });
 
-    for (const file of built.files)
-      expect(readFileSync(join(outputFolder, file.path), "utf8"), file.path).toBe(readFileSync(`examples/${id}/dist/${file.path}`, "utf8"));
+    for (const file of built.files) {
+      const builtFile = readFileSync(join(outputFolder, file.path));
+      const committedFile = readFileSync(`examples/${id}/dist/${file.path}`);
+
+      if (file.path.endsWith(".png"))
+        expect(shareOfDifferentPixels(decodePng(builtFile), decodePng(committedFile)), file.path).toBeLessThan(0.01);
+      else expect(builtFile.toString("utf8"), file.path).toBe(committedFile.toString("utf8"));
+    }
 
     const committedExports = (() => {
       try {
