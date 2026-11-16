@@ -27,6 +27,17 @@ describe("what the Markdown output says", () => {
     expect(usability).toContain("### Exploratory comparisons");
   });
 
+  it("shows what the author declared about each candidate, the judge and the items", () => {
+    const suite = renderMarkdown(loadBenchmark("support-assistant-eval"), context);
+
+    expect(suite).toContain("- Variants tried: support-v2, support-v3; kept: support-v3, measured again on fresh runs");
+    expect(suite).toContain("read at https://example.com/model_a/terms on 2026-11-02. Restriction on publishing results: none found");
+    expect(suite).toContain("- Price: per token; source: public price page, read on 2026-11-02");
+    expect(suite).toContain("- Judge: Judge Model C (family provider-z)");
+    expect(suite).toContain("- Items: private, not published");
+    expect(runtimes).toContain("- Variants tried: none other than the one measured");
+  });
+
   it("states the level of adjusted intervals", () => {
     expect(runtimes).toContain("(97.5%)");
     expect(runtimes).toContain("widened together for the 2 comparisons (Bonferroni)");

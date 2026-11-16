@@ -22,6 +22,7 @@ Read before writing any sentence about the results: the answer in a README, a re
 - **A recommendation weighs what the user said matters.** When the metrics disagree (faster but heavier, cheaper but less accurate), show the trade-off and say which way the user's priorities point; when nothing separates the candidates, say that staying with the baseline costs nothing.
 - **Limitations are part of the answer**: what was not tested, on which machine or at which time, who commissioned the benchmark and whether they have an interest in a candidate, and any choice made after seeing the data.
 - **Declared figures** (list prices, features checked by hand, numbers reported by someone else) are named as declared, with their source and date.
+- **What was checked by hand is said, with where and when**: the licence or terms read for each candidate and what was found about publishing results, also when it is "none found"; each price with its source and date, and the cost at the user's own volume; every variant or template tried, or that only one was; whether the test items are private or public. The Candidates part of the report carries these: keep it in the write-up.
 
 ## When the user wants more emphasis
 

@@ -47,7 +47,23 @@ Each candidate against the baseline, packwise. A verdict is read from the interv
 - Warm-up: 2 untimed builds per bundler; state: warm.
 - Order: hyperfine runs the 30 builds of one bundler, then the other.
 - Declared conditions: none declared.
-- Workload: Full production build of the storefront: 1,800 modules, TypeScript and CSS.
+- Workload: Full production build of the storefront: 1,800 modules, TypeScript and CSS. One build per merge on the CI runner, warm cache.
+
+### Candidates
+
+Declared by the author.
+
+**packwise (baseline)**, version 4.2.0
+
+- Configuration: command node scripts/build-with.mjs packwise; cache warm
+- Publication terms: MIT licence, read at https://packwise.example/license on 2026-11-10. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
+
+**swiftpack**, version 1.9.3
+
+- Configuration: command node scripts/build-with.mjs swiftpack; cache warm
+- Publication terms: MIT licence, read at https://swiftpack.example/license on 2026-11-10. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
 
 ### Environment
 

@@ -98,7 +98,25 @@ Not declared before measuring and not adjusted for the number of comparisons: so
 - Observed: participant 24 (planned 24).
 - Order: apps assigned at random; task order rotated.
 - Declared conditions: none declared.
-- Workload: Three tasks from a new employee's first week, and three required features.
+- Workload: Three tasks from a new employee's first week, and three required features. Moderated remote sessions of 30 minutes.
+- Tasks: Create and format a note: title, list, image; Share a note with a named colleague, edit rights; Find a note written last week from two keywords.
+- Users: 48 office workers who had used neither app, 24 per app.
+
+### Candidates
+
+Declared by the author.
+
+**Notes A (baseline)**, version 7.2 (web)
+
+- Configuration: plan team; onboarding default
+- Publication terms: terms of service, 2026-05, read at https://example.com/notes_a/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
+
+**Notes B**, version 3.14 (web)
+
+- Configuration: plan team; onboarding default
+- Publication terms: terms of service, 2026-08, read at https://example.com/notes_b/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
 
 ### Environment
 
