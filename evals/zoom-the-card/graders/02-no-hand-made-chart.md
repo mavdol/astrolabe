@@ -1,7 +1,7 @@
 ---
-type: file_exists
-path: "**/*.{svg,png,html}"
-exists: false
+type: regex
+target: files
+pattern: '\.(svg|png|html)$'
+flags: m
+match: not_contains
 ---
-
-

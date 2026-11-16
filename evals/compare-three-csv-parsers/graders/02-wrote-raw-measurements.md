@@ -1,6 +1,6 @@
 ---
-type: file_exists
-path: "**/*.{json,jsonl,csv,ndjson}"
+type: regex
+target: files
+pattern: '\.(json|jsonl|csv|ndjson)$'
+flags: m
 ---
-
-

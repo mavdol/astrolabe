@@ -1,7 +1,7 @@
 ---
 type: tool_used
 tool: Bash
-min: 5
+min: 1
 ---
 
 
