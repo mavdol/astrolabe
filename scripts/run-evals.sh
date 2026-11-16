@@ -18,11 +18,13 @@ model=sonnet
 max_cost=25
 filters=()
 ablation=()
+case_pattern='*'
+quick_only=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --quick) filters+=(--tag quick) ;;
-    --case) filters+=(--case "$2"); shift ;;
+    --quick) filters+=(--tag quick); quick_only=true ;;
+    --case) filters+=(--case "$2"); case_pattern="$2"; shift ;;
     --runs) runs="$2"; shift ;;
     --model) model="$2"; shift ;;
     --max-cost-usd) max_cost="$2"; shift ;;
@@ -32,9 +34,15 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-case_files=$(find evals -mindepth 2 -maxdepth 2 -name prompt.md)
-[[ " ${filters[*]:-} " == *" --tag quick "* ]] && case_files=$(grep -l '^tags: \[quick' $case_files)
-cases=$(echo "$case_files" | wc -l | tr -d ' ')
+cases=0
+for prompt in evals/*/prompt.md; do
+  name=$(basename "$(dirname "$prompt")")
+  # shellcheck disable=SC2053
+  [[ $name == $case_pattern ]] || continue
+  if $quick_only && ! grep -q '^tags: \[quick' "$prompt"; then continue; fi
+  cases=$((cases + 1))
+done
+[ "$cases" -gt 0 ] || { echo "No case matches these filters." >&2; exit 2; }
 arms=$([ ${#ablation[@]} -gt 0 ] && echo 1 || echo 2)
 
 echo "Building astrolabe, which every case installs into its workspace..."
