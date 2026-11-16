@@ -1,0 +1,8 @@
+{
+  "name": "rota",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "astrolabe-bench": "0.1.0"
+  }
+}

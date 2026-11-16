@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: compare-three-csv-parsers
+expected_outcome: |
+  The agent measures the three parsers on data/orders.csv with repeated runs written to a raw data
+  file by a script, keeps csv-simple as the baseline, notices that csv-simple splits quoted notes
+  wrongly, and adds to the README the time and memory of each parser with their variability and
+  number of runs, the correctness finding, the environment and the limitations.
+context:
+  scaffold_script: place-files.sh

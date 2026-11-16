@@ -1,0 +1,8 @@
+{
+  "name": "session-service",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "astrolabe-bench": "0.1.0"
+  }
+}
