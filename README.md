@@ -4,7 +4,11 @@ Benchmarks authored by agents, verifiable by humans.
 
 The agent writes a plan and the measuring scripts, never numbers. The scripts write raw data, one JSON line per observation. `astrolabe compute` turns the raw data into every value, interval, comparison and verdict, and `astrolabe validate` computes them again to check that nothing was edited by hand.
 
-Status: early development. The schema, `validate`, `compute`, the hyperfine and Inspect importers, the Markdown output and the README card exist; PNG exports and the site do not yet.
+Status: early development. The schema, `validate`, `compute`, the hyperfine and Inspect importers, the Markdown output, the README card and the measurement part of the skill exist; the site and its part of the skill do not yet.
+
+## The skill
+
+`skills/astrolabe-benchmark/` teaches an agent the method: frame the decision, plan, measure with scripts, compute, write up. It is a plain folder of Markdown files that follows the Agent Skills format and reads nothing else from this repository: copy it where your agent looks for skills. `SKILL.md` is the entry point.
 
 ## Commands
 
@@ -38,6 +42,7 @@ pnpm test                 # statistics against scipy reference values, compute, 
 pnpm typecheck
 pnpm build
 pnpm gen:example-data     # rewrite the synthetic raw files of the examples
+pnpm gen:schema           # rewrite the JSON Schema and its copy in the skill, after changing src/schema/
 ```
 
 Requires Node 22 or later.
