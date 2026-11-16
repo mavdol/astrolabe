@@ -142,6 +142,8 @@ function comparisonNotes(lookup: Lookup, comparison: Comparison): string {
 
   if (comparison.successful_only) notes.push("successful attempts only");
 
+  if (comparison.indicative) notes.push("indicative: fewer than 20 participants, no winner named");
+
   if (comparison.failure_warning) {
     const where = comparison.failure_warning_nodes?.map((node) => lookup.nodeLabel.get(node) ?? node).join(", ");
 

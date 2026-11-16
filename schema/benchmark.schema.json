@@ -1124,6 +1124,10 @@
                   "likely"
                 ]
               },
+              "indicative": {
+                "type": "boolean",
+                "const": true
+              },
               "role": {
                 "type": "string",
                 "enum": [

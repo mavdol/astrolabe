@@ -1,5 +1,6 @@
 import { minObservations } from "../compute/stats.js";
 import { ALPHA, declaredInputs } from "../compute/compute.js";
+import { PARTICIPANTS_TO_RANK } from "../compute/verdict.js";
 import type { Issue } from "../rules/registry.js";
 import type { Metric, Results } from "../schema/benchmark.js";
 
@@ -8,7 +9,6 @@ const KINDS_NEEDING_WARMUP = new Set(["run_time", "latency", "throughput"]);
 const KINDS_NEEDING_SCOPE = new Set(["cpu", "memory", "energy"]);
 const KINDS_ALLOWED_WITHOUT_RAW_DATA = new Set(["cost", "feature"]);
 const QUANTILE_OF_STATISTIC: Record<string, number> = { median: 0.5, p50: 0.5, p95: 0.95, p99: 0.99 };
-const MINIMUM_PARTICIPANTS_TO_COMPARE = 20;
 
 export function checkPlan(results: Results): Issue[] {
   const issues: Issue[] = [];
@@ -164,11 +164,11 @@ export function checkPlan(results: Results): Issue[] {
 
     const participants = results.runs.levels[0].planned;
 
-    if (metricKinds.has("usability") && participants < MINIMUM_PARTICIPANTS_TO_COMPARE) {
-      error(
+    if (metricKinds.has("usability") && participants < PARTICIPANTS_TO_RANK) {
+      warning(
         "U6",
         "runs.levels[0].planned",
-        `${participants} participants can find problems but cannot rank products: plan at least ${MINIMUM_PARTICIPANTS_TO_COMPARE} per candidate`,
+        `${participants} participants can find problems but cannot rank products: the results will be indicative and name no winner; plan at least ${PARTICIPANTS_TO_RANK} per candidate to compare`,
       );
     }
   }

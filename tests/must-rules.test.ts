@@ -28,11 +28,6 @@ const modelJudge = {
   order_policy: "both",
 };
 const withFamilies = (plan: any) => plan.candidates.forEach((candidate: any, index: number) => (candidate.family = `provider-${index}`));
-const usabilityPlan = (plan: any) => {
-  plan.metrics[0].kind = "usability";
-  plan.workload.tasks = ["Create a note"];
-  plan.workload.users = "first-time users";
-};
 
 const PROOFS: Record<string, Proof> = {
   C1: { plan: "a cost metric without pricing", change: (plan) => (plan.metrics[0].kind = "cost"), field: "candidates[0].pricing" },
@@ -169,7 +164,7 @@ const PROOFS: Record<string, Proof> = {
   T8: { test: "tests/compute.test.ts", title: "failed observations without failures_count_as are refused" },
   U1: { plan: "a usability metric without tasks and users", change: (plan) => (plan.metrics[0].kind = "usability"), field: "workload" },
   U2: { agent: "measuring success, time and satisfaction in a usability study" },
-  U6: { plan: "a usability comparison with 10 participants", change: usabilityPlan, field: "runs.levels[0].planned" },
+  U6: { test: "tests/compute.test.ts", title: "a usability comparison with fewer than 20 participants is indicative and names no winner" },
   V1: { page: "chart choice from the shape of the data" },
   V2: { page: "the closed chart set has no angle or area encoding" },
   V5: { page: "the closed chart set has no second y-axis" },

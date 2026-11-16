@@ -189,7 +189,7 @@
     },
     "computed": {
       "by": "astrolabe-bench 0.1.0",
-      "methods_version": "5",
+      "methods_version": "6",
       "resamples": 10000,
       "seed": "b9a62fc7515c073249a43aecad615e6663c08d526adedaf11b8065db658f40f7",
       "alpha": 0.05,

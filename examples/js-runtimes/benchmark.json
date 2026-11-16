@@ -128,7 +128,7 @@
     "observed": {"levels": [{"level": "process", "field": "run", "n": 30}]},
     "computed": {
       "by": "astrolabe-bench 0.1.0",
-      "methods_version": "5",
+      "methods_version": "6",
       "resamples": 10000,
       "seed": "ff9637e749c88e3cbf05fcaeee501b68395561c7827eef8989e6cf3700ed4684",
       "alpha": 0.05,

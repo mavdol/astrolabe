@@ -33,6 +33,29 @@ export function verdictOf(interval: readonly [number, number], direction: "highe
   return { verdict: "inconclusive" };
 }
 
+/** Below this many participants on either side, a usability study can find problems but cannot rank the candidates. */
+export const PARTICIPANTS_TO_RANK = 20;
+
+/**
+ * A usability comparison with too few participants is indicative: it keeps
+ * its interval, but names no winner, so "better" and "worse" become
+ * "inconclusive". Other kinds of metric, and declared values without n, are
+ * left as they are.
+ */
+export function withEnoughParticipants(
+  result: VerdictResult,
+  metricKind: string,
+  fewestParticipants: number | undefined,
+): VerdictResult & { indicative?: true } {
+  const isIndicative = metricKind === "usability" && fewestParticipants !== undefined && fewestParticipants < PARTICIPANTS_TO_RANK;
+
+  if (!isIndicative) return result;
+
+  const namesAWinner = result.verdict === "better" || result.verdict === "worse";
+
+  return namesAWinner ? { verdict: "inconclusive", indicative: true } : { ...result, indicative: true };
+}
+
 /**
  * Rank in the partial order worse < likely worse < {equivalent, inconclusive}
  * < likely better < better. Equivalent and inconclusive share a rank because

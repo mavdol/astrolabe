@@ -229,6 +229,8 @@ function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: string |
 
   if (range) details.push({ text: range });
 
+  if (comparison.indicative) details.push({ text: "Indicative: fewer than 20 participants", isWarning: true });
+
   if (comparison.successful_only) details.push({ text: "Successful attempts only" });
 
   if (comparison.failure_warning) details.push({ text: "The candidates did not fail equally often", isWarning: true });

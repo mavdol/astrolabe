@@ -129,6 +129,7 @@ const comparison = z.strictObject({
   ci_level: z.number().optional(),
   verdict: z.enum(["better", "worse", "equivalent", "inconclusive"]),
   qualifier: z.enum(["likely"]).optional(),
+  indicative: z.literal(true).optional(),
   role: z.enum(["primary", "exploratory"]),
   adjusted: z.boolean(),
   paired: z.boolean(),

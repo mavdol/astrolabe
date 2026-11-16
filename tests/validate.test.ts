@@ -258,6 +258,41 @@ describe("plan checks", () => {
   });
 });
 
+describe("usability studies with few participants", () => {
+  const plan = planOf({
+    metrics: [{ kind: "usability", statistic: "mean", unit: "s", direction: "lower", minimum_meaningful: 5 }],
+    levels: [{ level: "participant", field: "item", planned: 12 }],
+    extra: { workload: { description: "Onboarding", usage_pattern: "One session", tasks: ["Create a note"], users: "first-time users" } },
+  });
+
+  it("planning fewer than 20 participants is a warning, not an error", () => {
+    const issues = validate({ schema_version: "0.5", results: plan }, {}).issues;
+
+    expect(issues.map((issue) => [issue.severity, issue.rule])).toEqual([["warning", "U6"]]);
+  });
+
+  it("a winner named on fewer than 20 participants is caught from the file alone", () => {
+    const rows = ["base", "new"].flatMap((candidate) =>
+      Array.from({ length: 12 }, (_, index) => ({
+        candidate,
+        measure: "score",
+        value: (candidate === "base" ? 100 : 60) + (index % 5),
+        item: `${candidate}-${index}`,
+      })),
+    );
+    const rawFiles = { data: rawFileOf(rows) };
+    const computed = compute(plan, rawFiles, { resamples: 500 }) as any;
+
+    computed.comparisons[0].verdict = "better";
+    delete computed.comparisons[0].indicative;
+
+    const rules = rulesOf(errorsOf(validate({ schema_version: "0.5", results: computed }, rawFiles).issues));
+
+    expect(rules).toContain("S7");
+    expect(rules).toContain("U6");
+  });
+});
+
 describe("validate after compute on a hand-built file", () => {
   it("compute then validate passes, and the verdict can be checked from the file alone", () => {
     const rows = ["base", "new"].flatMap((candidate, shift) =>

@@ -1,7 +1,7 @@
-import { applyFailureWarnings, compute, ComputeError, METHODS_VERSION, type RawFile } from "../compute/compute.js";
+import { applyFailureWarnings, compute, ComputeError, METHODS_VERSION, participantsOf, type RawFile } from "../compute/compute.js";
 import { resultsHash } from "../compute/files.js";
 import { sameNumber } from "../compute/numbers.js";
-import { verdictOf } from "../compute/verdict.js";
+import { verdictOf, withEnoughParticipants } from "../compute/verdict.js";
 import type { Issue } from "../rules/registry.js";
 import { benchmarkSchema, type Benchmark, type Comparison, type Results } from "../schema/benchmark.js";
 import { checkPlan } from "./plan-checks.js";
@@ -250,6 +250,7 @@ function sameStoredValue(storedValue: unknown, recomputedValue: unknown, fieldNa
 function checkVerdictsAgainstStoredNumbers(results: Results): Issue[] {
   const issues: Issue[] = [];
   const metricById = new Map(results.metrics.map((metric) => [metric.id, metric]));
+  const participants = participantsOf(results.observed);
   const storedComparisons = results.comparisons ?? [];
   const withWarningsReadAgain: Comparison[] = storedComparisons.map((comparison) => ({ ...comparison }));
 
@@ -261,9 +262,13 @@ function checkVerdictsAgainstStoredNumbers(results: Results): Issue[] {
     if (!metric) return;
 
     const path = `results.comparisons[${comparison.id}]`;
-    const expected = comparison.ci
-      ? verdictOf(comparison.ci, metric.direction, metric.minimum_meaningful)
-      : { verdict: "inconclusive" as const, qualifier: undefined };
+    const expected = withEnoughParticipants(
+      comparison.ci
+        ? verdictOf(comparison.ci, metric.direction, metric.minimum_meaningful)
+        : { verdict: "inconclusive" as const, qualifier: undefined },
+      metric.kind,
+      participants,
+    );
 
     if (comparison.verdict !== expected.verdict || comparison.qualifier !== expected.qualifier) {
       const expectedLabel = expected.qualifier ? `${expected.qualifier} ${expected.verdict}` : expected.verdict;
@@ -273,6 +278,17 @@ function checkVerdictsAgainstStoredNumbers(results: Results): Issue[] {
         rule: "S7",
         path: `${path}.verdict`,
         message: `the stored interval and a minimum meaningful difference of ${metric.minimum_meaningful} give "${expectedLabel}"`,
+      });
+    }
+
+    if (comparison.indicative !== expected.indicative) {
+      issues.push({
+        severity: "error",
+        rule: "U6",
+        path: `${path}.indicative`,
+        message: expected.indicative
+          ? "fewer than 20 participants on one side: the comparison is indicative and names no winner"
+          : "20 or more participants on each side: the comparison is not indicative",
       });
     }
 
