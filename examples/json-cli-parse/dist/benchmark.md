@@ -49,7 +49,29 @@ Each candidate against the baseline, stdjson. A verdict is read from the interva
 - Warm-up: 3 untimed runs to fill the file cache; state: warm.
 - Order: interleaved, randomized.
 - Declared conditions: none declared.
-- Workload: One 100 MB file of real build metadata, 1.2 million objects.
+- Workload: One 100 MB file of real build metadata, 1.2 million objects. One file per process, as in the build scripts.
+
+### Candidates
+
+Declared by the author.
+
+**stdjson (baseline)**, version 1.8.2
+
+- Configuration: flags --compact; threads 1
+- Publication terms: MIT licence, read at https://example.com/stdjson/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
+
+**fastjson**, version 0.9.1
+
+- Configuration: flags --compact; threads 1
+- Publication terms: Apache-2.0 licence, read at https://example.com/fastjson/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: threads=1, threads=8; kept: threads=1, measured again on fresh runs
+
+**tinyjson**, version 2.3.0
+
+- Configuration: flags --compact; threads 1
+- Publication terms: MIT licence, read at https://example.com/tinyjson/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
 
 ### Environment
 

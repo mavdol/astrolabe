@@ -59,7 +59,27 @@ Each candidate against the baseline, Geo A. A verdict is read from the interval 
 - Warm-up: 50 untimed requests per session; state: warm.
 - Order: candidates alternate within each session.
 - Declared conditions: none declared.
-- Workload: 1,000 delivery addresses sampled from our own orders, with surveyed coordinates.
+- Workload: 1,000 delivery addresses sampled from our own orders, with surveyed coordinates. One address per request, 5 requests per second, open model.
+
+### Candidates
+
+Declared by the author.
+
+**Geo A (baseline)**, version v2
+
+- Configuration: timeout ms 3000; retries 0
+- Publication terms: terms of service, 2026-06, read at https://example.com/geo_a/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
+- Service: region eu-west, plan standard, version 2026-09
+- Price: per request (variable 0.5, per 1,000 requests); source: public price page, read on 2026-11-02
+
+**Geo B**, version v5
+
+- Configuration: timeout ms 3000; retries 0
+- Publication terms: terms of service, 2026-03, read at https://example.com/geo_b/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
+- Service: region eu-central, plan pay as you go, version 2026-10
+- Price: per request (variable 0.75, per 1,000 requests); source: public price page, read on 2026-11-02
 
 ### Environment
 

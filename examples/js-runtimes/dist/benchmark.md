@@ -47,7 +47,23 @@ Each candidate against the baseline, Node.js. A verdict is read from the interva
 - Warm-up: 3 untimed runs per runtime before each round; state: warm.
 - Order: 3 rounds of 10 runs; the order of the runtimes alternates between rounds, and hyperfine runs each runtime's runs consecutively within a round.
 - Declared conditions: none declared.
-- Workload: workload.mjs builds 200,000 records, serializes them to JSON, parses them back, sorts and sums them.
+- Workload: workload.mjs builds 200,000 records, serializes them to JSON, parses them back, sorts and sums them. One short-lived process per script run, as in build and maintenance scripts.
+
+### Candidates
+
+Declared by the author.
+
+**Node.js (baseline)**, version 22.14.0
+
+- Configuration: command node workload.mjs; flags none
+- Publication terms: MIT licence, with the licences of bundled third-party code, read at https://github.com/nodejs/node/blob/main/LICENSE on 2026-11-15. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
+
+**Deno**, version 2.5.6
+
+- Configuration: command deno run --quiet workload.mjs; flags --quiet
+- Publication terms: MIT licence, read at https://github.com/denoland/deno/blob/main/LICENSE.md on 2026-11-15. Restriction on publishing results: none found
+- Variants tried: none other than the one measured
 
 ### Environment
 

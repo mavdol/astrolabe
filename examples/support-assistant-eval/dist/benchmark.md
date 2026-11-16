@@ -83,7 +83,31 @@ Not declared before measuring and not adjusted for the number of comparisons: so
 - Observed: item 470 (planned 470); repeat 5 (planned 5).
 - Order: randomized per repeat.
 - Declared conditions: non deterministic, trained or tuned.
-- Workload: 470 items written in-house from real support tickets.
+- Workload: 470 items written in-house from real support tickets. one item per request, no conversation history.
+- Judge: Judge Model C (family provider-z); rubric with a reference answer; blind to the candidate; order: one answer graded at a time; no pairwise order; checked against human ratings: alpha 0.81 on 120 items.
+- Items: private, not published; risk that a candidate has seen them: low.
+
+### Candidates
+
+Declared by the author.
+
+**Model A**, version 2026-10-01
+
+- Configuration: temperature 0.7; max output tokens 2048; prompt template support-v3
+- Publication terms: provider terms of service, 2026-10, read at https://example.com/model_a/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: support-v2, support-v3; kept: support-v3, measured again on fresh runs
+- Family: provider-x
+- Service: region eu-west, plan pay as you go, version 2026-10-01
+- Price: per token; source: public price page, read on 2026-11-02
+
+**Model B (baseline)**, version 2026-09-15
+
+- Configuration: temperature 0.7; max output tokens 2048; prompt template support-v3
+- Publication terms: provider terms of service, 2026-08, read at https://example.com/model_b/terms on 2026-11-02. Restriction on publishing results: none found
+- Variants tried: support-v2, support-v3; kept: support-v3, measured again on fresh runs
+- Family: provider-y
+- Service: region eu-west, plan pay as you go, version 2026-09-15
+- Price: per token; source: public price page, read on 2026-11-02
 
 ### Environment
 

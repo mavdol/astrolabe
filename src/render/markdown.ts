@@ -215,6 +215,90 @@ function environmentLines(environment: Record<string, unknown>): string[] {
   });
 }
 
+/** What the author declared about each candidate and that no raw file can prove: a reader checks these by hand. */
+function candidatesSection(lookup: Lookup): string {
+  const { results } = lookup;
+  const entries = results.candidates.map((candidate) => {
+    const terms = candidate.publication_terms;
+    const clause = terms.clause_url ? `, clause at ${terms.clause_url}` : "";
+    const variants = candidate.variants;
+    const lines = [
+      `- Configuration: ${Object.entries(candidate.config)
+        .map(([key, setting]) => `${key.replace(/_/g, " ")} ${typeof setting === "object" ? JSON.stringify(setting) : String(setting)}`)
+        .join("; ")}`,
+      `- Publication terms: ${terms.terms}, read at ${terms.checked_url} on ${terms.checked_on}. Restriction on publishing results: ${terms.restriction}${clause}`,
+      variants.tested.length > 0
+        ? `- Variants tried: ${variants.tested.join(", ")}; kept: ${variants.selected ?? "not stated"}${
+            variants.remeasured_on_fresh_runs === undefined
+              ? ""
+              : variants.remeasured_on_fresh_runs
+                ? ", measured again on fresh runs"
+                : ", not measured again on fresh runs"
+          }`
+        : "- Variants tried: none other than the one measured",
+    ];
+
+    if (candidate.family) lines.push(`- Family: ${candidate.family}`);
+
+    if (candidate.service)
+      lines.push(`- Service: region ${candidate.service.region}, plan ${candidate.service.plan}, version ${candidate.service.api_version}`);
+
+    if (candidate.pricing) {
+      const pricing = candidate.pricing;
+      const amounts = [
+        pricing.fixed !== undefined ? `fixed ${pricing.fixed}` : "",
+        pricing.variable !== undefined ? `variable ${pricing.variable}` : "",
+        pricing.volume ?? "",
+        pricing.period ?? "",
+      ].filter((part) => part !== "");
+
+      lines.push(
+        `- Price: ${pricing.model}${amounts.length > 0 ? ` (${amounts.join(", ")})` : ""}; source: ${pricing.source}, read on ${pricing.date}`,
+      );
+    }
+
+    const role = candidate.id === results.baseline ? " (baseline)" : "";
+
+    return `**${candidate.name}${role}**, version ${candidate.version}\n\n${lines.join("\n")}`;
+  });
+
+  return ["### Candidates", "Declared by the author.", ...entries].join("\n\n");
+}
+
+function judgeAndItemsLines(lookup: Lookup): string[] {
+  const { judge, workload } = lookup.results;
+  const lines: string[] = [];
+
+  if (judge) {
+    const who =
+      judge.type === "model"
+        ? `${judge.model ?? "a model"} (family ${judge.family ?? "not stated"})`
+        : `${judge.raters ?? "?"} human raters`;
+    const agreement = judge.agreement
+      ? `; agreement between raters: Krippendorff's alpha ${judge.agreement.krippendorff_alpha} on ${judge.agreement.double_rated_items} items`
+      : "";
+    const validation = judge.validation
+      ? `; checked against human ratings: alpha ${judge.validation.krippendorff_alpha} on ${judge.validation.human_rated_items} items`
+      : "; not checked against human ratings";
+
+    lines.push(
+      `- Judge: ${who}; ${judge.method ?? "method not stated"}; ${judge.blinded ? "blind to the candidate" : "not blind"}; order: ${judge.order_policy ?? "not stated"}${agreement}${judge.type === "model" ? validation : ""}.`,
+    );
+  }
+
+  if (workload.contamination) {
+    const { items, published, risk } = workload.contamination;
+
+    lines.push(`- Items: ${items}, ${published ? "published" : "not published"}; risk that a candidate has seen them: ${risk}.`);
+  }
+
+  if (workload.tasks) lines.push(`- Tasks: ${workload.tasks.join("; ")}.`);
+
+  if (workload.users) lines.push(`- Users: ${workload.users}.`);
+
+  return lines;
+}
+
 function methodSection(lookup: Lookup): string {
   const { results } = lookup;
   const computedMetrics = results.metrics.filter((metric) => metric.from).map((metric) => metric.label);
@@ -236,8 +320,10 @@ function methodSection(lookup: Lookup): string {
       ...(results.runs.warmup ? [`- Warm-up: ${results.runs.warmup}; state: ${results.runs.state ?? "not stated"}.`] : []),
       ...(results.runs.order ? [`- Order: ${results.runs.order}.`] : []),
       `- Declared conditions: ${conditions}.`,
-      `- Workload: ${results.workload.description}.`,
+      `- Workload: ${results.workload.description}. ${results.workload.usage_pattern}.`,
+      ...judgeAndItemsLines(lookup),
     ].join("\n"),
+    candidatesSection(lookup),
     "### Environment",
     environmentLines(results.environment).join("\n"),
     "### Limitations",

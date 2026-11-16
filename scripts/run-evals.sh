@@ -82,7 +82,7 @@ output="$PWD/evals/results/$(date +%Y-%m-%dT%H-%M-%S)"
 plugin="$(mktemp -d)/astrolabe"
 mkdir -p "$plugin/.claude-plugin"
 printf '{ "name": "astrolabe", "version": "0.0.0-eval" }\n' > "$plugin/.claude-plugin/plugin.json"
-rsync -a --exclude results/ evals/ "$plugin/evals/"
+rsync -a --exclude /results/ evals/ "$plugin/evals/"
 echo "$PWD" > "$plugin/evals/_shared/repository-path"
 if [ "$configuration" != without ]; then cp -R skills "$plugin/skills"; fi
 if [ "$configuration" != both ]; then extra+=(--ablation none); fi

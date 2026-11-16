@@ -1,0 +1,149 @@
+{
+  "schema_version": "0.5",
+  "notes": {
+    "about": "A complete plan, as written at step 3, before anything is measured. This notes section only explains the example: leave it out of your own file. Sections that depend on the kind of benchmark (structure, judge, pricing, service, contamination, declared values) are shown in the measurement files.",
+    "results.benchmark": "goal: the user's decision, phrased neutrally. scope: what the numbers cover and what they do not. conditions: any of non_deterministic, trained_or_tuned, managed_runtime, load_test; each one makes validate ask for more.",
+    "results.domain_research": "What the domain already knows, also when the answer is 'none found'. Every list has at least one entry.",
+    "results.candidates": "config has the same keys for every candidate. publication_terms records the licence or terms you read, where and when; a restriction other than 'none found' needs clause_url. variants.tested lists every configuration tried.",
+    "results.baseline": "The id of the candidate every other one is compared with: usually what is in use today.",
+    "results.metrics": "One per number the decision needs. from names the raw file and the measure; minimum_meaningful is the smallest difference that would change the decision, in percent of the baseline when compare_as is relative, in the metric's unit when it is difference. With several metrics each has a weight the user confirmed.",
+    "results.composite": "Required as soon as metrics have weights: says whether they are combined into one score, and how. Usually they are not, and the weights only record priorities.",
+    "results.workload": "The user's real inputs and the way the system is really called.",
+    "results.environment": "Free keys; hardware, os and software are required when you measure on your own machine.",
+    "results.runs": "levels: what is repeated, the raw field that counts it and how many are planned, highest level first.",
+    "results.artifacts": "The command that reruns the whole measurement, and the scripts it uses, relative to this folder. repo is the address of the repository, or where the files can be obtained.",
+    "results.raw_data": "One entry per raw file the scripts write. compute adds its row count and hash.",
+    "results.limitations": "What was not tested, and what a reader needs to weigh the result, including any interest in a candidate.",
+    "results.analysis": "primary: the comparisons the decision rests on, declared before measuring. Left out, every metric is primary. outliers is left out here: the median needs no outlier rule.",
+    "written by compute": "astrolabe compute adds values, failures, exclusions, comparisons, observed and computed to results. Never write or edit them."
+  },
+  "results": {
+    "benchmark": {
+      "id": "markdown-renderers",
+      "version": "1.0.0",
+      "goal": "Should the documentation build keep markly or move to quickmark, given build time, memory on the CI runner and identical HTML?",
+      "scope": "One process rendering the 480 pages of docs/, start-up included, on the CI runner image. Says nothing about rendering in the browser or about other documents.",
+      "conditions": []
+    },
+    "domain_research": {
+      "reference_suites": ["none found for whole-site rendering; the CommonMark spec tests cover correctness of the syntax, not speed"],
+      "standard_metrics": ["wall time per build", "peak resident memory"],
+      "pitfalls": [
+        "renderers differ on edge cases (nested lists, raw HTML), so output must be compared",
+        "start-up and module loading dominate on small inputs",
+        "the file cache makes the first run slower than the next ones"
+      ],
+      "sources": ["https://spec.commonmark.org/", "https://github.com/sharkdp/hyperfine"]
+    },
+    "candidates": [
+      {
+        "id": "markly",
+        "name": "markly",
+        "version": "4.2.1",
+        "config": { "command": "node scripts/render.mjs markly docs/", "options": "defaults, as in the current build" },
+        "publication_terms": {
+          "terms": "MIT licence",
+          "restriction": "none found",
+          "checked_url": "node_modules/markly/LICENSE",
+          "checked_on": "2026-11-16"
+        },
+        "variants": { "tested": [] }
+      },
+      {
+        "id": "quickmark",
+        "name": "quickmark",
+        "version": "1.8.0",
+        "config": { "command": "node scripts/render.mjs quickmark docs/", "options": "defaults; tables extension on, which markly has by default" },
+        "publication_terms": {
+          "terms": "Apache-2.0 licence",
+          "restriction": "none found",
+          "checked_url": "node_modules/quickmark/LICENSE",
+          "checked_on": "2026-11-16"
+        },
+        "variants": { "tested": [] }
+      }
+    ],
+    "baseline": "markly",
+    "metrics": [
+      {
+        "id": "wall_time",
+        "label": "Build time",
+        "unit": "s",
+        "direction": "lower",
+        "kind": "run_time",
+        "statistic": "median",
+        "definition": "Elapsed time of one process rendering every page of docs/, start-up included, measured by hyperfine without a shell",
+        "compare_as": "relative",
+        "minimum_meaningful": 10,
+        "weight": 0.5,
+        "failures_count_as": "excluded",
+        "from": { "raw": "runs", "measure": "wall_time" }
+      },
+      {
+        "id": "peak_rss",
+        "label": "Peak memory",
+        "unit": "MiB",
+        "direction": "lower",
+        "kind": "memory",
+        "statistic": "median",
+        "definition": "Peak resident set size of the rendering process, as reported by hyperfine",
+        "scope": "The rendering process only; it starts no child process",
+        "compare_as": "relative",
+        "minimum_meaningful": 20,
+        "weight": 0.2,
+        "failures_count_as": "excluded",
+        "from": { "raw": "runs", "measure": "peak_rss" }
+      },
+      {
+        "id": "identical_pages",
+        "label": "Pages identical to the reference",
+        "unit": "%",
+        "direction": "higher",
+        "kind": "quality",
+        "statistic": "share",
+        "definition": "Share of pages whose HTML, once whitespace is normalized, equals the HTML published today",
+        "compare_as": "difference",
+        "minimum_meaningful": 1,
+        "weight": 0.3,
+        "failures_count_as": "zero",
+        "from": { "raw": "pages", "measure": "identical" }
+      }
+    ],
+    "composite": { "computed": false, "note": "Weights record the user's priorities; no single score is computed" },
+    "workload": {
+      "description": "The 480 Markdown pages of docs/ at commit 3f9c2ab, the real input of the documentation build",
+      "usage_pattern": "One process renders all pages in sequence, once per CI build"
+    },
+    "environment": {
+      "hardware": "CI runner, 4 vCPU x86-64, 16 GB RAM",
+      "os": "Ubuntu 24.04",
+      "software": { "node": "22.14.0", "markly": "4.2.1", "quickmark": "1.8.0", "hyperfine": "1.19.0" },
+      "background": "Nothing else scheduled on the runner during the measurement",
+      "tools": ["hyperfine"]
+    },
+    "runs": {
+      "levels": [{ "level": "process", "field": "run", "planned": 12 }],
+      "warmup": "3 untimed runs per renderer before each round, to fill the file cache",
+      "state": "warm",
+      "order": "4 rounds of 3 runs; the order of the renderers alternates between rounds"
+    },
+    "artifacts": {
+      "repo": "https://github.com/example/docs-site",
+      "command": "./scripts/bench.sh",
+      "scripts": ["scripts/bench.sh", "scripts/render.mjs", "scripts/compare-pages.mjs"]
+    },
+    "raw_data": [
+      { "id": "runs", "kind": "samples", "path": "data/runs.jsonl", "format": "jsonl" },
+      { "id": "pages", "kind": "items", "path": "data/pages.jsonl", "format": "jsonl" }
+    ],
+    "limitations": [
+      "One input (our documentation) and one machine type; a site with other content may rank the renderers differently.",
+      "Warm file cache only: the first build on a fresh runner is slower for both.",
+      "Incremental builds were not measured.",
+      "Run by the documentation team, which maintains neither renderer."
+    ],
+    "analysis": {
+      "primary": [{ "metric": "wall_time" }, { "metric": "identical_pages" }]
+    }
+  }
+}
