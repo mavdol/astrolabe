@@ -64,4 +64,4 @@ Each candidate against the baseline, Node.js. A verdict is read from the interva
 
 ---
 
-<sub>results sha256 `b428a3a9ef72` · 2026-11-15 · source https://github.com/mavdol/astrolabe · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `ac580d3b3e20` · 2026-11-16 · source https://github.com/mavdol/astrolabe · built with astrolabe-bench 0.1.0</sub>

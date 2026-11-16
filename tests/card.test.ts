@@ -91,7 +91,6 @@ describe("what a card shows", () => {
     expect(content.headlines).toHaveLength(MAX_HEADLINES);
     expect(content.omittedCount).toBe(1);
     expect(lines.join(" ")).toContain("1 more primary comparison in the full results.");
-    expect(lines.join(" ")).toContain("The candidates did not fail equally often");
     expect(lines.join(" ")).toContain("Median, n = 62 (Notes B), 58 (Notes A)");
   });
 
@@ -157,10 +156,14 @@ describe("reading a card at a glance", () => {
   });
 
   it("puts the warning about failures in ink with an icon", () => {
-    const usability = loadBenchmark("notes-apps-onboarding");
-    const svg = renderCard(usability, cardContentOf(usability), "light", context).svg;
+    const usability = structuredClone(loadBenchmark("notes-apps-onboarding"));
 
-    expect(svg).toContain('stroke="#0a0a0a" stroke-width="1.4" stroke-linejoin="round"');
+    usability.results.comparisons!.find((comparison) => comparison.id === "time__tasks__notes_b")!.failure_warning = true;
+
+    const card = renderCard(usability, cardContentOf(usability), "light", context);
+
+    expect(card.textLines.join(" ")).toContain("The candidates did not fail equally often");
+    expect(card.svg).toContain('stroke="#0a0a0a" stroke-width="1.4" stroke-linejoin="round"');
   });
 });
 

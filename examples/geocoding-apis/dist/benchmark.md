@@ -74,4 +74,4 @@ Each candidate against the baseline, Geo A. A verdict is read from the interval 
 
 ---
 
-<sub>results sha256 `b0747119eb1b` · 2026-11-15 · source https://github.com/example/geocoding-apis · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `12c51486ff1a` · 2026-11-16 · source https://github.com/example/geocoding-apis · built with astrolabe-bench 0.1.0</sub>

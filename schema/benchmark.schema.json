@@ -1177,6 +1177,20 @@
                     "items": false,
                     "minItems": 2,
                     "maxItems": 2
+                  },
+                  "difference_ci_adjusted": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
                   }
                 },
                 "required": [

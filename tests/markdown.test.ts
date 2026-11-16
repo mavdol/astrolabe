@@ -21,7 +21,9 @@ describe("what the Markdown output says", () => {
     expect(usability).toContain("(declared)");
     expect(usability).toContain("Declared by the author, not computed from raw data.");
     expect(runtimes).toContain("| likely better | successful attempts only |");
-    expect(usability).toContain("warning: the candidates did not fail equally often (Create and format a note)");
+    expect(usability).toContain(
+      "Create and format a note | −9.4% | −31.5 to +14.8% (95%) | inconclusive | successful attempts only; warning: the candidates did not fail equally often",
+    );
     expect(usability).toContain("### Exploratory comparisons");
   });
 
