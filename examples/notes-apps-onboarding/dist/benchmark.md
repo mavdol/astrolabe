@@ -113,4 +113,4 @@ Not declared before measuring and not adjusted for the number of comparisons: so
 
 ---
 
-<sub>results sha256 `c5fbd13e7872` · 2026-11-16 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `3ba460cf7cbd` · 2026-11-16 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>

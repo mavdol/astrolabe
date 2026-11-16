@@ -274,6 +274,39 @@ describe("comparisons", () => {
   });
 });
 
+describe("usability studies with few participants", () => {
+  const studyWith = (participants: number) => {
+    const plan = planOf({
+      metrics: [{ kind: "usability", statistic: "mean", unit: "s", direction: "lower", minimum_meaningful: 5 }],
+      levels: [{ level: "participant", field: "item", planned: participants }],
+      extra: { workload: { description: "Onboarding", usage_pattern: "One session", tasks: ["Create a note"], users: "first-time users" } },
+    });
+    const times = (candidate: string, base: number) =>
+      Array.from({ length: participants }, (_, index) => ({
+        candidate,
+        measure: "score",
+        value: base + (index % 5),
+        item: `${candidate}-${index}`,
+      }));
+
+    return compute(plan, { data: rawFileOf([...times("base", 100), ...times("new", 60)]) }, FAST);
+  };
+
+  it("a usability comparison with fewer than 20 participants is indicative and names no winner", () => {
+    const comparison = studyWith(12).comparisons![0];
+
+    expect(comparison).toMatchObject({ verdict: "inconclusive", indicative: true });
+    expect(comparison.ci![1]).toBeLessThan(-5);
+  });
+
+  it("from 20 participants, the same difference names a winner", () => {
+    const comparison = studyWith(20).comparisons![0];
+
+    expect(comparison.verdict).toBe("better");
+    expect(comparison.indicative).toBeUndefined();
+  });
+});
+
 describe("structure and aggregation", () => {
   const accuracy = { statistic: "share", unit: "%", minimum_meaningful: 3 };
   const taskRows = (candidate: string, math: number[], policy: number[], bugfix: number[]) => [

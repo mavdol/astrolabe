@@ -66,4 +66,4 @@ Each candidate against the baseline, stdjson. A verdict is read from the interva
 
 ---
 
-<sub>results sha256 `21790008b158` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `4cdeee92dff5` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>

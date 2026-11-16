@@ -97,4 +97,4 @@ Not declared before measuring and not adjusted for the number of comparisons: so
 
 ---
 
-<sub>results sha256 `42961720be73` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `05f4d1ab3e99` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>

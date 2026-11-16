@@ -8,13 +8,13 @@ import { buildSample } from "./sample.js";
 import { newcombe } from "./stats.js";
 import { descendantsOf, hasAncestorIn, nodeTreeOf, type NodeId, type NodeTree } from "./structure.js";
 import { declaredValuesWithAggregates, measuredValue, VALUE_INTERVAL_LEVEL } from "./values.js";
-import { verdictOf } from "./verdict.js";
+import { verdictOf, withEnoughParticipants } from "./verdict.js";
 
 export { applyFailureWarnings } from "./comparisons.js";
 export { ComputeError, parseRaw, type RawFile, type RawRow } from "./raw-data.js";
 
 /** Bumped whenever a change to the methods can alter a stored digit. */
-export const METHODS_VERSION = "5";
+export const METHODS_VERSION = "6";
 export const RESAMPLES = 10000;
 export const ALPHA = 0.05;
 
@@ -84,7 +84,17 @@ export function compute(input: Results, rawFiles: Record<string, RawFile>, optio
 
   const measured = measureEveryMetric(plan, rawFiles, tree, seed, resamples);
   const { values, scaleOfMetric } = storeValues(measured.unroundedValues);
-  const comparisons = compareWithBaseline(plan, tree, values, scaleOfMetric, measured.observationsByMetric, seed, resamples);
+  const observed = observedLevelsAndTimestamps(plan, rawFiles);
+  const comparisons = compareWithBaseline(
+    plan,
+    tree,
+    values,
+    scaleOfMetric,
+    measured.observationsByMetric,
+    seed,
+    resamples,
+    participantsOf(observed),
+  );
   const primaryCount = comparisons.filter((comparison) => comparison.role === "primary").length;
 
   return {
@@ -94,7 +104,7 @@ export function compute(input: Results, rawFiles: Record<string, RawFile>, optio
     failures: measured.failures,
     exclusions: measured.exclusions,
     comparisons,
-    observed: observedLevelsAndTimestamps(plan, rawFiles),
+    observed,
     computed: {
       by: options.by ?? "astrolabe-bench",
       methods_version: METHODS_VERSION,
@@ -276,6 +286,7 @@ function compareWithBaseline(
   observationsByMetric: Map<string, MetricObservations>,
   seed: string,
   resamples: number,
+  participants: number | undefined,
 ): Comparison[] {
   const valueByKey = new Map(values.map((value) => [valueKey(value.metric, value.node, value.candidate), value]));
   const planned = planComparisons(plan, tree, valueByKey);
@@ -305,9 +316,13 @@ function compareWithBaseline(
     const storedInterval: [number, number] | undefined = unrounded.ci
       ? [stored(unrounded.ci[0], scale), stored(unrounded.ci[1], scale)]
       : undefined;
-    const verdict = storedInterval
-      ? verdictOf(storedInterval, metric.direction, metric.minimum_meaningful)
-      : { verdict: "inconclusive" as const, qualifier: undefined };
+    const verdict = withEnoughParticipants(
+      storedInterval
+        ? verdictOf(storedInterval, metric.direction, metric.minimum_meaningful)
+        : { verdict: "inconclusive" as const, qualifier: undefined },
+      metric.kind,
+      participants,
+    );
 
     const comparison: Comparison = {
       id: comparisonId(metric.id, node, candidate),
@@ -320,6 +335,7 @@ function compareWithBaseline(
       ci_level: stored(level, 1),
       verdict: verdict.verdict,
       ...(verdict.qualifier ? { qualifier: verdict.qualifier } : {}),
+      ...(verdict.indicative ? { indicative: true } : {}),
       role: isPrimary ? "primary" : "exploratory",
       adjusted: isPrimary && severalPrimaries,
       paired: unrounded.paired,
@@ -341,6 +357,15 @@ function compareWithBaseline(
   applyFailureWarnings(comparisons, tree);
 
   return comparisons;
+}
+
+/**
+ * The participants of a study: the units of the first level of repetition, as
+ * observed, on the side with the fewest. Successful attempts are not the
+ * measure: a participant who gave up still took part.
+ */
+export function participantsOf(observed: Results["observed"]): number | undefined {
+  return observed?.levels[0]?.n;
 }
 
 /**
