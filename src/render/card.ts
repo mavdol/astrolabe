@@ -45,7 +45,7 @@ const WARNING_ICON_SIZE = 12;
 export const MAX_HEADLINES = 3;
 
 /** Every size is at least 12 px at the card's own width, the smallest text readable once shown in a README. */
-const STYLE = {
+export const STYLE = {
   eyebrow: { weight: 500, size: 14, lineHeight: 18 },
   title: { weight: 600, size: 22, lineHeight: 28, tracking: -0.01 },
   label: { weight: 600, size: 13, lineHeight: 18 },

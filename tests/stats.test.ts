@@ -92,7 +92,7 @@ describe("intervals", () => {
     close(lo2, 0.8620237953250198);
     expect(hi2).toBe(1);
   });
-  it("newcombe (spec example: 0/24 against 5/24)", () => {
+  it("newcombe: 0/24 against 5/24", () => {
     const [lo, hi] = newcombe(0, 24, 5, 24, 0.95);
 
     close(lo, -0.404705, 1e-6);

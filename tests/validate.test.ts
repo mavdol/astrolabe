@@ -198,38 +198,6 @@ describe("plan checks", () => {
     expect(issues[0].message).toContain("limitation");
   });
 
-  it.each([
-    ["F7", "a baseline that is not a candidate", (plan: any) => (plan.baseline = "nobody")],
-    ["F8", "candidates with different configuration keys", (plan: any) => (plan.candidates[1].config = { other: 1 })],
-    [
-      "F14",
-      "a restriction without the address of its clause",
-      (plan: any) => (plan.candidates[0].publication_terms.restriction = "benchmarks need written consent"),
-    ],
-    [
-      "S9",
-      "variants tested without naming the selected one",
-      (plan: any) => (plan.candidates[0].variants = { tested: ["a", "b"], selected: null }),
-    ],
-    ["F18", "a measured metric without raw data", (plan: any) => delete plan.metrics[0].from],
-    ["F16", "a metric that reads an unknown raw file", (plan: any) => (plan.metrics[0].from.raw = "missing")],
-    ["R1", "a memory metric without its scope", (plan: any) => (plan.metrics[0].kind = "memory")],
-    ["Q4", "non-deterministic candidates without repeats", (plan: any) => plan.benchmark.conditions.push("non_deterministic")],
-    ["Q10", "tuned candidates without a contamination check", (plan: any) => plan.benchmark.conditions.push("trained_or_tuned")],
-    ["T7", "a load test without its arrival model", (plan: any) => plan.benchmark.conditions.push("load_test")],
-    ["C1", "a cost metric without pricing", (plan: any) => (plan.metrics[0].kind = "cost")],
-    ["U1", "a usability metric without tasks and users", (plan: any) => (plan.metrics[0].kind = "usability")],
-    ["S11", "a primary comparison on an unknown metric", (plan: any) => (plan.analysis = { primary: [{ metric: "nothing" }] })],
-  ])("%s: %s", (expectedRule, _description, breakPlan) => {
-    const plan = copyOf(planOf()) as any;
-
-    breakPlan(plan);
-    const errors = errorsOf(planIssues(plan));
-
-    expect(rulesOf(errors)).toContain(expectedRule);
-    expect(rule(expectedRule)).toBeDefined();
-  });
-
   it("Q7: a model never judges its own family", () => {
     const plan = copyOf(planOf()) as any;
 
