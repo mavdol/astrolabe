@@ -1,0 +1,824 @@
+{
+ "version": 2,
+ "status": "success",
+ "eval": {
+  "eval_id": "gXNTCrdnrhfSeSjvgiZcCz",
+  "run_id": "CDXsHZqC38pHDvarySEohd",
+  "created": "2026-11-15T22:18:55+00:00",
+  "task": "arithmetic",
+  "task_id": "9srdEtzDNCUCT2rgtY9pfk",
+  "task_version": 0,
+  "task_file": "tasks.py",
+  "task_display_name": "arithmetic",
+  "task_registry_name": "arithmetic",
+  "task_attribs": {},
+  "task_args": {
+   "skill": 0.4
+  },
+  "task_args_passed": {
+   "skill": 0.4
+  },
+  "dataset": {
+   "samples": 6,
+   "sample_ids": [
+    "q1",
+    "q2",
+    "q3",
+    "q4",
+    "q5",
+    "q6"
+   ],
+   "shuffled": false
+  },
+  "model": "mockllm/model",
+  "model_generate_config": {},
+  "model_args": {},
+  "config": {
+   "epochs": 2,
+   "fail_on_error": true,
+   "continue_on_fail": false,
+   "score_on_error": false,
+   "sandbox_cleanup": true,
+   "sandbox_prebuilt": false,
+   "log_samples": true,
+   "log_realtime": true,
+   "log_images": true,
+   "log_shared": 0,
+   "score_display": true
+  },
+  "revision": {
+   "type": "git",
+   "origin": "https://github.com/mavdol/astrolabe",
+   "commit": "9dd1fca",
+   "dirty": true
+  },
+  "packages": {
+   "inspect_ai": "0.3.290"
+  },
+  "metadata": {
+   "candidate": "model_b"
+  },
+  "scorers": [
+   {
+    "name": "match",
+    "options": {},
+    "metrics": [
+     {
+      "name": "inspect_ai/accuracy",
+      "options": {}
+     },
+     {
+      "name": "inspect_ai/stderr",
+      "options": {}
+     }
+    ],
+    "metadata": {}
+   }
+  ]
+ },
+ "plan": {
+  "name": "plan",
+  "steps": [
+   {
+    "solver": "answer_with_skill",
+    "params": {
+     "skill": 0.4
+    },
+    "params_passed": {
+     "skill": 0.4
+    }
+   }
+  ],
+  "config": {}
+ },
+ "results": {
+  "total_samples": 12,
+  "completed_samples": 12,
+  "scores": [
+   {
+    "name": "match",
+    "scorer": "match",
+    "scored_samples": 6,
+    "unscored_samples": 0,
+    "params": {},
+    "metrics": {
+     "accuracy": {
+      "name": "accuracy",
+      "value": 0.4166666666666667,
+      "params": {}
+     },
+     "stderr": {
+      "name": "stderr",
+      "value": 0.1536590742882148,
+      "params": {}
+     }
+    }
+   }
+  ],
+  "headline": {
+   "scorer": "match",
+   "score": "match",
+   "metric": "accuracy"
+  }
+ },
+ "stats": {
+  "started_at": "2026-11-15T22:18:55+00:00",
+  "completed_at": "2026-11-15T22:18:56+00:00",
+  "model_usage": {
+   "mockllm/model": {
+    "input_tokens": 96,
+    "output_tokens": 396,
+    "total_tokens": 492
+   }
+  },
+  "role_usage": {},
+  "connection_limit_history": []
+ },
+ "invalidated": false,
+ "total_samples": 12,
+ "tags": [],
+ "metadata": {
+  "candidate": "model_b"
+ },
+ "samples": [
+  {
+   "id": "q1",
+   "epoch": 1,
+   "input": "What is 1 + 1?",
+   "target": "2",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "7vTuUu7ugVgqrXHu88XCUg",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "2",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 0.15022533305455
+   },
+   "scores": {
+    "match": {
+     "value": "C",
+     "answer": "2",
+     "explanation": "2",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.879575+00:00",
+   "completed_at": "2026-11-15T22:18:56.187827+00:00",
+   "total_time": 0.308,
+   "working_time": 0.304,
+   "uuid": "64TaL3bd5ttL8AoD655hfK",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q2",
+   "epoch": 1,
+   "input": "What is 2 + 2?",
+   "target": "4",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "Gjy77HPt9Mw3A3aM5VVvvm",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "I am not sure",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 9.258300997316837e-05
+   },
+   "scores": {
+    "match": {
+     "value": "I",
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.882296+00:00",
+   "completed_at": "2026-11-15T22:18:56.188592+00:00",
+   "total_time": 0.306,
+   "working_time": 0.041,
+   "uuid": "AztZ5vMNY6mB2JGTV76ttS",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q3",
+   "epoch": 1,
+   "input": "What is 3 + 3?",
+   "target": "6",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "S2AFibHm4CgCMKK64oTPk8",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "I am not sure",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 6.341596599668264e-05
+   },
+   "scores": {
+    "match": {
+     "value": "I",
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.884149+00:00",
+   "completed_at": "2026-11-15T22:18:56.189094+00:00",
+   "total_time": 0.305,
+   "working_time": 0.038,
+   "uuid": "ayqo3QbmSieseQMW3BwkzZ",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q4",
+   "epoch": 1,
+   "input": "What is 4 + 4?",
+   "target": "8",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "jy6aXLd8cSzMqXzrWiykQ4",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "8",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 4.979199729859829e-05
+   },
+   "scores": {
+    "match": {
+     "value": "C",
+     "answer": "8",
+     "explanation": "8",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.886203+00:00",
+   "completed_at": "2026-11-15T22:18:56.189584+00:00",
+   "total_time": 0.303,
+   "working_time": 0.036,
+   "uuid": "oYcduZ6aPuy9NRfKBFw8dB",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q5",
+   "epoch": 1,
+   "input": "What is 5 + 5?",
+   "target": "10",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "7yUSabLZdtRmMUZqDgNYxQ",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "I am not sure",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 7.624999852851033e-05
+   },
+   "scores": {
+    "match": {
+     "value": "I",
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.888065+00:00",
+   "completed_at": "2026-11-15T22:18:56.190082+00:00",
+   "total_time": 0.302,
+   "working_time": 0.034,
+   "uuid": "7VUqsv7PMY8iJThipKJTvj",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q6",
+   "epoch": 1,
+   "input": "What is 6 + 6?",
+   "target": "12",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "cHefbYQXMyvY9Eytfsv5k9",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "I am not sure",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 5.8416975662112236e-05
+   },
+   "scores": {
+    "match": {
+     "value": "I",
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.889602+00:00",
+   "completed_at": "2026-11-15T22:18:56.190712+00:00",
+   "total_time": 0.301,
+   "working_time": 0.031,
+   "uuid": "aSAgBfwhkeChZZ7dUGyz6q",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q1",
+   "epoch": 2,
+   "input": "What is 1 + 1?",
+   "target": "2",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "MovctuMrtfopHNuvJZAAET",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "2",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 5.199998850002885e-05
+   },
+   "scores": {
+    "match": {
+     "value": "C",
+     "answer": "2",
+     "explanation": "2",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.891537+00:00",
+   "completed_at": "2026-11-15T22:18:56.191238+00:00",
+   "total_time": 0.3,
+   "working_time": 0.029,
+   "uuid": "DutrJ6DG8D6My9tVvqng7Z",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q2",
+   "epoch": 2,
+   "input": "What is 2 + 2?",
+   "target": "4",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "YKrY4uVB3VF9x5jLDScRxy",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "4",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 4.6749948523938656e-05
+   },
+   "scores": {
+    "match": {
+     "value": "C",
+     "answer": "4",
+     "explanation": "4",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.893324+00:00",
+   "completed_at": "2026-11-15T22:18:56.191709+00:00",
+   "total_time": 0.298,
+   "working_time": 0.027,
+   "uuid": "kPPmK2UmERkzVogj4753kZ",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q3",
+   "epoch": 2,
+   "input": "What is 3 + 3?",
+   "target": "6",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "Bg3nV38YDXV7SHxtW8w3iz",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "I am not sure",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 4.4082989916205406e-05
+   },
+   "scores": {
+    "match": {
+     "value": "I",
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.895056+00:00",
+   "completed_at": "2026-11-15T22:18:56.192173+00:00",
+   "total_time": 0.297,
+   "working_time": 0.025,
+   "uuid": "8jUUDSwjmXWYHa3YdDNsT6",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q4",
+   "epoch": 2,
+   "input": "What is 4 + 4?",
+   "target": "8",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "Y6d7YzEZUmRAiTd8SDbNrg",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "I am not sure",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 4.4707965571433306e-05
+   },
+   "scores": {
+    "match": {
+     "value": "I",
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.896858+00:00",
+   "completed_at": "2026-11-15T22:18:56.192619+00:00",
+   "total_time": 0.296,
+   "working_time": 0.023,
+   "uuid": "T8dyaMsBBaoSeTKizvNgRj",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q5",
+   "epoch": 2,
+   "input": "What is 5 + 5?",
+   "target": "10",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "nr8APnns3CiQPt5taKGqky",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "10",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 4.8290996346622705e-05
+   },
+   "scores": {
+    "match": {
+     "value": "C",
+     "answer": "10",
+     "explanation": "10",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.898976+00:00",
+   "completed_at": "2026-11-15T22:18:56.193062+00:00",
+   "total_time": 0.294,
+   "working_time": 0.02,
+   "uuid": "XEsvLz8YUnfNhTKLLbYkyq",
+   "error_retries": [],
+   "turn_count": 1
+  },
+  {
+   "id": "q6",
+   "epoch": 2,
+   "input": "What is 6 + 6?",
+   "target": "12",
+   "output": {
+    "model": "mockllm",
+    "choices": [
+     {
+      "message": {
+       "id": "QJz67WHaSKN2rmJTsA6fRs",
+       "content": "Default output from mockllm/model",
+       "source": "generate",
+       "role": "assistant",
+       "model": "mockllm"
+      },
+      "stop_reason": "stop"
+     }
+    ],
+    "completion": "I am not sure",
+    "usage": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    },
+    "input_context_tokens": 8,
+    "time": 4.499999340623617e-05
+   },
+   "scores": {
+    "match": {
+     "value": "I",
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": []
+    }
+   },
+   "metadata": {},
+   "model_usage": {
+    "mockllm/model": {
+     "input_tokens": 8,
+     "output_tokens": 33,
+     "total_tokens": 41
+    }
+   },
+   "role_usage": {},
+   "started_at": "2026-11-15T22:18:55.900808+00:00",
+   "completed_at": "2026-11-15T22:18:56.193510+00:00",
+   "total_time": 0.293,
+   "working_time": 0.018,
+   "uuid": "F2Zu2uMW2mDmEam8eSexKc",
+   "error_retries": [],
+   "turn_count": 1
+  }
+ ],
+ "reductions": [
+  {
+   "scorer": "match",
+   "samples": [
+    {
+     "value": 1.0,
+     "answer": "2",
+     "explanation": "2",
+     "history": [],
+     "sample_id": "q1"
+    },
+    {
+     "value": 0.5,
+     "history": [],
+     "sample_id": "q2"
+    },
+    {
+     "value": 0.0,
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": [],
+     "sample_id": "q3"
+    },
+    {
+     "value": 0.5,
+     "history": [],
+     "sample_id": "q4"
+    },
+    {
+     "value": 0.5,
+     "history": [],
+     "sample_id": "q5"
+    },
+    {
+     "value": 0.0,
+     "answer": "I am not sure",
+     "explanation": "I am not sure",
+     "history": [],
+     "sample_id": "q6"
+    }
+   ]
+  }
+ ]
+}

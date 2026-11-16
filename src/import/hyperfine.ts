@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { RawRow } from "../compute/raw-data.js";
+import { ImportError, type Candidate } from "./raw-file.js";
 
 const BYTES_PER_MEBIBYTE = 1024 * 1024;
 
@@ -61,8 +62,6 @@ export const HYPERFINE_MEASURES = [
   "cache_misses",
   "branch_misses",
 ] as const;
-
-export class ImportError extends Error {}
 
 function runsOfVersion1(exported: z.infer<typeof exportOfVersion1>, exportName: string): HyperfineRun[] {
   return exported.results.flatMap((result) => {
@@ -133,11 +132,6 @@ export function hyperfineRuns(exported: unknown, exportName: string): HyperfineR
     : runsOfVersion1(parsed.data as z.infer<typeof exportOfVersion1>, exportName);
 }
 
-export interface Candidate {
-  id: string;
-  name: string;
-}
-
 export interface HyperfineImport {
   rows: RawRow[];
   runsPerCandidate: Map<string, number>;
@@ -200,18 +194,4 @@ export function importHyperfine(exports: { name: string; content: unknown }[], c
   }
 
   return { rows, runsPerCandidate, measures: HYPERFINE_MEASURES.filter((measure) => measuresSeen.has(measure)) };
-}
-
-/** One JSON object per line, keys in a fixed order, so that the same exports always give the same bytes. */
-export function rawFileContent(rows: RawRow[]): string {
-  return rows
-    .map((row) => {
-      const ordered: Record<string, unknown> = { candidate: row.candidate, measure: row.measure, value: row.value, run: Number(row.run) };
-
-      if (row.status !== undefined) ordered.status = row.status;
-
-      return JSON.stringify(ordered);
-    })
-    .join("\n")
-    .concat("\n");
 }

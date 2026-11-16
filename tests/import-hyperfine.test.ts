@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { compute, parseRaw } from "../src/compute/compute.js";
-import { importHyperfine, ImportError, rawFileContent } from "../src/import/hyperfine.js";
+import { importHyperfine } from "../src/import/hyperfine.js";
+import { ImportError, rawFileContent } from "../src/import/raw-file.js";
 import { planOf } from "./helpers.js";
 
 const fixture = (name: string) => ({ name, content: JSON.parse(readFileSync(`tests/fixtures/hyperfine/${name}`, "utf8")) });

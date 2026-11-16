@@ -4,7 +4,7 @@ Benchmarks authored by agents, verifiable by humans.
 
 The agent writes a plan and the measuring scripts, never numbers. The scripts write raw data, one JSON line per observation. `astrolabe compute` turns the raw data into every value, interval, comparison and verdict, and `astrolabe validate` computes them again to check that nothing was edited by hand.
 
-Status: early development. The schema, `validate`, `compute`, the hyperfine importer, the Markdown output and the README card exist; the Inspect importer, PNG exports and the site do not yet.
+Status: early development. The schema, `validate`, `compute`, the hyperfine and Inspect importers, the Markdown output and the README card exist; PNG exports and the site do not yet.
 
 ## Commands
 
@@ -12,6 +12,7 @@ Status: early development. The schema, `validate`, `compute`, the hyperfine impo
 astrolabe validate [file]   # check the plan; after compute, recompute everything and compare
 astrolabe compute [file]    # write values, intervals, failures, comparisons and verdicts into results
 astrolabe import hyperfine <export.json...> --raw <id>   # convert hyperfine --export-json files into a raw file
+astrolabe import inspect <log...> --raw <id>             # convert Inspect logs (.eval or .json) into a raw file
 astrolabe build [file]      # validate, then write dist/benchmark.md and the README card in dist/exports/, light and dark
 astrolabe explain <rule>    # print one rule: instruction, pitfall, level, field
 astrolabe schema            # print the JSON Schema of benchmark.json
