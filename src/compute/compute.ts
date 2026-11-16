@@ -14,7 +14,7 @@ export { applyFailureWarnings } from "./comparisons.js";
 export { ComputeError, parseRaw, type RawFile, type RawRow } from "./raw-data.js";
 
 /** Bumped whenever a change to the methods can alter a stored digit. */
-export const METHODS_VERSION = "4";
+export const METHODS_VERSION = "5";
 export const RESAMPLES = 10000;
 export const ALPHA = 0.05;
 
@@ -283,6 +283,12 @@ function compareWithBaseline(
   const severalPrimaries = primaryCount > 1;
   const bonferroniLevel = severalPrimaries ? 1 - ALPHA / primaryCount : 1 - ALPHA;
 
+  const nodesWithAParent = (metric: string, candidate: string) =>
+    planned.filter(
+      (comparison) =>
+        comparison.metric.id === metric && comparison.candidate === candidate && tree.parentOf.get(comparison.node!) !== undefined,
+    ).length;
+
   const comparisons = planned.map(({ metric, node, candidate, isPrimary }): Comparison => {
     const level = isPrimary ? bonferroniLevel : 1 - ALPHA;
     const scale = metric.compare_as === "relative" ? PERCENT : scaleOfMetric.get(metric.id)!;
@@ -323,7 +329,8 @@ function compareWithBaseline(
 
     if (observations && metric.failures_count_as === "excluded") {
       comparison.successful_only = true;
-      const failureShare = failureShareOf(observations, tree, candidate, plan.baseline, node);
+      const nodesCheckedTogether = node !== undefined && tree.parentOf.get(node) !== undefined ? nodesWithAParent(metric.id, candidate) : 1;
+      const failureShare = failureShareOf(observations, tree, candidate, plan.baseline, node, nodesCheckedTogether);
 
       if (failureShare) comparison.failure_share = failureShare;
     }
@@ -336,13 +343,20 @@ function compareWithBaseline(
   return comparisons;
 }
 
-/** Failure shares of both sides in percent, with Newcombe's interval of their difference; absent when nothing failed. */
+/**
+ * Failure shares of both sides in percent, with Newcombe's interval of their
+ * difference; absent when nothing failed. A node below the root also gets the
+ * interval adjusted for all the nodes checked with it (Bonferroni): only that
+ * one may carry its warning up to its parents, otherwise a suite of 50 tasks
+ * would show a warning on its headline most of the time by chance alone.
+ */
 function failureShareOf(
   observations: MetricObservations,
   tree: NodeTree,
   candidate: string,
   baseline: string,
   node: NodeId,
+  nodesCheckedTogether: number,
 ): Comparison["failure_share"] {
   const ofCandidate = failedAttemptsUnder(observations, tree, candidate, node);
   const ofBaseline = failedAttemptsUnder(observations, tree, baseline, node);
@@ -357,10 +371,20 @@ function failureShareOf(
     VALUE_INTERVAL_LEVEL,
   );
 
+  const inPercent = (interval: [number, number]): [number, number] => [
+    stored(PERCENT * interval[0], PERCENT),
+    stored(PERCENT * interval[1], PERCENT),
+  ];
+  const adjustedInterval =
+    nodesCheckedTogether > 1
+      ? newcombe(ofCandidate.failed, ofCandidate.attempts, ofBaseline.failed, ofBaseline.attempts, 1 - ALPHA / nodesCheckedTogether)
+      : undefined;
+
   return {
     candidate: stored((PERCENT * ofCandidate.failed) / ofCandidate.attempts, PERCENT),
     baseline: stored((PERCENT * ofBaseline.failed) / ofBaseline.attempts, PERCENT),
-    difference_ci: [stored(PERCENT * differenceInterval[0], PERCENT), stored(PERCENT * differenceInterval[1], PERCENT)],
+    difference_ci: inPercent(differenceInterval),
+    ...(adjustedInterval ? { difference_ci_adjusted: inPercent(adjustedInterval) } : {}),
   };
 }
 

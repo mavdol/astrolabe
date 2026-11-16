@@ -179,17 +179,28 @@ export function failedAttemptsUnder(
 
 /**
  * Sets failure_warning from the stored failure shares. A parent node's
- * comparison carries the warning too when any node below it does, and names
- * those nodes: the pooled share of a suite would otherwise dilute a large gap on one task.
+ * comparison carries the warning too when a node below it warns on its
+ * adjusted interval, and names those nodes: the pooled share of a suite would
+ * otherwise dilute a large gap on one task.
  */
 export function applyFailureWarnings(comparisons: Comparison[], treeOrResults: NodeTree | Results): void {
   const tree = "nodesInDeclaredOrder" in treeOrResults ? treeOrResults : nodeTreeOf(treeOrResults);
   const key = (metric: string, node: NodeId, candidate: string) => `${metric}\u0000${node ?? ""}\u0000${candidate}`;
   const warnsOnItsOwnShares = new Map<string, boolean>();
+  const warnsForItsParents = new Map<string, boolean>();
 
   for (const comparison of comparisons) {
-    if (comparison.failure_share)
-      warnsOnItsOwnShares.set(key(comparison.metric, comparison.node, comparison.candidate), failureWarningOf(comparison.failure_share));
+    const share = comparison.failure_share;
+
+    if (!share) continue;
+
+    const comparisonKey = key(comparison.metric, comparison.node, comparison.candidate);
+
+    warnsOnItsOwnShares.set(comparisonKey, failureWarningOf(share));
+    warnsForItsParents.set(
+      comparisonKey,
+      failureWarningOf({ ...share, difference_ci: share.difference_ci_adjusted ?? share.difference_ci }),
+    );
   }
 
   for (const comparison of comparisons) {
@@ -202,7 +213,7 @@ export function applyFailureWarnings(comparisons: Comparison[], treeOrResults: N
       comparison.node === undefined
         ? []
         : descendantsOf(tree, comparison.node).filter(
-            (descendant) => warnsOnItsOwnShares.get(key(comparison.metric, descendant, comparison.candidate)) === true,
+            (descendant) => warnsForItsParents.get(key(comparison.metric, descendant, comparison.candidate)) === true,
           );
     const warnsHere = warnsOnItsOwnShares.get(key(comparison.metric, comparison.node, comparison.candidate)) === true;
 

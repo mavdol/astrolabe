@@ -70,7 +70,7 @@ Each candidate against the baseline, Notes A. A verdict is read from the interva
 | Comparison | Effect | Interval | Verdict | Notes |
 | --- | ---: | ---: | --- | --- |
 | Notes B, task success, Tasks | +5.6 points | −11.1 to +23.6 points (98.75%) | inconclusive |  |
-| Notes B, time on task, Tasks | −18% | −31 to +5% (98.75%) | inconclusive | successful attempts only; warning: the candidates did not fail equally often (Create and format a note); see the failures |
+| Notes B, time on task, Tasks | −18% | −31 to +5% (98.75%) | inconclusive | successful attempts only |
 | Notes B, SUS score, Onboarding study | +2 points | −7 to +12 points (98.75%) | inconclusive |  |
 | Notes B, feature coverage, Features | −17 points | — | worse | declared values |
 
@@ -112,4 +112,4 @@ Not declared before measuring and not adjusted for the number of comparisons: so
 
 ---
 
-<sub>results sha256 `035accb3ab1b` · 2026-11-15 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `c5fbd13e7872` · 2026-11-16 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>

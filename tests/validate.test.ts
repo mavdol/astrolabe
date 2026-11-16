@@ -119,11 +119,10 @@ describe("tampering", () => {
   it("a failure warning switched off by hand is caught", () => {
     const usability = loadExample("notes-apps-onboarding");
     const edited = copyOf(usability.benchmark);
-    const overall = edited.results.comparisons!.find((comparison) => comparison.id === "time__tasks__notes_b")!;
+    const onTheCreateTask = edited.results.comparisons!.find((comparison) => comparison.id === "time__t_create__notes_b")!;
 
-    expect(overall.failure_warning).toBe(true);
-    overall.failure_warning = false;
-    delete overall.failure_warning_nodes;
+    expect(onTheCreateTask.failure_warning).toBe(true);
+    onTheCreateTask.failure_warning = false;
     expect(rulesOf(errorsOf(validate(edited, usability.rawFiles).issues))).toContain("T8");
   });
 });

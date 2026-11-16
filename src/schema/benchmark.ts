@@ -136,7 +136,9 @@ const comparison = z.strictObject({
   source: z.enum(["computed", "declared"]),
   n: z.number().int().optional(),
   successful_only: z.boolean().optional(),
-  failure_share: z.strictObject({ candidate: z.number(), baseline: z.number(), difference_ci: interval }).optional(),
+  failure_share: z
+    .strictObject({ candidate: z.number(), baseline: z.number(), difference_ci: interval, difference_ci_adjusted: interval.optional() })
+    .optional(),
   failure_warning: z.boolean().optional(),
   failure_warning_nodes: z.array(id).optional(),
 });
