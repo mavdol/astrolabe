@@ -3,8 +3,9 @@
 Internal tasks only; does not measure latency or safety.
 
 <picture>
+  <source media="(prefers-color-scheme: light)" srcset="exports/readme-card-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="exports/readme-card-dark.svg">
-  <img alt="Model A against Model B: accuracy (higher is better) +6.4 points, likely better; cost per item (lower is better) +265%, worse." src="exports/readme-card-light.svg">
+  <img alt="Model A against Model B: accuracy (higher is better) +6.4 points, likely better; cost per item (lower is better) +265%, worse." src="exports/readme-card-light.png">
 </picture>
 
 Benchmark `support-assistant-eval`, version 1.2.0. Baseline: Model B.

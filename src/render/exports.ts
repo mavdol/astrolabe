@@ -50,21 +50,27 @@ export function exportPlanOf(benchmark: Benchmark): ExportPlan {
   return plan;
 }
 
-export const cardFileName = (cardId: string, mode: CardMode) => `${cardId}-${mode}.svg`;
+export const cardFileName = (cardId: string, mode: CardMode, extension: "svg" | "png" = "svg") => `${cardId}-${mode}.${extension}`;
 
-/** The <picture> that shows the light or the dark card following the reader's setting, as GitHub supports. */
-export function pictureHtml(altText: string, paths: Partial<Record<CardMode, string>>, linkTo?: string): string {
+export interface CardFiles {
+  svg: Partial<Record<CardMode, string>>;
+  /** The PNG of the first mode, for readers that cannot show an SVG from a repository. */
+  png: string;
+}
+
+/**
+ * The <picture> that shows the card. Browsers take the SVG that matches the
+ * reader's light or dark setting; the GitHub mobile app, which shows neither
+ * an SVG from a repository nor the setting, takes the PNG of the <img>.
+ */
+export function pictureHtml(altText: string, files: CardFiles, linkTo?: string): string {
   const alt = altText.replace(/"/g, "&quot;");
-  const fallback = paths.light ?? paths.dark!;
-  const image =
-    !paths.light || !paths.dark
-      ? `<img alt="${alt}" src="${fallback}">`
-      : [
-          "<picture>",
-          `  <source media="(prefers-color-scheme: dark)" srcset="${paths.dark}">`,
-          `  <img alt="${alt}" src="${paths.light}">`,
-          "</picture>",
-        ].join("\n");
+  const sources = Object.entries(files.svg).map(([mode, path]) =>
+    files.svg.light && files.svg.dark
+      ? `  <source media="(prefers-color-scheme: ${mode})" srcset="${path}">`
+      : `  <source srcset="${path}">`,
+  );
+  const image = ["<picture>", ...sources, `  <img alt="${alt}" src="${files.png}">`, "</picture>"].join("\n");
 
   return linkTo ? `<a href="${linkTo}">\n${image}\n</a>` : image;
 }

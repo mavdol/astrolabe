@@ -3,8 +3,9 @@
 One process per run, start-up included, on a short CPU-bound script; not a measure of long-running servers.
 
 <picture>
+  <source media="(prefers-color-scheme: light)" srcset="exports/readme-card-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="exports/readme-card-dark.svg">
-  <img alt="Deno against Node.js: wall time (lower is better) −10%, likely better; peak memory (lower is better) +1.1%, equivalent." src="exports/readme-card-light.svg">
+  <img alt="Deno against Node.js: wall time (lower is better) −10%, likely better; peak memory (lower is better) +1.1%, equivalent." src="exports/readme-card-light.png">
 </picture>
 
 Benchmark `js-runtimes`, version 1.0.0. Baseline: Node.js.

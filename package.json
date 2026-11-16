@@ -30,6 +30,7 @@
     "gen:example-data": "tsx scripts/make-example-data.ts"
   },
   "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {
