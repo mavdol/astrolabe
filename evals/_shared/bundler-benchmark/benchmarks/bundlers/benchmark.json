@@ -107,8 +107,8 @@
       "Warm cache only: cold builds were not measured."
     ],
     "values": [
-      {"candidate": "packwise", "metric": "wall_time", "value": 2.39265, "n": 30, "source": "computed", "ci": [2.3693, 2.4153], "method": "order statistics", "ci_level": 0.95},
-      {"candidate": "swiftpack", "metric": "wall_time", "value": 2.09945, "n": 28, "source": "computed", "ci": [2.072, 2.1205], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "packwise", "metric": "wall_time", "value": 2.39265, "n": 30, "source": "computed", "ci": [2.3693, 2.4153], "method": "order statistics", "ci_level": 0.95, "percentiles": {"min": 2.3445, "max": 5.2224}},
+      {"candidate": "swiftpack", "metric": "wall_time", "value": 2.09945, "n": 28, "source": "computed", "ci": [2.072, 2.1205], "method": "order statistics", "ci_level": 0.95, "percentiles": {"min": 2.0479, "max": 2.1481}},
       {"candidate": "packwise", "metric": "peak_rss", "value": 411.275, "n": 30, "source": "computed", "ci": [410.25, 412.61], "method": "order statistics", "ci_level": 0.95},
       {"candidate": "swiftpack", "metric": "peak_rss", "value": 418.21, "n": 28, "source": "computed", "ci": [417.29, 419.59], "method": "order statistics", "ci_level": 0.95}
     ],
@@ -124,7 +124,7 @@
     "observed": {"levels": [{"level": "build", "field": "run", "n": 30}]},
     "computed": {
       "by": "astrolabe-bench 0.1.0",
-      "methods_version": "6",
+      "methods_version": "7",
       "resamples": 10000,
       "seed": "72acb1c6991e304822badfb1fd09dd71ccb0b289d76589b7dbe9ab3c22fee582",
       "alpha": 0.05,

@@ -114,8 +114,8 @@
       "Within a round, the runs of one runtime are consecutive, so a slow drift of the machine can favour one runtime; alternating the order between rounds limits it."
     ],
     "values": [
-      {"candidate": "node", "metric": "wall_time", "value": 0.26896, "n": 30, "source": "computed", "ci": [0.266466, 0.272919], "method": "order statistics", "ci_level": 0.95},
-      {"candidate": "deno", "metric": "wall_time", "value": 0.240863, "n": 30, "source": "computed", "ci": [0.238359, 0.242532], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "node", "metric": "wall_time", "value": 0.26896, "n": 30, "source": "computed", "ci": [0.266466, 0.272919], "method": "order statistics", "ci_level": 0.95, "percentiles": {"min": 0.255321, "max": 0.290961}},
+      {"candidate": "deno", "metric": "wall_time", "value": 0.240863, "n": 30, "source": "computed", "ci": [0.238359, 0.242532], "method": "order statistics", "ci_level": 0.95, "percentiles": {"min": 0.23144, "max": 0.257565}},
       {"candidate": "node", "metric": "peak_rss", "value": 212.883, "n": 30, "source": "computed", "ci": [212.813, 212.922], "method": "order statistics", "ci_level": 0.95},
       {"candidate": "deno", "metric": "peak_rss", "value": 215.172, "n": 30, "source": "computed", "ci": [215.047, 215.344], "method": "order statistics", "ci_level": 0.95}
     ],
@@ -128,7 +128,7 @@
     "observed": {"levels": [{"level": "process", "field": "run", "n": 30}]},
     "computed": {
       "by": "astrolabe-bench 0.1.0",
-      "methods_version": "6",
+      "methods_version": "7",
       "resamples": 10000,
       "seed": "ff9637e749c88e3cbf05fcaeee501b68395561c7827eef8989e6cf3700ed4684",
       "alpha": 0.05,

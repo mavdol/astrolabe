@@ -14,12 +14,12 @@ Benchmark `js-runtimes`, version 1.0.0. Baseline: Node.js.
 
 ### Wall time
 
-Elapsed time of one process running workload.mjs, start-up included, as measured by hyperfine without a shell. The median, in s; lower is better. Intervals: 95%, by order statistics. Failed attempts are left out: values cover successful attempts only.
+Elapsed time of one process running workload.mjs, start-up included, as measured by hyperfine without a shell. The median, in s; lower is better. Intervals: 95%, by order statistics. Min and max: the lowest and the highest observation. Failed attempts are left out: values cover successful attempts only.
 
-| Candidate | Median (s) | 95% interval | n | Failures |
-| --- | ---: | ---: | ---: | ---: |
-| Node.js (baseline) | 0.269 | 0.266 to 0.273 | 30 | 0 |
-| Deno | 0.241 | 0.238 to 0.243 | 30 | 0 |
+| Candidate | Median (s) | 95% interval | min | max | n | Failures |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Node.js (baseline) | 0.269 | 0.266 to 0.273 | 0.255 | 0.291 | 30 | 0 |
+| Deno | 0.241 | 0.238 to 0.243 | 0.231 | 0.258 | 30 | 0 |
 
 ### Peak memory
 
@@ -81,4 +81,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `01bbf4ece8b6` · 2026-11-16 · source https://github.com/mavdol/astrolabe · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `e2c4fb0f3d76` · 2026-11-16 · source https://github.com/mavdol/astrolabe · built with astrolabe-bench 0.1.0</sub>

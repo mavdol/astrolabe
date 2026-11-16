@@ -121,4 +121,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `05f4d1ab3e99` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `097eb7662c66` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>

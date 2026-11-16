@@ -1,4 +1,5 @@
 import { descendantsOf } from "../compute/structure.js";
+import { VALUE_INTERVAL_LEVEL } from "../compute/values.js";
 import type { Benchmark, Comparison, Failure, Metric, Value } from "../schema/benchmark.js";
 import {
   effectAndInterval,
@@ -11,7 +12,14 @@ import {
   type BuildContext,
   type Lookup,
 } from "./describe.js";
-import { decimalsForPercentage, decimalsForUncertainty, formatInterval, formatNumber, type Decimals } from "./number-format.js";
+import {
+  decimalsForPercentage,
+  decimalsForUncertainty,
+  decimalsWithoutUncertainty,
+  formatInterval,
+  formatNumber,
+  type Decimals,
+} from "./number-format.js";
 
 export { buildDateFrom, continuousIntegrationFrom, type BuildContext } from "./describe.js";
 
@@ -24,8 +32,8 @@ function table(header: string[], alignments: ("left" | "right")[], rows: string[
   return [tableRow(header), `| ${separator.join(" | ")} |`, ...rows.map(tableRow)].join("\n");
 }
 
-/** A median latency is shown with its tail: the median alone hides the slow requests. */
-const PERCENTILE_COLUMNS = ["p95", "p99", "max"];
+/** A median latency is shown with its tail, a run time with its fastest and slowest run: the summary alone hides them. */
+const PERCENTILE_COLUMNS = ["min", "p95", "p99", "max"];
 
 /** One number of decimals down a column, so values compare by eye: the finest any of its rows needs. */
 function finestDecimals(decimalsOfRows: (Decimals | null)[]): Decimals | null {
@@ -37,7 +45,15 @@ function finestDecimals(decimalsOfRows: (Decimals | null)[]): Decimals | null {
 function valueDecimals(metric: Metric, value: Value): Decimals | null {
   if (isPercentage(metric)) return decimalsForPercentage(value.value);
 
-  return decimalsForUncertainty(value.se, value.ci, value.ci_level);
+  const supportedByInterval = decimalsForUncertainty(value.se, value.ci, value.ci_level);
+
+  if (supportedByInterval !== null || value.source === "declared") return supportedByInterval;
+
+  const { min, max } = value.percentiles ?? {};
+  const supportedByRange =
+    min !== undefined && max !== undefined ? decimalsForUncertainty(undefined, [min, max], VALUE_INTERVAL_LEVEL) : null;
+
+  return supportedByRange ?? decimalsWithoutUncertainty(value.value);
 }
 
 /** Failures under a node: counted where they were recorded, so a parent shows the total of its children. */
@@ -75,6 +91,8 @@ function howToRead(lookup: Lookup, metric: Metric, values: Value[]): string {
   const statistic = STATISTIC_WORD[metric.statistic].toLowerCase();
   const methods = [...new Set(values.filter((value) => value.ci && value.method).map((value) => value.method!))];
   const intervalSentence = methods.length > 0 ? ` Intervals: 95%, by ${methods.join(" and ")}.` : "";
+  const hasRange = values.some((value) => value.percentiles?.min !== undefined);
+  const rangeSentence = hasRange ? " Min and max: the lowest and the highest observation." : "";
   const declared = metric.from ? "" : " Declared by the author, not computed from raw data.";
   const failureTreatment =
     metric.failures_count_as === "excluded"
@@ -83,7 +101,7 @@ function howToRead(lookup: Lookup, metric: Metric, values: Value[]): string {
         ? " Failed attempts count as zero."
         : "";
 
-  return `${metric.definition}. The ${statistic}, in ${metric.unit}; ${direction}.${intervalSentence}${failureTreatment}${declared}`.replace(
+  return `${metric.definition}. The ${statistic}, in ${metric.unit}; ${direction}.${intervalSentence}${rangeSentence}${failureTreatment}${declared}`.replace(
     /\.\./g,
     ".",
   );

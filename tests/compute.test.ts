@@ -85,6 +85,7 @@ describe("values", () => {
     close(value.value, 4.1715);
     expect(value.ci).toEqual([4.12, 4.296]);
     expect(value.method).toBe("order statistics");
+    expect(value.percentiles).toEqual({ min: 4.05, max: 4.31 });
     close(comparisonOf(results, "score__new").effect, -50);
   });
 
@@ -94,6 +95,22 @@ describe("values", () => {
 
     expect(valueOf(results, "base").ci).toBeUndefined();
     expect(valueOf(results, "base").method).toContain("too few observations");
+  });
+
+  it("a value without an interval carries its lowest and highest observation instead", () => {
+    const plan = planOf({ metrics: [{ statistic: "median" }] });
+    const fewRuns = { data: rawFileOf([...runsOf("base", [3, 1, 5]), ...runsOf("new", [2, 6, 4])]) };
+    const enoughRuns = { data: rawFileOf([...runsOf("base", BASE_SCORES), ...runsOf("new", NEW_SCORES)]) };
+
+    expect(valueOf(compute(plan, fewRuns, FAST), "base").percentiles).toEqual({ min: 1, max: 5 });
+    expect(valueOf(compute(plan, enoughRuns, FAST), "base").percentiles).toBeUndefined();
+  });
+
+  it("a share has no lowest and highest observation to show", () => {
+    const plan = planOf({ metrics: [{ statistic: "share", unit: "%" }], levels: [{ level: "item", field: "item", planned: 3 }] });
+    const results = compute(plan, { data: rawFileOf([...itemsOf("base", [1, 0, 1]), ...itemsOf("new", [1, 1, 0])]) }, FAST);
+
+    expect(valueOf(results, "base").percentiles).toBeUndefined();
   });
 
   it("share of binary items: Wilson interval, in percent", () => {

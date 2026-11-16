@@ -12,13 +12,13 @@ Benchmark `json-cli-parse`, version 1.0.0. Baseline: stdjson.
 
 ### Wall time
 
-Elapsed time of one process parsing and re-serializing the file, start-up included. The median, in s; lower is better. Intervals: 95%, by order statistics.
+Elapsed time of one process parsing and re-serializing the file, start-up included. The median, in s; lower is better. Intervals: 95%, by order statistics. Min and max: the lowest and the highest observation.
 
-| Candidate | Median (s) | 95% interval | n | Failures |
-| --- | ---: | ---: | ---: | ---: |
-| stdjson (baseline) | 4.21 | 4.08 to 4.25 | 10 | 0 |
-| fastjson | 2.12 | 2.09 to 2.14 | 10 | 0 |
-| tinyjson | 4.02 | 3.90 to 4.09 | 10 | 0 |
+| Candidate | Median (s) | 95% interval | min | max | n | Failures |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stdjson (baseline) | 4.21 | 4.08 to 4.25 | 4.03 | 4.26 | 10 | 0 |
+| fastjson | 2.12 | 2.09 to 2.14 | 2.09 | 2.15 | 10 | 0 |
+| tinyjson | 4.02 | 3.90 to 4.09 | 3.90 | 4.12 | 10 | 0 |
 
 ### Peak memory
 
@@ -88,4 +88,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `4cdeee92dff5` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `be6ce37668e2` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>

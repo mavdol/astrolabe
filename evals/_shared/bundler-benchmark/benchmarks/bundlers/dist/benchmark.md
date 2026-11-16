@@ -14,12 +14,12 @@ Benchmark `bundlers`, version 1.0.0. Baseline: packwise.
 
 ### Wall time
 
-Elapsed time of one full production build, process start-up included, as measured by hyperfine without a shell. The median, in s; lower is better. Intervals: 95%, by order statistics. Failed attempts are left out: values cover successful attempts only.
+Elapsed time of one full production build, process start-up included, as measured by hyperfine without a shell. The median, in s; lower is better. Intervals: 95%, by order statistics. Min and max: the lowest and the highest observation. Failed attempts are left out: values cover successful attempts only.
 
-| Candidate | Median (s) | 95% interval | n | Failures |
-| --- | ---: | ---: | ---: | ---: |
-| packwise (baseline) | 2.39 | 2.37 to 2.42 | 30 | 0 |
-| swiftpack | 2.10 | 2.07 to 2.12 | 28 | 2 of 30 |
+| Candidate | Median (s) | 95% interval | min | max | n | Failures |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| packwise (baseline) | 2.39 | 2.37 to 2.42 | 2.34 | 5.22 | 30 | 0 |
+| swiftpack | 2.10 | 2.07 to 2.12 | 2.05 | 2.15 | 28 | 2 of 30 |
 
 ### Peak memory
 
@@ -80,4 +80,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `6d54a87c14af` · 2025-11-13 · source https://github.com/example/storefront · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `29952c3646eb` · 2025-11-13 · source https://github.com/example/storefront · built with astrolabe-bench 0.1.0</sub>

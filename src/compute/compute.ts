@@ -14,7 +14,7 @@ export { applyFailureWarnings } from "./comparisons.js";
 export { ComputeError, parseRaw, type RawFile, type RawRow } from "./raw-data.js";
 
 /** Bumped whenever a change to the methods can alter a stored digit. */
-export const METHODS_VERSION = "6";
+export const METHODS_VERSION = "7";
 export const RESAMPLES = 10000;
 export const ALPHA = 0.05;
 

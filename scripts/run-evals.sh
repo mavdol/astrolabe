@@ -4,6 +4,7 @@
 #
 # usage: scripts/run-evals.sh [--quick] [--case <glob>] [--runs <n>] [--model <model>] [--with-skill | --without-skill]
 #                             [--parallel <n>] [--max-cost-usd <usd>] [--keep-temp]
+#                             [--skills <folder>] [--output <folder>] [--yes]
 #
 #   --quick           only the cases tagged "quick" (four short scenarios)
 #   --case <glob>     only the cases whose name matches
@@ -14,6 +15,9 @@
 #   --parallel <n>    runs at once, 1 to 8 (default 4); they share your account's rate limit
 #   --max-cost-usd    stop starting new runs past this estimated cost (default 25)
 #   --keep-temp       keep each run's workspace and trace, to see what the agent did
+#   --skills <folder> the skills to test, instead of skills/ (another version of the skill)
+#   --output <folder> where the report is written, instead of evals/results/<date>
+#   --yes             start without asking (for a script that has already asked)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -26,6 +30,9 @@ filters=()
 extra=()
 case_pattern='*'
 quick_only=false
+skills=skills
+output=""
+confirmed=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -38,13 +45,16 @@ while [ $# -gt 0 ]; do
     --parallel) parallel="$2"; shift ;;
     --max-cost-usd) max_cost="$2"; shift ;;
     --keep-temp) extra+=(--keep-temp) ;;
+    --skills) skills="$2"; shift ;;
+    --output) output="$2"; shift ;;
+    --yes) confirmed=true ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
 done
 
-if [ "$configuration" != without ] && [ ! -d skills ]; then
-  echo "There is no skill in skills/ yet: only --without-skill can run." >&2
+if [ "$configuration" != without ] && [ ! -d "$skills" ]; then
+  echo "There is no skill in $skills: only --without-skill can run." >&2
   exit 2
 fi
 
@@ -70,10 +80,12 @@ pnpm -s build >/dev/null 2>&1
 echo
 echo "About to run: $cases cases × $runs runs, $described ($total runs, $parallel at a time), with $model, judged by sonnet."
 echo "Filters: ${filters[*]:-none}. Cost ceiling: $max_cost USD (estimated list price; runs already started may pass it)."
-read -r -p "Start? [y/N] " answer
-[ "$answer" = "y" ] || { echo "Nothing was run."; exit 0; }
+if ! $confirmed; then
+  read -r -p "Start? [y/N] " answer
+  [ "$answer" = "y" ] || { echo "Nothing was run."; exit 0; }
+fi
 
-output="$PWD/evals/results/$(date +%Y-%m-%dT%H-%M-%S)"
+[ -n "$output" ] || output="$PWD/evals/results/$(date +%Y-%m-%dT%H-%M-%S)"
 
 # claude plugin eval only evaluates a Claude Code plugin. The repository stays agent-neutral, so the
 # plugin is a temporary folder: a manifest, a copy of the skills and of the evaluation cases, and the
@@ -84,7 +96,7 @@ mkdir -p "$plugin/.claude-plugin"
 printf '{ "name": "astrolabe", "version": "0.0.0-eval" }\n' > "$plugin/.claude-plugin/plugin.json"
 rsync -a --exclude /results/ evals/ "$plugin/evals/"
 echo "$PWD" > "$plugin/evals/_shared/repository-path"
-if [ "$configuration" != without ]; then cp -R skills "$plugin/skills"; fi
+if [ "$configuration" != without ]; then cp -R "$skills" "$plugin/skills"; fi
 if [ "$configuration" != both ]; then extra+=(--ablation none); fi
 trap 'rm -rf "$(dirname "$plugin")"' EXIT
 

@@ -118,9 +118,9 @@
       "Multi-threaded mode of fastjson was tried but not kept, since build scripts run single-threaded."
     ],
     "values": [
-      {"candidate": "stdjson", "metric": "wall_time", "value": 4.2055, "n": 10, "source": "computed", "ci": [4.081, 4.249], "method": "order statistics", "ci_level": 0.95},
-      {"candidate": "fastjson", "metric": "wall_time", "value": 2.12, "n": 10, "source": "computed", "ci": [2.089, 2.141], "method": "order statistics", "ci_level": 0.95},
-      {"candidate": "tinyjson", "metric": "wall_time", "value": 4.024, "n": 10, "source": "computed", "ci": [3.901, 4.094], "method": "order statistics", "ci_level": 0.95},
+      {"candidate": "stdjson", "metric": "wall_time", "value": 4.2055, "n": 10, "source": "computed", "ci": [4.081, 4.249], "method": "order statistics", "ci_level": 0.95, "percentiles": {"min": 4.034, "max": 4.256}},
+      {"candidate": "fastjson", "metric": "wall_time", "value": 2.12, "n": 10, "source": "computed", "ci": [2.089, 2.141], "method": "order statistics", "ci_level": 0.95, "percentiles": {"min": 2.089, "max": 2.15}},
+      {"candidate": "tinyjson", "metric": "wall_time", "value": 4.024, "n": 10, "source": "computed", "ci": [3.901, 4.094], "method": "order statistics", "ci_level": 0.95, "percentiles": {"min": 3.9, "max": 4.121}},
       {"candidate": "stdjson", "metric": "peak_rss", "value": 310.25, "n": 10, "source": "computed", "ci": [302.6, 312], "method": "order statistics", "ci_level": 0.95},
       {"candidate": "fastjson", "metric": "peak_rss", "value": 894.8, "n": 10, "source": "computed", "ci": [887.6, 908.1], "method": "order statistics", "ci_level": 0.95},
       {"candidate": "tinyjson", "metric": "peak_rss", "value": 117.8, "n": 10, "source": "computed", "ci": [116.9, 119.6], "method": "order statistics", "ci_level": 0.95}
@@ -136,7 +136,7 @@
     "observed": {"levels": [{"level": "process", "field": "run", "n": 10}]},
     "computed": {
       "by": "astrolabe-bench 0.1.0",
-      "methods_version": "6",
+      "methods_version": "7",
       "resamples": 10000,
       "seed": "1f6664a541adfc076df7c65ae772ddb25de638b3c07207a10e2b89b8f3dab1f8",
       "alpha": 0.05,
