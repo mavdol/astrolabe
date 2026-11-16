@@ -8,13 +8,13 @@ import { planOf, suiteStructure } from "./helpers.js";
  * How each Must rule is proved. Every Must rule appears once:
  * - plan: a plan broken in one place, which validate refuses with that rule at that field;
  * - test: an existing test that feeds a failing input, or checks what the generator writes by construction;
- * - evaluations: what the agent does (asking, publishing, wording), checked by the scenarios of the skill evaluations;
- * - page: charts, filters and the site, which arrive in v0.2.
+ * - agent: what the agent does (asking, publishing, wording), which no check of the file can prove;
+ * - page: charts, filters and the site, which the generator does not build yet.
  */
 type Proof =
   | { plan: string; change: (plan: any) => void; field: string; reportedAs?: string }
   | { test: string; title: string }
-  | { evaluations: string }
+  | { agent: string }
   | { page: string };
 
 const humanJudge = { type: "human", used_for: [], method: "rubric", blinded: true, order_policy: "random per item", raters: 1 };
@@ -49,7 +49,7 @@ const PROOFS: Record<string, Proof> = {
   D9: { plan: "a metric without unit", change: (plan) => (plan.metrics[0].unit = ""), field: "metrics[0].unit" },
   D12: { test: "tests/card.test.ts", title: "never shows a group alone: the best and worst of the groups below it come with it" },
   F1: { plan: "no goal", change: (plan) => (plan.benchmark.goal = ""), field: "benchmark.goal" },
-  F2: { evaluations: "a neutral goal, read by the rubric of every scenario" },
+  F2: { agent: "phrasing the goal neutrally" },
   F3: { plan: "a metric without label", change: (plan) => delete plan.metrics[0].label, field: "metrics[0].label" },
   F4: { plan: "no recorded research", change: (plan) => (plan.domain_research.sources = []), field: "domain_research.sources" },
   F5: {
@@ -72,9 +72,9 @@ const PROOFS: Record<string, Proof> = {
   F15: { test: "tests/compute.test.ts", title: "a service you do not control needs a timestamp on every row" },
   F16: { plan: "no measuring script", change: (plan) => (plan.artifacts.scripts = []), field: "artifacts.scripts" },
   F18: { plan: "a measured metric without raw data", change: (plan) => delete plan.metrics[0].from, field: "metrics[0].from" },
-  H1: { evaluations: "publishing only on request (deployment scenarios)" },
-  H3: { evaluations: "never replacing an existing site (deployment scenarios)" },
-  H4: { evaluations: "saying what becomes public before the first publication (deployment scenarios)" },
+  H1: { agent: "publishing only on request" },
+  H3: { agent: "never replacing an existing site" },
+  H4: { agent: "saying what becomes public before the first publication" },
   H5: { test: "tests/cli.test.ts", title: "build writes nothing from a file that fails validate" },
   P2: {
     plan: "a judge who sees the candidates' names",
@@ -98,7 +98,7 @@ const PROOFS: Record<string, Proof> = {
     change: (plan) => plan.benchmark.conditions.push("non_deterministic"),
     field: "runs.levels",
   },
-  Q5: { evaluations: "outputs checked for correctness, not only completion (E5 to E8)" },
+  Q5: { agent: "checking that outputs are correct, not only that runs completed" },
   Q6: {
     plan: "a model judge without its order policy",
     change: (plan) => {
@@ -136,7 +136,7 @@ const PROOFS: Record<string, Proof> = {
     field: "metrics[0].compare_as",
   },
   R4: { plan: "an energy metric without its domain", change: (plan) => (plan.metrics[0].kind = "energy"), field: "metrics[0].scope" },
-  R8: { evaluations: "the exact memory definition, written by the skill in metrics[].definition, which the schema requires" },
+  R8: { agent: "naming the memory metric exactly in metrics[].definition, which the schema requires" },
   R10: {
     plan: "a managed runtime without its settings",
     change: (plan) => plan.benchmark.conditions.push("managed_runtime"),
@@ -168,7 +168,7 @@ const PROOFS: Record<string, Proof> = {
   },
   T8: { test: "tests/compute.test.ts", title: "failed observations without failures_count_as are refused" },
   U1: { plan: "a usability metric without tasks and users", change: (plan) => (plan.metrics[0].kind = "usability"), field: "workload" },
-  U2: { evaluations: "success, time and satisfaction all measured in a usability study (usability scenario)" },
+  U2: { agent: "measuring success, time and satisfaction in a usability study" },
   U6: { plan: "a usability comparison with 10 participants", change: usabilityPlan, field: "runs.levels[0].planned" },
   V1: { page: "chart choice from the shape of the data" },
   V2: { page: "the closed chart set has no angle or area encoding" },
@@ -224,7 +224,7 @@ const mustRules = allRules().filter((entry) => entry.level === "must");
 const entries = Object.entries(PROOFS);
 
 describe("Must rules", () => {
-  it("each has a proof: a failing plan, a test, the evaluations of the skill, or the page in v0.2", () => {
+  it("each has a proof: a failing plan, a test, the agent's behaviour, or the page still to build", () => {
     const mustIds = mustRules.map((entry) => entry.id).sort();
 
     expect(
