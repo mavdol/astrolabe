@@ -90,7 +90,7 @@ A candidate that was trained or tuned may have seen the test items: public test 
   "contamination": { "items": "private", "published": false, "risk": "low: written in-house from real tickets, never published" } }
 ```
 
-Prefer private, fresh or regenerated items, and say in the write-up which were used. If you tune a prompt or a setting, tune it on items that are not used for scoring, and list every variant tried (statistics.md, "Variants tried").
+Prefer private, fresh or regenerated items, and say in the write-up which were used. If you tune a prompt or a setting, tune it on items that are not used for scoring, and list every variant tried in `candidates[].variants`, not only the one that scored best.
 
 ## Rules
 

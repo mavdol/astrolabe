@@ -28,7 +28,7 @@ A preference metric needs a `judge` section; `validate` asks for it.
 ```
 
 - **Several raters**: have a subset rated by two of them (100 items is a sound default) and report Krippendorff's alpha, computed by a script. At or above 0.8 the ratings are reliable; between 0.667 and 0.8 they support tentative conclusions only; below, they should not be used. These thresholds are conventions.
-- **A model as judge** follows the judge rules of measurement/quality.md as well: not from a candidate's family, both orders judged, checked against people. Accept it only if it agrees with people about as well as people agree with each other.
+- **A model as judge** is held to the rules of any model that grades: it is not a candidate nor from a candidate's family (give every candidate its `family`), it judges both orders and a win counts only when both agree, and it is checked against people's ratings first. Accept it only if it agrees with people about as well as people agree with each other.
 - **Variants**: every version shown to raters is reported, with how many were tried, not only the one that won.
 
 ## Rules

@@ -160,7 +160,7 @@ describe("the JSON shown in the skill", () => {
       .map((key) => key.slice("results.".length));
 
     expect(explained.filter((section) => !(section in examplePlan.results))).toEqual([]);
-    expect(Object.keys(examplePlan.results).filter((section) => !explained.includes(section) && section !== "composite")).toEqual([]);
+    expect(Object.keys(examplePlan.results).filter((section) => !explained.includes(section))).toEqual([]);
   });
 
   it("shows only sections, metrics and raw rows that the format accepts", () => {
