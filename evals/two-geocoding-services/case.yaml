@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: two-geocoding-services
+expected_outcome: |
+  The agent measures both SDKs on the sample addresses with timestamped observations, reports latency
+  percentiles (not only a mean) and the failure rate of each service, computes the monthly cost for
+  40,000 requests from the saved pricing pages with their source and date (MapQuill bills failed
+  requests), records that the terms were checked and found no restriction on publishing, and lists
+  the limitations of measuring a sandbox at one time of day.
+context:
+  scaffold_script: place-files.sh

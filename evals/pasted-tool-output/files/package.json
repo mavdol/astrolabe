@@ -1,0 +1,8 @@
+{
+  "name": "web-app",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "astrolabe-bench": "0.1.0"
+  }
+}

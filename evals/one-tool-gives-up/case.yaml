@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: one-tool-gives-up
+expected_outcome: |
+  The agent runs both solvers on the tasks, several times each, and notices that quickplan gives up
+  (exit code 3) on part of the hard weeks while stride solves every week. It reports the success rate
+  of each solver next to its time, says that times cover solved tasks only (or compares on the weeks
+  both solved), and does not call quickplan faster without its failures beside it.
+context:
+  scaffold_script: place-files.sh

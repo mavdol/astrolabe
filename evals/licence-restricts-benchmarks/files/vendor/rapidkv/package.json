@@ -1,0 +1,21 @@
+{
+  "name": "rapidkv",
+  "version": "2.4.0",
+  "type": "module",
+  "main": "index.js",
+  "license": "SEE"
+}
+{
+  "name": "LICENSE",
+  "version": "2.4.0",
+  "type": "module",
+  "main": "index.js",
+  "license": "IN"
+}
+{
+  "name": "LICENSE",
+  "version": "2.4.0",
+  "type": "module",
+  "main": "index.js",
+  "license": ""
+}

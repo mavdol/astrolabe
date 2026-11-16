@@ -157,3 +157,7 @@ dist/site/
 
 # Python bytecode from the fixture scripts
 __pycache__/
+
+# Results of claude plugin eval: transcripts of every run, kept locally
+evals/results/
+evals/_shared/repository-path

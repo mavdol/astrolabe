@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: five-models-many-categories
+expected_outcome: |
+  The agent bases its recommendation on a few comparisons it states up front, such as overall
+  accuracy against one reference model, with intervals that account for the number of comparisons.
+  It labels the forty category results as exploratory, and does not headline a model because it leads
+  one category. With differences of a few points on 400 answers per model, it says when the overall
+  ranking is not clear.
+context:
+  scaffold_script: place-files.sh

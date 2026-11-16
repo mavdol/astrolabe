@@ -1,0 +1,11 @@
+{
+  "name": "storefront",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-with.mjs packwise"
+  },
+  "devDependencies": {
+    "astrolabe-bench": "0.1.0"
+  }
+}

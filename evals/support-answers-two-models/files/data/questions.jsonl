@@ -1,0 +1,40 @@
+{"id":"q01","question":"How long do refunds take to reach the card? (ticket variant 1)","reference":"5 to 10 business days","plausible_wrong_answer":"24 hours","difficulty":0.1}
+{"id":"q02","question":"Can a customer change the delivery address after shipping? (ticket variant 1)","reference":"only before the parcel is shipped","plausible_wrong_answer":"at any time before delivery","difficulty":0.3}
+{"id":"q03","question":"What is the return window for opened items? (ticket variant 1)","reference":"30 days","plausible_wrong_answer":"14 days","difficulty":0.5}
+{"id":"q04","question":"Which plan includes phone support? (ticket variant 1)","reference":"the Business plan","plausible_wrong_answer":"every paid plan","difficulty":0.7}
+{"id":"q05","question":"How many devices can share one licence? (ticket variant 1)","reference":"3 devices","plausible_wrong_answer":"5 devices","difficulty":0.1}
+{"id":"q06","question":"Is the warranty transferable to a new owner? (ticket variant 1)","reference":"yes, with the original receipt","plausible_wrong_answer":"no","difficulty":0.3}
+{"id":"q07","question":"Who pays return shipping for a damaged item? (ticket variant 1)","reference":"we do","plausible_wrong_answer":"the customer","difficulty":0.5}
+{"id":"q08","question":"How do I reset two-factor authentication? (ticket variant 1)","reference":"through the recovery codes or a support ticket with ID","plausible_wrong_answer":"by email confirmation only","difficulty":0.7}
+{"id":"q09","question":"How long do refunds take to reach the card? (ticket variant 2)","reference":"5 to 10 business days","plausible_wrong_answer":"24 hours","difficulty":0.1}
+{"id":"q10","question":"Can a customer change the delivery address after shipping? (ticket variant 2)","reference":"only before the parcel is shipped","plausible_wrong_answer":"at any time before delivery","difficulty":0.3}
+{"id":"q11","question":"What is the return window for opened items? (ticket variant 2)","reference":"30 days","plausible_wrong_answer":"14 days","difficulty":0.5}
+{"id":"q12","question":"Which plan includes phone support? (ticket variant 2)","reference":"the Business plan","plausible_wrong_answer":"every paid plan","difficulty":0.7}
+{"id":"q13","question":"How many devices can share one licence? (ticket variant 2)","reference":"3 devices","plausible_wrong_answer":"5 devices","difficulty":0.1}
+{"id":"q14","question":"Is the warranty transferable to a new owner? (ticket variant 2)","reference":"yes, with the original receipt","plausible_wrong_answer":"no","difficulty":0.3}
+{"id":"q15","question":"Who pays return shipping for a damaged item? (ticket variant 2)","reference":"we do","plausible_wrong_answer":"the customer","difficulty":0.5}
+{"id":"q16","question":"How do I reset two-factor authentication? (ticket variant 2)","reference":"through the recovery codes or a support ticket with ID","plausible_wrong_answer":"by email confirmation only","difficulty":0.7}
+{"id":"q17","question":"How long do refunds take to reach the card? (ticket variant 3)","reference":"5 to 10 business days","plausible_wrong_answer":"24 hours","difficulty":0.1}
+{"id":"q18","question":"Can a customer change the delivery address after shipping? (ticket variant 3)","reference":"only before the parcel is shipped","plausible_wrong_answer":"at any time before delivery","difficulty":0.3}
+{"id":"q19","question":"What is the return window for opened items? (ticket variant 3)","reference":"30 days","plausible_wrong_answer":"14 days","difficulty":0.5}
+{"id":"q20","question":"Which plan includes phone support? (ticket variant 3)","reference":"the Business plan","plausible_wrong_answer":"every paid plan","difficulty":0.7}
+{"id":"q21","question":"How many devices can share one licence? (ticket variant 3)","reference":"3 devices","plausible_wrong_answer":"5 devices","difficulty":0.1}
+{"id":"q22","question":"Is the warranty transferable to a new owner? (ticket variant 3)","reference":"yes, with the original receipt","plausible_wrong_answer":"no","difficulty":0.3}
+{"id":"q23","question":"Who pays return shipping for a damaged item? (ticket variant 3)","reference":"we do","plausible_wrong_answer":"the customer","difficulty":0.5}
+{"id":"q24","question":"How do I reset two-factor authentication? (ticket variant 3)","reference":"through the recovery codes or a support ticket with ID","plausible_wrong_answer":"by email confirmation only","difficulty":0.7}
+{"id":"q25","question":"How long do refunds take to reach the card? (ticket variant 4)","reference":"5 to 10 business days","plausible_wrong_answer":"24 hours","difficulty":0.1}
+{"id":"q26","question":"Can a customer change the delivery address after shipping? (ticket variant 4)","reference":"only before the parcel is shipped","plausible_wrong_answer":"at any time before delivery","difficulty":0.3}
+{"id":"q27","question":"What is the return window for opened items? (ticket variant 4)","reference":"30 days","plausible_wrong_answer":"14 days","difficulty":0.5}
+{"id":"q28","question":"Which plan includes phone support? (ticket variant 4)","reference":"the Business plan","plausible_wrong_answer":"every paid plan","difficulty":0.7}
+{"id":"q29","question":"How many devices can share one licence? (ticket variant 4)","reference":"3 devices","plausible_wrong_answer":"5 devices","difficulty":0.1}
+{"id":"q30","question":"Is the warranty transferable to a new owner? (ticket variant 4)","reference":"yes, with the original receipt","plausible_wrong_answer":"no","difficulty":0.3}
+{"id":"q31","question":"Who pays return shipping for a damaged item? (ticket variant 4)","reference":"we do","plausible_wrong_answer":"the customer","difficulty":0.5}
+{"id":"q32","question":"How do I reset two-factor authentication? (ticket variant 4)","reference":"through the recovery codes or a support ticket with ID","plausible_wrong_answer":"by email confirmation only","difficulty":0.7}
+{"id":"q33","question":"How long do refunds take to reach the card? (ticket variant 5)","reference":"5 to 10 business days","plausible_wrong_answer":"24 hours","difficulty":0.1}
+{"id":"q34","question":"Can a customer change the delivery address after shipping? (ticket variant 5)","reference":"only before the parcel is shipped","plausible_wrong_answer":"at any time before delivery","difficulty":0.3}
+{"id":"q35","question":"What is the return window for opened items? (ticket variant 5)","reference":"30 days","plausible_wrong_answer":"14 days","difficulty":0.5}
+{"id":"q36","question":"Which plan includes phone support? (ticket variant 5)","reference":"the Business plan","plausible_wrong_answer":"every paid plan","difficulty":0.7}
+{"id":"q37","question":"How many devices can share one licence? (ticket variant 5)","reference":"3 devices","plausible_wrong_answer":"5 devices","difficulty":0.1}
+{"id":"q38","question":"Is the warranty transferable to a new owner? (ticket variant 5)","reference":"yes, with the original receipt","plausible_wrong_answer":"no","difficulty":0.3}
+{"id":"q39","question":"Who pays return shipping for a damaged item? (ticket variant 5)","reference":"we do","plausible_wrong_answer":"the customer","difficulty":0.5}
+{"id":"q40","question":"How do I reset two-factor authentication? (ticket variant 5)","reference":"through the recovery codes or a support ticket with ID","plausible_wrong_answer":"by email confirmation only","difficulty":0.7}

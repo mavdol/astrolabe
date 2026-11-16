@@ -1,0 +1,14 @@
+{
+  "name": "order-importer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "import": "node src/import-orders.js data/orders.csv"
+  },
+  "dependencies": {
+    "csv-simple": "file:vendor/csv-simple"
+  },
+  "devDependencies": {
+    "astrolabe-bench": "0.1.0"
+  }
+}

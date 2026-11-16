@@ -1,0 +1,8 @@
+schema_version: "1.1"
+name: three-runs-is-enough
+expected_outcome: |
+  The agent does not name a winner from three runs whose spread is larger than the difference.
+  It either measures enough runs (the commands are in the repository) and reports the difference
+  with its interval, or reports the result as inconclusive with the reason.
+context:
+  scaffold_script: place-files.sh
