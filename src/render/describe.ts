@@ -1,6 +1,7 @@
 import { resultsHash } from "../compute/files.js";
 import { nodeTreeOf, type NodeTree } from "../compute/structure.js";
-import type { Benchmark, Comparison, Metric, Results } from "../schema/benchmark.js";
+import { VALUE_INTERVAL_LEVEL } from "../compute/values.js";
+import type { Benchmark, Comparison, Metric, Results, Value } from "../schema/benchmark.js";
 import {
   decimalsForPercentage,
   decimalsForUncertainty,
@@ -86,6 +87,27 @@ export function effectDecimals(metric: Metric, comparison: Comparison): Decimals
   if (supportedByInterval !== null || comparison.source === "declared") return supportedByInterval;
 
   return decimalsWithoutUncertainty(comparison.effect);
+}
+
+/** One number of decimals down a column, so values compare by eye: the finest any of its rows needs. */
+export function finestDecimals(decimalsOfRows: (Decimals | null)[]): Decimals | null {
+  const known = decimalsOfRows.filter((decimals): decimals is Decimals => decimals !== null);
+
+  return known.length > 0 ? Math.max(...known) : null;
+}
+
+export function valueDecimals(metric: Metric, value: Value): Decimals | null {
+  if (isPercentage(metric)) return decimalsForPercentage(value.value);
+
+  const supportedByInterval = decimalsForUncertainty(value.se, value.ci, value.ci_level);
+
+  if (supportedByInterval !== null || value.source === "declared") return supportedByInterval;
+
+  const { min, max } = value.percentiles ?? {};
+  const supportedByRange =
+    min !== undefined && max !== undefined ? decimalsForUncertainty(undefined, [min, max], VALUE_INTERVAL_LEVEL) : null;
+
+  return supportedByRange ?? decimalsWithoutUncertainty(value.value);
 }
 
 export function verdictLabel(comparison: Comparison): string {

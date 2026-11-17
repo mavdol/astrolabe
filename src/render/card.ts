@@ -10,25 +10,11 @@ import {
   type BuildContext,
   type Lookup,
 } from "./describe.js";
+import { THEME, type Colours, type Mode } from "../themes/astrolabe.js";
 import { formatLevel, formatNumber } from "./number-format.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "./svg-text.js";
 
-export type CardMode = "light" | "dark";
-
-interface Colours {
-  background: string;
-  ink: string;
-  secondary: string;
-  rule: string;
-  band: string;
-  inkOnFill: string;
-}
-
-/** Black on white and white on black, hierarchy by weight and size; every grey that carries text keeps at least 7:1 contrast. */
-const THEME: Record<CardMode, Colours> = {
-  light: { background: "#ffffff", ink: "#0a0a0a", secondary: "#5c5c5c", rule: "#e5e5e5", band: "#e3e3e3", inkOnFill: "#ffffff" },
-  dark: { background: "#0a0a0a", ink: "#fafafa", secondary: "#a3a3a3", rule: "#2a2a2a", band: "#2b2b2b", inkOnFill: "#0a0a0a" },
-};
+export type CardMode = Mode;
 
 const WIDTH = 800;
 const PADDING = 40;

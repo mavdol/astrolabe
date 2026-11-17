@@ -3,6 +3,8 @@ import { VALUE_INTERVAL_LEVEL } from "../compute/values.js";
 import type { Benchmark, Comparison, Failure, Metric, Value } from "../schema/benchmark.js";
 import {
   effectAndInterval,
+  finestDecimals,
+  valueDecimals,
   isPercentage,
   lowerFirstLetterOfWord,
   provenanceParts,
@@ -34,27 +36,6 @@ function table(header: string[], alignments: ("left" | "right")[], rows: string[
 
 /** A median latency is shown with its tail, a run time with its fastest and slowest run: the summary alone hides them. */
 const PERCENTILE_COLUMNS = ["min", "p95", "p99", "max"];
-
-/** One number of decimals down a column, so values compare by eye: the finest any of its rows needs. */
-function finestDecimals(decimalsOfRows: (Decimals | null)[]): Decimals | null {
-  const known = decimalsOfRows.filter((decimals): decimals is Decimals => decimals !== null);
-
-  return known.length > 0 ? Math.max(...known) : null;
-}
-
-function valueDecimals(metric: Metric, value: Value): Decimals | null {
-  if (isPercentage(metric)) return decimalsForPercentage(value.value);
-
-  const supportedByInterval = decimalsForUncertainty(value.se, value.ci, value.ci_level);
-
-  if (supportedByInterval !== null || value.source === "declared") return supportedByInterval;
-
-  const { min, max } = value.percentiles ?? {};
-  const supportedByRange =
-    min !== undefined && max !== undefined ? decimalsForUncertainty(undefined, [min, max], VALUE_INTERVAL_LEVEL) : null;
-
-  return supportedByRange ?? decimalsWithoutUncertainty(value.value);
-}
 
 /** Failures under a node: counted where they were recorded, so a parent shows the total of its children. */
 function failuresUnder(lookup: Lookup, metric: string, candidate: string, node: string | undefined): Failure[] {

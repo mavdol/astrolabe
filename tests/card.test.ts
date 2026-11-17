@@ -205,13 +205,18 @@ describe("exports", () => {
   });
 
   it("writes a default README card in both modes when the file declares no export", () => {
-    expect(exportPlanOf(loadBenchmark("js-runtimes"))).toEqual({ cards: [{ id: "readme-card", modes: ["light", "dark"] }], skipped: [] });
+    expect(exportPlanOf(loadBenchmark("js-runtimes"))).toEqual({
+      cards: [{ id: "readme-card", modes: ["light", "dark"] }],
+      images: [],
+      skipped: [],
+    });
   });
 
-  it("skips the formats that are not available yet, and says so", () => {
+  it("skips the charts that are not available yet, and says so", () => {
     expect(exportPlanOf(loadBenchmark("geocoding-apis"))).toEqual({
       cards: [],
-      skipped: [{ id: "social", reason: "png wide exports are not available yet" }],
+      images: [],
+      skipped: [{ id: "social", reason: "scatter charts are not available yet" }],
     });
   });
 });

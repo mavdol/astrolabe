@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { blockSchema, exportSchema, filterSchema, styleSchema } from "./presentation.js";
 
 /** Version of the file format. */
 export const SCHEMA_VERSION = "0.5";
@@ -267,11 +268,11 @@ export const benchmarkSchema = z.looseObject({
   $schema: z.string().optional(),
   schema_version: z.literal(SCHEMA_VERSION),
   results: resultsSchema,
-  style: z.looseObject({}).optional(),
-  filters: z.array(z.looseObject({ id })).optional(),
-  layout: z.array(z.array(z.string())).optional(),
-  blocks: z.array(z.looseObject({ id, type: z.string() })).optional(),
-  exports: z.array(z.looseObject({ id })).optional(),
+  style: styleSchema.optional(),
+  filters: z.array(filterSchema).optional(),
+  layout: z.array(z.array(z.string()).min(1)).optional(),
+  blocks: z.array(blockSchema).optional(),
+  exports: z.array(exportSchema).optional(),
 });
 
 export type Results = z.infer<typeof resultsSchema>;

@@ -135,6 +135,8 @@ describe("claims in the presentation", () => {
     const stale = withBlock({
       id: "claim",
       type: "chart",
+      chart: "effect",
+      metric: "accuracy",
       title: "Reasoning is better too",
       asserts: { accuracy__reasoning__model_a: "better" },
     });

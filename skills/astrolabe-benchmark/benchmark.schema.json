@@ -1369,8 +1369,43 @@
     },
     "style": {
       "type": "object",
-      "properties": {},
-      "additionalProperties": {}
+      "properties": {
+        "theme": {
+          "type": "string",
+          "const": "astrolabe"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ]
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "series": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          }
+        },
+        "highlight": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        },
+        "attribution": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     },
     "filters": {
       "type": "array",
@@ -1380,17 +1415,53 @@
           "id": {
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "level": {
+            "type": "string",
+            "minLength": 1
+          },
+          "options": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "from_structure"
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                }
+              }
+            ]
+          },
+          "default": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allow_all": {
+            "type": "boolean"
           }
         },
         "required": [
-          "id"
+          "id",
+          "label",
+          "level",
+          "options",
+          "default"
         ],
-        "additionalProperties": {}
+        "additionalProperties": false
       }
     },
     "layout": {
       "type": "array",
       "items": {
+        "minItems": 1,
         "type": "array",
         "items": {
           "type": "string"
@@ -1400,21 +1471,370 @@
     "blocks": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "type": {
+                "type": "string",
+                "const": "headline"
+              },
+              "comparison": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "asserts": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "better",
+                    "worse",
+                    "equivalent",
+                    "inconclusive",
+                    "likely better",
+                    "likely worse"
+                  ]
+                }
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "comparison",
+              "title"
+            ],
+            "additionalProperties": false
           },
-          "type": {
-            "type": "string"
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "type": {
+                "type": "string",
+                "const": "chart"
+              },
+              "chart": {
+                "type": "string",
+                "enum": [
+                  "bar",
+                  "grouped-bar",
+                  "dot-interval",
+                  "effect",
+                  "scatter",
+                  "distribution",
+                  "line",
+                  "shaded-table",
+                  "stacked-bar",
+                  "comparison-rows"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "asserts": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "better",
+                    "worse",
+                    "equivalent",
+                    "inconclusive",
+                    "likely better",
+                    "likely worse"
+                  ]
+                }
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                }
+              },
+              "metric": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "x": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "y": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "node": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "breakdown": {
+                "type": "string",
+                "minLength": 1
+              },
+              "series": {
+                "type": "string",
+                "const": "candidate"
+              },
+              "uncertainty": {
+                "type": "string",
+                "const": "ci"
+              },
+              "scale": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "linear",
+                      "log"
+                    ]
+                  },
+                  "zero": {
+                    "type": "boolean"
+                  },
+                  "shared_with": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              "sort": {
+                "type": "string",
+                "enum": [
+                  "value",
+                  "declared"
+                ]
+              },
+              "annotations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "candidate": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                    },
+                    "node": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "comparisons": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "effect_format": {
+                "type": "string",
+                "enum": [
+                  "percent",
+                  "times"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "chart",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "type": {
+                "type": "string",
+                "const": "table"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "asserts": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "better",
+                    "worse",
+                    "equivalent",
+                    "inconclusive",
+                    "likely better",
+                    "likely worse"
+                  ]
+                }
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                }
+              },
+              "metrics": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                }
+              },
+              "node": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "rows": {
+                "type": "string",
+                "minLength": 1
+              },
+              "columns": {
+                "type": "string",
+                "const": "candidate"
+              },
+              "show": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "n",
+                    "ci",
+                    "failures",
+                    "evidence"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "metrics",
+              "show"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "type": {
+                "type": "string",
+                "const": "text"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "description"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "methodology",
+                  "environment",
+                  "limitations",
+                  "provenance"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "id",
-          "type"
-        ],
-        "additionalProperties": {}
+        ]
       }
     },
     "exports": {
@@ -1425,12 +1845,57 @@
           "id": {
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "blocks": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            }
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "svg",
+              "png"
+            ]
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "banner",
+              "wide",
+              "square"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark",
+              "both"
+            ]
+          },
+          "filter_state": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "required": [
-          "id"
+          "id",
+          "blocks",
+          "format",
+          "size"
         ],
-        "additionalProperties": {}
+        "additionalProperties": false
       }
     }
   },
