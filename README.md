@@ -25,7 +25,7 @@ astrolabe validate [file]   # check the plan; after compute, recompute everythin
 astrolabe compute [file]    # write values, intervals, failures, comparisons and verdicts into results
 astrolabe import hyperfine <export.json...> --raw <id>   # convert hyperfine --export-json files into a raw file
 astrolabe import inspect <log...> --raw <id>             # convert Inspect logs (.eval or .json) into a raw file
-astrolabe build [file]      # validate, then write dist/benchmark.md and the README card in dist/exports/: SVG light and dark, PNG for the GitHub app
+astrolabe build [file]      # validate, then write dist/benchmark.md, and in dist/exports/ the README card (SVG light and dark, PNG for the GitHub app) and the chart images the file declares
 astrolabe init              # copy the skill into the project, under .agents/skills/
 astrolabe explain <rule>    # print one rule: instruction, pitfall, level, field
 astrolabe schema            # print the JSON Schema of benchmark.json
