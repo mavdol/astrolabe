@@ -1,7 +1,6 @@
 import type { Benchmark } from "../../schema/benchmark.js";
 import { TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
-import { optionsOf, EVERY_OPTION } from "../chart/chart-data.js";
 import { lookupOf, provenanceParts } from "../describe.js";
 import { blockHtml, type PageInputs } from "./blocks.js";
 import { escapeHtml } from "./html.js";
