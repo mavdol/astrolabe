@@ -29,11 +29,20 @@ function buildSite(id: string, options: { url?: string; benchmark?: Benchmark } 
 }
 
 describe("the rows of the page", () => {
-  it("follow the layout as written, and close with the trust blocks it leaves out", () => {
+  it("follow the layout as written, give each trust block a row of its own, and close with the ones it leaves out", () => {
     const support = loadBenchmark("support-assistant-eval");
     const rows = pageRowsOf(support).map((row) => row.map((block) => block.id));
 
-    expect(rows.slice(0, support.layout!.length)).toEqual(support.layout!.filter((row) => row.length > 0));
+    expect(rows).toEqual([
+      ["headline-accuracy", "headline-cost"],
+      ["chart-by-category", "chart-cost-accuracy"],
+      ["chart-by-task"],
+      ["table-tasks"],
+      ["methodology"],
+      ["environment"],
+      ["limitations"],
+      ["provenance"],
+    ]);
 
     for (const type of ["methodology", "environment", "limitations", "provenance"])
       expect(
@@ -78,7 +87,7 @@ describe("the site", () => {
       expect.arrayContaining([
         "site/index.html",
         "site/page.css",
-        "site/filters.js",
+        "site/page.js",
         "site/.nojekyll",
         "site/fonts/inter-latin-400-normal.woff",
         "site/fonts/OFL.txt",
@@ -121,23 +130,66 @@ describe("the site", () => {
   });
 
   it("gives every chart its title, how to read it, its description and its data table", () => {
-    const figures = support.html.match(/<figure>[\s\S]*?<\/figure>/g)!;
+    const panels = support.html.match(/<section class="block panel chart"[\s\S]*?<\/section>/g)!;
 
-    expect(figures.length).toBeGreaterThan(0);
+    expect(panels).toHaveLength(3);
 
-    for (const figure of figures) {
-      expect(figure).toMatch(/<figcaption class="how-to-read">[^<]+<\/figcaption>/);
-      expect(figure).toMatch(/<details class="data"><summary>Data and description<\/summary>\n<p>[^<]+<\/p>/);
-      expect(figure).toContain("<table>");
+    for (const panel of panels) {
+      expect(panel).toMatch(/<h2 [^>]*>[^<]*<a [^>]+>[^<]+<\/a><\/h2>/);
+      expect(panel).toMatch(/<figcaption class="panel-foot">[^<]+<\/figcaption>/);
+      expect(panel).toMatch(
+        /<details class="panel-data"><summary class="label">Data and description<\/summary>\n<p class="description">[^<]+<\/p>/,
+      );
+      expect(panel).toContain("<table>");
     }
   });
 
   it("offers filters a keyboard can use: native radio buttons under a legend, with a visible focus", () => {
-    expect(support.html).toMatch(
-      /<form class="filters" data-filter-bar hidden aria-label="Filters">\n<fieldset><legend>Category<\/legend>/,
+    expect(support.html).toContain('<fieldset class="segmented" data-filter="category" hidden><legend class="label">Category</legend>');
+    expect(support.html).toContain(
+      '<label><input type="radio" name="chart-by-task--category" value="all" data-filter="category" checked><span>All</span></label>',
     );
-    expect(support.html).toContain('<label><input type="radio" name="category" value="all" checked> All</label>');
-    expect(support.css).toContain(":focus-visible { outline: 2px solid var(--ink)");
+    expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
+  });
+
+  it("answers the question at the top with the primary comparisons and their verdicts", () => {
+    expect(support.html).toContain(
+      '<p class="answer">Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse.</p>',
+    );
+    expect(support.html).toContain(
+      '<meta name="description" content="Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse.">',
+    );
+  });
+
+  it("keys each row and tags each mark with its candidate, so a filter moves rows and a pointer highlights one candidate", () => {
+    const panel = support.html.match(/<section class="block panel chart" id="chart-by-task">[\s\S]*?<\/section>/)![0];
+    const keysOf = (state: string) => {
+      const view = panel.match(new RegExp(`<div data-state="${state}"[^>]*>[\\s\\S]*?(?=<div data-state=|</figure>)`))![0];
+
+      return new Set([...view.matchAll(/<g data-key="([^"]+)" data-candidate="model_a"/g)].map((match) => match[1]));
+    };
+
+    expect([...keysOf("category=coding")]).toEqual(["bugfix|model_a"]);
+    expect(keysOf("category=all")).toContain("bugfix|model_a");
+    expect(support.html).toMatch(/data-candidate="model_b"/);
+  });
+
+  it("moves rows only when the reader allows motion", () => {
+    const script = support.read("page.js");
+
+    expect(script).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
+    expect(script).toContain("!reducedMotion.matches");
+    expect(support.css).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
+  it("breaks the notes of a narrow chart into lines instead of crushing its plot, and keeps every word", () => {
+    const narrow = support.html
+      .match(/<section class="block panel chart" id="chart-by-task">[\s\S]*?<\/section>/)![0]
+      .match(/<div data-width="narrow"><svg[\s\S]*?<\/svg>/)![0];
+    const texts = [...narrow.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
+
+    expect(texts).toContain("inconclusive,");
+    expect(texts.filter((text) => text === "exploratory").length).toBeGreaterThan(0);
   });
 
   it("shows no value that only a pointer can reach", () => {
@@ -177,6 +229,14 @@ describe("the site", () => {
     expect(support.html).toContain('<a href="benchmark.json">benchmark.json</a>');
     expect(support.html).toContain('<a href="data/items.jsonl">data/items.jsonl</a>');
     expect(support.html).toContain("run npx astrolabe-bench validate benchmark.json");
+  });
+
+  it("links its credit to the Astrolabe repository, unless the author turns the credit off", () => {
+    const parsers = loadBenchmark("json-cli-parse");
+    const withoutCredit = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, attribution: false } } });
+
+    expect(support.html).toContain('<a href="https://github.com/mavdol/astrolabe">Built with Astrolabe</a></p></div></footer>');
+    expect(withoutCredit.html).not.toContain("Built with Astrolabe");
   });
 
   it("keeps the colours of a file that fixes its mode, and draws its charts once", () => {

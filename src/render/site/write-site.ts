@@ -3,8 +3,9 @@ import { basename, dirname, isAbsolute, normalize, resolve } from "node:path";
 import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark } from "../../schema/benchmark.js";
 import { THEME } from "../../themes/astrolabe.js";
-import { cardAltText, cardContentOf, renderCard } from "../card.js";
-import type { BuildContext } from "../describe.js";
+import type { Comparison } from "../../schema/benchmark.js";
+import { cardAltText, cardContentOf, pairOf, renderCard } from "../card.js";
+import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
 import { renderPage, type PageHead } from "./page.js";
@@ -65,6 +66,31 @@ function previewImageOf(benchmark: Benchmark, context: BuildContext, rawFiles: R
 }
 
 /**
+ * The answer in one sentence, from the primary comparisons on the whole benchmark: the claims a
+ * reader came for, with their effect and verdict. Comparisons on a group are left to the charts.
+ */
+export function answerOf(benchmark: Benchmark): string {
+  const lookup = lookupOf(benchmark.results);
+  const isOnTheWhole = (comparison: Comparison) => comparison.node === undefined || lookup.tree.parentOf.get(comparison.node) === undefined;
+  const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary" && isOnTheWhole(comparison));
+  const byPair = new Map<string, Comparison[]>();
+
+  for (const comparison of claims) byPair.set(pairOf(lookup, comparison), [...(byPair.get(pairOf(lookup, comparison)) ?? []), comparison]);
+
+  return [...byPair.entries()]
+    .map(([pair, comparisons]) => {
+      const phrases = comparisons.map((comparison) => {
+        const metric = lookup.metricById.get(comparison.metric)!;
+
+        return `${lowerFirstLetterOfWord(metric.label)} ${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}`;
+      });
+
+      return `${pair}: ${phrases.join("; ")}.`;
+    })
+    .join(" ");
+}
+
+/**
  * The site in one folder: the page with every filter state, its style, script and font, a copy of the
  * benchmark file and its raw data so a reader can check them, and what a host needs to serve it as it is.
  */
@@ -112,10 +138,10 @@ export function writeSite(
 
   write("fonts/OFL.txt", readFileSync(new URL("fonts/OFL.txt", ASSETS)));
   write("page.css", pageStyle(benchmark.style));
-  write("filters.js", readFileSync(new URL("site/filters.js", ASSETS)));
+  write("page.js", readFileSync(new URL("site/page.js", ASSETS)));
   write(".nojekyll", "");
 
-  const description = cardAltText(benchmark, cardContentOf(benchmark));
+  const description = answerOf(benchmark);
   const head: PageHead = { url: inputs.url, description };
 
   if (inputs.url) {

@@ -17,7 +17,7 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import { candidateOrder, ChartError, metricOf, valueGroupsOf } from "./chart-data.js";
-import { mixOf, PLOT_STYLE, round, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
+import { mixOf, PLOT_STYLE, round, taggedWith, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
 
 interface ShadedCell {
   text: string;
@@ -28,6 +28,7 @@ interface ShadedCell {
 
 interface ShadedTable {
   columns: string[];
+  columnCandidates: string[];
   rows: { label: string; cells: (ShadedCell | undefined)[] }[];
   worstText: string;
   bestText: string;
@@ -144,22 +145,28 @@ function drawTable(table: ShadedTable, text: SvgTextRenderer, colours: Colours, 
         return;
       }
 
+      const tag = (element: string) => taggedWith(element, table.columnCandidates[index]);
+
       marks.push(
-        `<rect x="${round(columnLeft(index) + 1)}" y="${round(top + 1)}" width="${round(columnWidth - 2)}" height="${round(rowHeight - 2)}" fill="${cellFill(colours, cell.share, table.largestShade)}"/>`,
+        tag(
+          `<rect x="${round(columnLeft(index) + 1)}" y="${round(top + 1)}" width="${round(columnWidth - 2)}" height="${round(rowHeight - 2)}" fill="${cellFill(colours, cell.share, table.largestShade)}"/>`,
+        ),
       );
 
       const valueBaseline = cell.intervalText ? top + rowHeight * 0.44 + capHeight(13) / 2 : top + rowHeight / 2 + capHeight(13) / 2;
 
-      marks.push(text.draw(cell.text, right, valueBaseline, { ...PLOT_STYLE.value, fill: colours.ink, anchor: "end" }));
+      marks.push(tag(text.draw(cell.text, right, valueBaseline, { ...PLOT_STYLE.value, fill: colours.ink, anchor: "end" })));
 
       if (cell.intervalText)
         marks.push(
-          text.draw(cell.intervalText, right, top + rowHeight * 0.76 + capHeight(12) / 2, {
-            ...PLOT_STYLE.note,
-            tabular: true,
-            fill: colours.ink,
-            anchor: "end",
-          }),
+          tag(
+            text.draw(cell.intervalText, right, top + rowHeight * 0.76 + capHeight(12) / 2, {
+              ...PLOT_STYLE.note,
+              tabular: true,
+              fill: colours.ink,
+              anchor: "end",
+            }),
+          ),
         );
     });
 
@@ -205,6 +212,7 @@ export function shadedTableContent(inputs: ChartInputs): ChartContent {
   const [worst, best] = metric.direction === "higher" ? extent : [extent[1], extent[0]];
   const table: ShadedTable = {
     columns: columns.map((candidate) => candidateNameOf(lookup, candidate)),
+    columnCandidates: columns,
     rows: groups.map((group) => ({
       label: nodeLabel(group.node),
       cells: columns.map((candidate) => cellOf(group.values.find((value) => value.candidate === candidate))),

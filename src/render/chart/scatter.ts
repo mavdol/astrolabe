@@ -16,11 +16,23 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
-import { arrow, intervalAcross, intervalUpwards, marker, PLOT_STYLE, round, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
+import {
+  arrow,
+  intervalAcross,
+  intervalUpwards,
+  marker,
+  PLOT_STYLE,
+  round,
+  taggedWith,
+  widestOf,
+  type DrawnPlot,
+  type PlotArea,
+} from "./plot.js";
 import { extentAroundData, linearScale } from "./scale.js";
 
 interface ScatterPoint {
   label: string;
+  candidate: string;
   series: SeriesStyle;
   x: number;
   y: number;
@@ -147,13 +159,24 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
 
   for (const { point, px, py } of positioned) {
     if (point.xInterval)
-      marks.push(intervalAcross(xScale.position(point.xInterval[0]), xScale.position(point.xInterval[1]), py, point.series.colour, 1.5));
+      marks.push(
+        taggedWith(
+          intervalAcross(xScale.position(point.xInterval[0]), xScale.position(point.xInterval[1]), py, point.series.colour, 1.5),
+          point.candidate,
+        ),
+      );
 
     if (point.yInterval)
-      marks.push(intervalUpwards(yScale.position(point.yInterval[0]), yScale.position(point.yInterval[1]), px, point.series.colour, 1.5));
+      marks.push(
+        taggedWith(
+          intervalUpwards(yScale.position(point.yInterval[0]), yScale.position(point.yInterval[1]), px, point.series.colour, 1.5),
+          point.candidate,
+        ),
+      );
   }
 
-  for (const { point, px, py } of positioned) marks.push(marker(point.series.shape, px, py, point.series.colour, colours.background));
+  for (const { point, px, py } of positioned)
+    marks.push(taggedWith(marker(point.series.shape, px, py, point.series.colour, colours.background), point.candidate));
 
   const taken: Box[] = positioned.map(({ px, py }) => ({ left: px - 6, right: px + 6, top: py - 6, bottom: py + 6 }));
 
@@ -185,11 +208,14 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
 
     taken.push(chosen);
     marks.push(
-      text.draw(point.label, chosen.left, (chosen.top + chosen.bottom) / 2 + capHeight(PLOT_STYLE.label.size) / 2, {
-        ...PLOT_STYLE.label,
-        fill: colours.ink,
-        halo: colours.background,
-      }),
+      taggedWith(
+        text.draw(point.label, chosen.left, (chosen.top + chosen.bottom) / 2 + capHeight(PLOT_STYLE.label.size) / 2, {
+          ...PLOT_STYLE.label,
+          fill: colours.ink,
+          halo: colours.background,
+        }),
+        point.candidate,
+      ),
     );
     textLines.push(point.label);
   }
@@ -224,6 +250,7 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
   const pairs = candidates.map((candidate) => ({ candidate, x: valueOf(xMetric, candidate), y: valueOf(yMetric, candidate) }));
   const points: ScatterPoint[] = pairs.map(({ candidate, x, y }) => ({
     label: candidateNameOf(lookup, candidate),
+    candidate,
     series: series.get(candidate)!,
     x: x.value,
     y: y.value,

@@ -24,18 +24,21 @@ export type Cell = string | string[];
 const cellContent = (cell: Cell) => {
   const [value, ...details] = typeof cell === "string" ? [cell] : cell;
 
-  return [withLinks(value), ...details.map((detail) => `<span class="cell-detail">${withLinks(detail)}</span>`)].join("");
+  return details.length > 0
+    ? `${withLinks(value)}<span class="cell-detail">${details.map(withLinks).join(" · ")}</span>`
+    : withLinks(value);
 };
 
 const firstLineOf = (cell: Cell) => (typeof cell === "string" ? cell : cell[0]);
 const isFigure = (text: string) => text === "—" || /^[−+-]?[\d.]/.test(text);
 
 /** Figures are right-aligned so their digits line up; words and names are left-aligned. */
-export function tableOf(header: string[], rows: Cell[][], caption?: string): string {
+export function tableOf(header: string[], rows: Cell[][], caption?: string, columnCandidates: (string | undefined)[] = []): string {
   const isFigureColumn = header.map(
     (_, column) => column > 0 && rows.length > 0 && rows.every((row) => isFigure(firstLineOf(row[column]))),
   );
-  const alignment = (column: number) => (isFigureColumn[column] ? "" : ' class="text"');
+  const alignment = (column: number) =>
+    `${isFigureColumn[column] ? "" : ' class="text"'}${columnCandidates[column] ? ` data-candidate="${escapeHtml(columnCandidates[column]!)}"` : ""}`;
   const head = header.map((cell, column) => `<th scope="col"${alignment(column)}>${escapeHtml(cell)}</th>`).join("");
   const body = rows.map(
     (row) =>
@@ -48,7 +51,7 @@ export function tableOf(header: string[], rows: Cell[][], caption?: string): str
 
   return [
     '<div class="table-scroll"><table>',
-    caption ? `<caption>${escapeHtml(caption)}</caption>` : "",
+    caption ? `<caption class="label">${escapeHtml(caption)}</caption>` : "",
     `<thead><tr>${head}</tr></thead>`,
     `<tbody>\n${body.join("\n")}\n</tbody>`,
     "</table></div>",

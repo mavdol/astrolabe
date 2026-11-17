@@ -41,6 +41,10 @@ const INTERVAL_CAP = 8;
 
 export const round = (value: number) => String(Math.round(value * 10) / 10);
 
+/** Marks an element with the candidate it shows, so a page can bring that candidate forward on every chart. */
+export const taggedWith = (element: string, candidate: string | undefined) =>
+  candidate && element ? element.replace(/^<(\w+)/, `<$1 data-candidate="${candidate}"`) : element;
+
 export function widestOf(text: SvgTextRenderer, texts: string[], style: Parameters<SvgTextRenderer["measure"]>[1]): number {
   return Math.max(0, ...texts.map((entry) => text.measure(entry, style)));
 }

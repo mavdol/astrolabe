@@ -28,6 +28,9 @@ export interface Segment {
 
 export interface PlotRow {
   label: string;
+  /** The same on every filter state, so a page can move the row rather than redraw it. */
+  key?: string;
+  candidate?: string;
   series: SeriesStyle;
   value: number;
   interval?: [number, number];
@@ -152,8 +155,25 @@ function columnsOf(plot: RowsPlot, text: SvgTextRenderer, width: number) {
     PLOT_STYLE.note,
   );
   const plotWidthBeside = width - labelWidth - valueWidth - 2 * COLUMN_GAP - (noteWidth > 0 ? noteWidth + 8 : 0);
+  const notesBelow = noteWidth > 0 && plotWidthBeside < width * SMALLEST_PLOT_SHARE;
+  const plotWidthAbove = width - labelWidth - Math.max(valueWidth, noteWidth) - 2 * COLUMN_GAP;
+  const breaksNotes = notesBelow && plotWidthAbove < width * SMALLEST_PLOT_SHARE;
+  const noteLinesOf = (row: PlotRow) =>
+    row.note
+      ? breaksNotes
+        ? row.note.split(", ").map((part, index, parts) => (index < parts.length - 1 ? `${part},` : part))
+        : [row.note]
+      : [];
+  const brokenNoteWidth = widestOf(text, rows.flatMap(noteLinesOf), PLOT_STYLE.note);
 
-  return { labelWidth, valueWidth, noteWidth, notesBelow: noteWidth > 0 && plotWidthBeside < width * SMALLEST_PLOT_SHARE };
+  return {
+    labelWidth,
+    valueWidth,
+    noteWidth: breaksNotes ? brokenNoteWidth : noteWidth,
+    notesBelow,
+    noteLinesOf,
+    noteLineCount: Math.max(0, ...rows.map((row) => noteLinesOf(row).length)),
+  };
 }
 
 function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
@@ -162,7 +182,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
   const fixedHeight = legend.height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
   const rowHeight = (area.height - fixedHeight) / rowUnitsOf(plot);
   const rows = plot.groups.flatMap((group) => group.rows);
-  const { labelWidth, valueWidth, noteWidth, notesBelow } = columnsOf(plot, text, width);
+  const { labelWidth, valueWidth, noteWidth, notesBelow, noteLinesOf } = columnsOf(plot, text, width);
   const plotLeft = x + labelWidth + COLUMN_GAP;
   const plotRight = notesBelow
     ? x + width - Math.max(valueWidth, noteWidth) - COLUMN_GAP
@@ -258,7 +278,12 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
       const label = text.fit(row.label, PLOT_STYLE.label, labelWidth);
       const interval = row.interval?.map(scale.position);
 
+      if (row.key)
+        marks.push(`<g data-key="${row.key}"${row.candidate ? ` data-candidate="${row.candidate}"` : ""} data-y="${round(centreY)}">`);
+
       marks.push(text.draw(label, x, baselineIn(cursorY, rowHeight, PLOT_STYLE.label.size), { ...PLOT_STYLE.label, fill: colours.ink }));
+
+      if (row.key) marks.push(`<g class="mark" data-x="${round(valueX)}">`);
 
       if (plot.mark === "bar" || plot.mark === "stack") {
         const barHeight = rowHeight * BAR_SHARE_OF_ROW;
@@ -316,8 +341,12 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
         marks.push(marker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
       }
 
+      if (row.key) marks.push("</g>");
+
       const valueRight = notesBelow ? x + width : x + width - (noteWidth > 0 ? noteWidth + 8 : 0);
-      const valueBaseline = baselineIn(cursorY, rowHeight, PLOT_STYLE.value.size) - (notesBelow && row.note ? NOTE_BELOW_HEIGHT / 2 : 0);
+      const noteLines = noteLinesOf(row);
+      const valueBaseline =
+        baselineIn(cursorY, rowHeight, PLOT_STYLE.value.size) - (notesBelow ? (noteLines.length * NOTE_BELOW_HEIGHT) / 2 : 0);
 
       marks.push(
         text.draw(row.valueText, valueRight, valueBaseline, {
@@ -327,19 +356,25 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
         }),
       );
 
-      if (row.note)
-        marks.push(
-          notesBelow
-            ? text.draw(row.note, x + width, valueBaseline + NOTE_BELOW_HEIGHT, {
-                ...PLOT_STYLE.note,
-                fill: colours.secondary,
-                anchor: "end",
-              })
-            : text.draw(row.note, x + width - noteWidth, baselineIn(cursorY, rowHeight, PLOT_STYLE.note.size), {
-                ...PLOT_STYLE.note,
-                fill: colours.secondary,
-              }),
+      if (row.note && notesBelow)
+        noteLines.forEach((line, index) =>
+          marks.push(
+            text.draw(line, x + width, valueBaseline + (index + 1) * NOTE_BELOW_HEIGHT, {
+              ...PLOT_STYLE.note,
+              fill: colours.secondary,
+              anchor: "end",
+            }),
+          ),
         );
+      else if (row.note)
+        marks.push(
+          text.draw(row.note, x + width - noteWidth, baselineIn(cursorY, rowHeight, PLOT_STYLE.note.size), {
+            ...PLOT_STYLE.note,
+            fill: colours.secondary,
+          }),
+        );
+
+      if (row.key) marks.push("</g>");
 
       textLines.push([row.label, row.valueText, row.note].filter(Boolean).join("  "));
       cursorY += rowHeight;
@@ -354,7 +389,8 @@ export function rowsPlot(plot: RowsPlot): Plot {
     heightsAt(width, text) {
       const fixedHeight = legendLayout(plot, text, width).height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
       const units = rowUnitsOf(plot);
-      const extra = columnsOf(plot, text, width).notesBelow ? NOTE_BELOW_HEIGHT : 0;
+      const columns = columnsOf(plot, text, width);
+      const extra = columns.notesBelow ? columns.noteLineCount * NOTE_BELOW_HEIGHT : 0;
 
       return {
         smallest: fixedHeight + units * (ROW_HEIGHT.smallest + extra),

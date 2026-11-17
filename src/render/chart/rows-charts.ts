@@ -103,6 +103,8 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
     heading: group.heading,
     rows: group.values.map((value) => ({
       label: candidateNameOf(lookup, value.candidate),
+      key: `${group.node ?? ""}|${value.candidate}`,
+      candidate: value.candidate,
       series: series.get(value.candidate)!,
       value: value.value,
       interval: value.ci,
@@ -161,6 +163,8 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
       .join(", ");
   const rowOf = (comparison: Comparison, label: string): PlotRow => ({
     label,
+    key: `${comparison.node ?? ""}|${comparison.candidate}`,
+    candidate: comparison.candidate,
     series: series.get(comparison.candidate)!,
     value: comparison.effect,
     interval: comparison.ci,
@@ -279,6 +283,8 @@ export function distributionContent(inputs: ChartInputs): ChartContent {
 
       return {
         label: candidateNameOf(lookup, value.candidate),
+        key: `${group.node ?? ""}|${value.candidate}`,
+        candidate: value.candidate,
         series: series.get(value.candidate)!,
         value: value.value,
         interval: value.ci,
@@ -390,6 +396,8 @@ export function stackedContent(inputs: ChartInputs): ChartContent {
 
     return {
       label: candidateNameOf(lookup, candidate),
+      key: candidate,
+      candidate,
       series: series.get(candidate)!,
       value: total.value,
       interval: total.ci,
