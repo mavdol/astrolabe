@@ -94,4 +94,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `0eff814f0d69` · 2026-11-16 · source https://github.com/example/geocoding-apis · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `defc3fad9c94` · 2026-11-16 · source https://github.com/example/geocoding-apis · built with astrolabe-bench 0.1.0</sub>

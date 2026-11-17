@@ -42,7 +42,7 @@ Repeat where the variance is. Ten iterations inside one process are not ten runs
 
 ## What compute writes, and how to read a verdict
 
-For every metric, candidate and node: the value, its interval, n, and the failures with their denominator. For every candidate against the baseline: the effect with the baseline in the denominator, its interval, and a verdict. A metric declares how it is compared: `"compare_as": "relative"` (percent of the baseline, for times, memory, cost) or `"difference"` (in the metric's unit, for shares and scores, where it reads in points).
+For every metric, candidate and node: the value, its interval, n, and the failures with their denominator. A run time also gets its lowest and highest run, and so does any value with too few observations for an interval: the report then shows that range in place of the interval. For every candidate against the baseline: the effect with the baseline in the denominator, its interval, and a verdict. A metric declares how it is compared: `"compare_as": "relative"` (percent of the baseline, for times, memory, cost) or `"difference"` (in the metric's unit, for shares and scores, where it reads in points).
 
 The verdict depends only on where the interval of the effect sits against the metric's `minimum_meaningful`, never on the point estimate:
 

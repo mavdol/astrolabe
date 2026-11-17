@@ -12,9 +12,24 @@ describe("what the Markdown output says", () => {
   const runtimes = renderMarkdown(loadBenchmark("js-runtimes"), context);
 
   it("keeps the interval, the number of observations and the failures next to every value", () => {
-    expect(runtimes).toContain("| Candidate | Median (s) | 95% interval | n | Failures |");
-    expect(runtimes).toContain("| Deno | 0.241 | 0.238 to 0.243 | 30 | 0 |");
+    expect(runtimes).toContain("| Candidate | Median (s) | 95% interval | min | max | n | Failures |");
+    expect(runtimes).toContain("| Deno | 0.241 | 0.238 to 0.243 | 0.231 | 0.258 | 30 | 0 |");
     expect(usability).toContain("| 5 of 24 |");
+  });
+
+  it("rounds a value that has no interval to what its lowest and highest observation support", () => {
+    const threeRuns = loadBenchmark("js-runtimes");
+    const wallTimes = threeRuns.results.values!.filter((value) => value.metric === "wall_time");
+
+    for (const value of wallTimes) {
+      delete value.ci;
+      delete value.ci_level;
+    }
+
+    const table = renderMarkdown(threeRuns, context);
+
+    expect(table).toContain("| Deno | 0.241 | — | 0.231 | 0.258 | 30 | 0 |");
+    expect(table).toContain("Min and max: the lowest and the highest observation.");
   });
 
   it("marks declared figures, qualified verdicts and results that leave failures out", () => {

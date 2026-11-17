@@ -24,6 +24,18 @@ export function decimalsForUncertainty(
   return 0 - Math.floor(Math.log10(uncertainty));
 }
 
+const SIGNIFICANT_DIGITS_WITHOUT_UNCERTAINTY = 3;
+
+/**
+ * A measured number with no interval and no standard error says nothing about its own precision:
+ * three significant digits, and the whole part is never rounded away.
+ */
+export function decimalsWithoutUncertainty(value: number): Decimals {
+  if (value === 0) return 0;
+
+  return Math.max(0, SIGNIFICANT_DIGITS_WITHOUT_UNCERTAINTY - 1 - Math.floor(Math.log10(Math.abs(value))));
+}
+
 /** Percentages are whole numbers, with one decimal below 10%. */
 export function decimalsForPercentage(value: number): Decimals {
   if (Number.isInteger(value)) return 0;

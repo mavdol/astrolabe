@@ -107,6 +107,17 @@ export function measuredValue({ observations, sample, groupsAggregation, candida
     value.percentiles = { p95: quantileSorted(sorted, 0.95), p99: quantileSorted(sorted, 0.99), max: sorted[sorted.length - 1] };
   }
 
+  const isInTheUnitOfTheObservations = statistic.type === "quantile" || (statistic.type === "mean" && statistic.scale === 1);
+  const rangeIsTheOnlySpread = value.ci === undefined;
+  const carriesItsRange =
+    sample.dataNodeCount === 1 && isInTheUnitOfTheObservations && (metric.kind === "run_time" || rangeIsTheOnlySpread);
+
+  if (carriesItsRange) {
+    const sorted = sortedObservations();
+
+    if (sorted.length > 1) value.percentiles = { min: sorted[0], ...value.percentiles, max: sorted[sorted.length - 1] };
+  }
+
   return value;
 }
 

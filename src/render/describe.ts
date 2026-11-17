@@ -4,6 +4,7 @@ import type { Benchmark, Comparison, Metric, Results } from "../schema/benchmark
 import {
   decimalsForPercentage,
   decimalsForUncertainty,
+  decimalsWithoutUncertainty,
   formatInterval,
   formatLevel,
   formatNumber,
@@ -80,7 +81,11 @@ export function effectDecimals(metric: Metric, comparison: Comparison): Decimals
 
   if (isInPercent) return decimalsForPercentage(comparison.effect);
 
-  return decimalsForUncertainty(undefined, comparison.ci, comparison.ci_level);
+  const supportedByInterval = decimalsForUncertainty(undefined, comparison.ci, comparison.ci_level);
+
+  if (supportedByInterval !== null || comparison.source === "declared") return supportedByInterval;
+
+  return decimalsWithoutUncertainty(comparison.effect);
 }
 
 export function verdictLabel(comparison: Comparison): string {

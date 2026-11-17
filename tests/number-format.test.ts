@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { decimalsForPercentage, decimalsForUncertainty, formatInterval, formatLevel, formatNumber } from "../src/render/number-format.js";
+import {
+  decimalsForPercentage,
+  decimalsForUncertainty,
+  decimalsWithoutUncertainty,
+  formatInterval,
+  formatLevel,
+  formatNumber,
+} from "../src/render/number-format.js";
 
 describe("digits supported by the uncertainty", () => {
   it("rounds to the decimal of the first significant digit of the standard error", () => {
@@ -17,6 +24,14 @@ describe("digits supported by the uncertainty", () => {
   it("has no rule without an uncertainty", () => {
     expect(decimalsForUncertainty(undefined)).toBeNull();
     expect(decimalsForUncertainty(0)).toBeNull();
+  });
+
+  it("keeps three significant digits when nothing says how precise a number is, and never rounds the whole part", () => {
+    expect(formatNumber(0.268959, decimalsWithoutUncertainty(0.268959))).toBe("0.269");
+    expect(formatNumber(9.55184, decimalsWithoutUncertainty(9.55184))).toBe("9.55");
+    expect(formatNumber(212.803, decimalsWithoutUncertainty(212.803))).toBe("213");
+    expect(formatNumber(48213.7, decimalsWithoutUncertainty(48213.7))).toBe("48214");
+    expect(decimalsWithoutUncertainty(0)).toBe(0);
   });
 
   it("shows percentages as whole numbers, with one decimal below 10%", () => {
