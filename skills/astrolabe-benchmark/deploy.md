@@ -104,7 +104,7 @@ When the repository already has a config file for this host, add to it; never re
 
 ## Case 3: a site that already exists
 
-Add a step to that site's own build, before it runs: build the benchmark, then copy `benchmarks/<id>/dist/site/` into the folder the site publishes as it is (`static/`, `public/`, `docs/`), under `benchmarks/<id>/`. Change nothing else of the site. For a server or object storage, the same copy goes to `<root>/benchmarks/<id>/`.
+Add a step to that site's own build, before it runs: build the benchmark, then copy `benchmarks/<id>/dist/site/` into the folder the site publishes as it is (`static/`, `public/`, `docs/`), under `benchmarks/<id>/`. Change nothing else of the site, except a link to the benchmark in its navigation when the user wants it found there. For a server or object storage, the same copy goes to `<root>/benchmarks/<id>/`.
 
 ## After publishing
 
