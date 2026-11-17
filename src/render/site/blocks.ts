@@ -4,7 +4,16 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import type { Block, ChartBlock, HeadlineBlock, TableBlock } from "../../schema/presentation.js";
 import type { Mode } from "../../themes/astrolabe.js";
 import { detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
-import { ChartError, defaultFilterState, filterStatesOf, nodesOf, type FilterState } from "../chart/chart-data.js";
+import {
+  ChartError,
+  defaultFilterState,
+  EVERY_OPTION,
+  filterOf,
+  filterStatesOf,
+  nodesOf,
+  optionsOf,
+  type FilterState,
+} from "../chart/chart-data.js";
 import { renderChart, type RenderedChart } from "../chart/render-chart.js";
 import {
   effectAndInterval,
@@ -41,7 +50,7 @@ export interface PageInputs {
 }
 
 /** Below this width a chart is drawn again for phones rather than shrunk. */
-export const NARROW_WIDTH = 340;
+export const NARROW_WIDTH = 320;
 
 const stateKey = (filterIds: string[], state: FilterState) => filterIds.map((filterId) => `${filterId}=${state[filterId]}`).join("&");
 const isDefault = (state: FilterState, defaults: FilterState) =>
@@ -74,19 +83,64 @@ function headlineHtml(block: HeadlineBlock, inputs: PageInputs): string {
   const metric = lookup.metricById.get(comparison.metric)!;
   const title = resolveTemplates(block.title, lookup);
   const measured = measuredOf(lookup, comparison);
+  const pair = pairOf(lookup, comparison);
   const details = detailsOf(lookup, comparison, null).map(
     (detail) => `<li${detail.isWarning ? ' class="warning"' : ""}>${detail.isWarning ? "Warning: " : ""}${escapeHtml(detail.text)}</li>`,
   );
 
   return [
-    `<p class="pair">${escapeHtml(pairOf(lookup, comparison))}</p>`,
-    anchoredTitle(block, title),
-    `<p class="measured">${escapeHtml([title === measured ? "" : measured, metric.direction === "lower" ? "lower is better" : "higher is better"].filter(Boolean).join(" · "))}</p>`,
-    `<p class="effect"><span class="figure">${escapeHtml(effectAndInterval(metric, comparison).effect)}</span>`,
-    `<span class="verdict${isFirmVerdict(comparison) ? " firm" : ""}">${escapeHtml(verdictLabel(comparison))}</span></p>`,
+    '<div class="stat-head">',
+    `<span class="label">${escapeHtml(measured)} · ${metric.direction === "lower" ? "lower is better" : "higher is better"}</span>`,
+    `<span class="verdict${isFirmVerdict(comparison) ? " firm" : ""}">${escapeHtml(verdictLabel(comparison))}</span>`,
+    "</div>",
+    '<div class="stat-body">',
+    title === measured ? "" : `<p class="label">${escapeHtml(pair)}</p>`,
+    anchoredTitle(block, title === measured ? pair : title),
+    `<p class="figure">${escapeHtml(effectAndInterval(metric, comparison).effect)}</p>`,
     `<ul class="details">\n${details.join("\n")}\n</ul>`,
-  ].join("\n");
+    "</div>",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
+
+const optionLabel = (option: string, inputs: PageInputs) =>
+  option === EVERY_OPTION ? "All" : (inputs.lookup.nodeLabel.get(option) ?? option);
+
+/**
+ * The block's own filters, as segmented controls in its toolbar. Without the script they stay hidden
+ * and the toolbar says which state is shown; with it, every control of a filter moves together.
+ */
+function panelToolsOf(block: Block & { filters?: string[] }, inputs: PageInputs): string {
+  const filterIds = block.filters ?? [];
+
+  if (filterIds.length === 0) return "";
+
+  const controls = filterIds.map((filterId) => {
+    const filter = filterOf(inputs.benchmark, filterId, block.id);
+    const options = optionsOf(filter, inputs.lookup).map(
+      (option) =>
+        `<label><input type="radio" name="${escapeHtml(`${block.id}--${filterId}`)}" value="${escapeHtml(option)}" data-filter="${escapeHtml(filterId)}"${option === filter.default ? " checked" : ""}><span>${escapeHtml(optionLabel(option, inputs))}</span></label>`,
+    );
+
+    return [
+      `<span class="label" data-static-state>${escapeHtml(filter.label)}: ${escapeHtml(optionLabel(filter.default, inputs))}</span>`,
+      `<fieldset class="segmented" data-filter="${escapeHtml(filterId)}" hidden><legend class="label">${escapeHtml(filter.label)}</legend>`,
+      ...options,
+      "</fieldset>",
+    ].join("\n");
+  });
+
+  return `<div class="panel-tools">\n${controls.join("\n")}\n</div>`;
+}
+
+const panelHead = (block: Block, title: string) =>
+  [
+    '<header class="panel-head">',
+    `<h2 id="${escapeHtml(block.id)}-title"><a href="#${escapeHtml(block.id)}">${escapeHtml(title)}</a></h2>`,
+    `<a class="panel-link label" href="#${escapeHtml(block.id)}" data-copy-link>Copy link</a>`,
+    "</header>",
+  ].join("\n");
 
 interface DrawnView {
   mode: Mode;
@@ -141,11 +195,11 @@ function chartHtml(block: ChartBlock, inputs: PageInputs, width: number): string
 
     return [
       "<figure>",
-      `<p class="subtitle">${escapeHtml(chart.subtitle)}</p>`,
+      `<p class="chart-subtitle">${escapeHtml(chart.subtitle)}</p>`,
       ...byMode,
-      `<figcaption class="how-to-read">${escapeHtml(chart.howToRead)}</figcaption>`,
-      '<details class="data"><summary>Data and description</summary>',
-      `<p>${escapeHtml(chart.description)}</p>`,
+      `<figcaption class="panel-foot">${escapeHtml(chart.howToRead)}</figcaption>`,
+      '<details class="panel-data"><summary class="label">Data and description</summary>',
+      `<p class="description">${escapeHtml(chart.description)}</p>`,
       tableOf(chart.table.header, chart.table.rows),
       "</details>",
       "</figure>",
@@ -153,9 +207,12 @@ function chartHtml(block: ChartBlock, inputs: PageInputs, width: number): string
   };
 
   return [
-    anchoredTitle(block, first.title),
+    panelHead(block, first.title),
+    panelToolsOf(block, inputs),
+    '<div class="panel-body">',
     first.reading ? `<p class="reading">${escapeHtml(first.reading)}</p>` : "",
     viewsOf(block, inputs, view),
+    "</div>",
   ]
     .filter(Boolean)
     .join("\n");
@@ -185,7 +242,7 @@ function tableHtml(block: TableBlock, inputs: PageInputs): string {
 
             if (show.has("n") && value.n !== undefined) parts.push(`n = ${value.n}`);
 
-            if (show.has("failures") && value.source !== "declared") parts.push(`failed: ${failuresCell(lookup, value)}`);
+            if (show.has("failures") && value.source !== "declared") parts.push(`${failuresCell(lookup, value)} failed`);
 
             if (show.has("evidence") && value.evidence) parts.push(value.evidence);
 
@@ -198,11 +255,15 @@ function tableHtml(block: TableBlock, inputs: PageInputs): string {
           ...candidates.map((candidate) => `${candidate.name}${candidate.id === lookup.results.baseline ? " (baseline)" : ""}`),
         ];
 
-        return tableOf(header, rows, caption);
+        return tableOf(header, rows, caption, [undefined, ...candidates.map((candidate) => candidate.id)]);
       })
       .join("\n");
 
-  return [block.title ? anchoredTitle(block, resolveTemplates(block.title, lookup)) : "", viewsOf(block, inputs, view)]
+  const title = block.title
+    ? resolveTemplates(block.title, lookup)
+    : block.metrics.map((metricId) => lookup.metricById.get(metricId)!.label).join(", ");
+
+  return [panelHead(block, title), panelToolsOf(block, inputs), '<div class="panel-body">', viewsOf(block, inputs, view), "</div>"]
     .filter(Boolean)
     .join("\n");
 }

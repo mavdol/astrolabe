@@ -5,7 +5,17 @@ import { formatInterval, formatNumber } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, type SvgTextRenderer } from "../svg-text.js";
 import { candidateNameOf, directionWords, levelsOf, seriesOf, withUnit, type ChartContent, type ChartInputs } from "./chart-content.js";
 import { ChartError } from "./chart-data.js";
-import { INTERVAL_STROKE, intervalAcross, PLOT_STYLE, round, widestOf, type DrawnPlot, type Plot, type PlotArea } from "./plot.js";
+import {
+  INTERVAL_STROKE,
+  intervalAcross,
+  PLOT_STYLE,
+  round,
+  taggedWith,
+  widestOf,
+  type DrawnPlot,
+  type Plot,
+  type PlotArea,
+} from "./plot.js";
 
 /** Beyond this many rows a table reads better. */
 const LARGEST_ROW_COUNT = 10;
@@ -18,6 +28,7 @@ const BAR_SHARE_OF_LINE = 0.6;
 
 interface Side {
   label: string;
+  candidate: string;
   value: number;
   interval?: [number, number];
   valueText: string;
@@ -102,7 +113,10 @@ function drawComparisonRows(rows: ComparisonRow[], text: SvgTextRenderer, colour
         }),
       );
       marks.push(
-        `<rect x="${round(barLeft)}" y="${round(centreY - barHeight / 2)}" width="${round(position(side.value) - barLeft)}" height="${round(barHeight)}" fill="${side.colour}"/>`,
+        taggedWith(
+          `<rect x="${round(barLeft)}" y="${round(centreY - barHeight / 2)}" width="${round(position(side.value) - barLeft)}" height="${round(barHeight)}" fill="${side.colour}"/>`,
+          side.candidate,
+        ),
       );
 
       if (side.interval) {
@@ -209,6 +223,7 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
     const percentInterval = percent.interval ? `${percent.interval} (${percent.level})` : "no interval";
     const side = (value: Value, candidate: string, colour: string): Side => ({
       label: candidateNameOf(lookup, candidate),
+      candidate,
       value: value.value,
       interval: value.ci,
       valueText: withUnit(formatNumber(value.value, decimals), metric.unit),

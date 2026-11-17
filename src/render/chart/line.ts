@@ -17,7 +17,7 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
-import { arrow, intervalUpwards, marker, PLOT_STYLE, round, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
+import { arrow, intervalUpwards, marker, PLOT_STYLE, round, taggedWith, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
 import { linearScale, logScale } from "./scale.js";
 
 interface LinePoint {
@@ -27,6 +27,7 @@ interface LinePoint {
 
 interface LineSeries {
   label: string;
+  candidate: string;
   series: SeriesStyle;
   points: (LinePoint | undefined)[];
 }
@@ -116,7 +117,7 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
 
   textLines.push(plot.xLabels.join("  "));
 
-  const ends: { label: string; y: number; colour: string }[] = [];
+  const ends: { label: string; candidate: string; y: number }[] = [];
 
   plot.lines.forEach((line, lineIndex) => {
     const segments: string[] = [];
@@ -129,29 +130,35 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
       isDrawing = true;
     });
 
-    marks.push(`<path d="${segments.join("")}" stroke="${line.series.colour}" stroke-width="2" fill="none" stroke-linejoin="round"/>`);
+    const tag = (element: string) => taggedWith(element, line.candidate);
+
+    marks.push(tag(`<path d="${segments.join("")}" stroke="${line.series.colour}" stroke-width="2" fill="none" stroke-linejoin="round"/>`));
 
     line.points.forEach((point, index) => {
       if (point?.interval)
         marks.push(
-          intervalUpwards(
-            yScale.position(point.interval[0]),
-            yScale.position(point.interval[1]),
-            xOf(index, lineIndex),
-            line.series.colour,
-            1.5,
+          tag(
+            intervalUpwards(
+              yScale.position(point.interval[0]),
+              yScale.position(point.interval[1]),
+              xOf(index, lineIndex),
+              line.series.colour,
+              1.5,
+            ),
           ),
         );
     });
 
     line.points.forEach((point, index) => {
       if (point)
-        marks.push(marker(line.series.shape, xOf(index, lineIndex), yScale.position(point.value), line.series.colour, colours.background));
+        marks.push(
+          tag(marker(line.series.shape, xOf(index, lineIndex), yScale.position(point.value), line.series.colour, colours.background)),
+        );
     });
 
     const last = [...line.points].reverse().find(Boolean);
 
-    if (last) ends.push({ label: line.label, y: yScale.position(last.value), colour: line.series.colour });
+    if (last) ends.push({ label: line.label, candidate: line.candidate, y: yScale.position(last.value) });
 
     textLines.push(`${line.label}  ${line.points.map((point) => (point ? plot.valueText(point.value) : "—")).join("  ")}`);
   });
@@ -166,14 +173,17 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
   for (const end of ends) {
     end.y = Math.max(end.y - Math.max(0, overflow), plotTop + 4);
     marks.push(
-      text.draw(
-        text.fit(end.label, PLOT_STYLE.label, endLabelWidth - END_LABEL_GAP),
-        plotRight + END_LABEL_GAP,
-        end.y + capHeight(13) / 2,
-        {
-          ...PLOT_STYLE.label,
-          fill: colours.ink,
-        },
+      taggedWith(
+        text.draw(
+          text.fit(end.label, PLOT_STYLE.label, endLabelWidth - END_LABEL_GAP),
+          plotRight + END_LABEL_GAP,
+          end.y + capHeight(13) / 2,
+          {
+            ...PLOT_STYLE.label,
+            fill: colours.ink,
+          },
+        ),
+        end.candidate,
       ),
     );
   }
@@ -218,6 +228,7 @@ export function lineContent(inputs: ChartInputs): ChartContent {
     xLabels: nodes.map(nodeLabel),
     lines: candidates.map((candidate) => ({
       label: candidateNameOf(lookup, candidate),
+      candidate,
       series: series.get(candidate)!,
       points: nodes.map((node) => {
         const value = valueAt(candidate, node);

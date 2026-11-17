@@ -3,11 +3,11 @@ import { TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
 import { blockHtml, type PageInputs } from "./blocks.js";
+import { COLUMN_GAP, PAGE_WIDTH, PANEL_PADDING } from "./page-style.js";
 import { escapeHtml } from "./html.js";
 
-/** The width of the page's content, in the px the charts are drawn in. */
-export const CONTENT_WIDTH = 720;
-const GAP_BETWEEN_COLUMNS = 32;
+const ASTROLABE_REPOSITORY = "https://github.com/mavdol/astrolabe";
+
 const HEADLINES_PER_ROW = 2;
 
 const isTrustBlock = (block: Block) => (TRUST_BLOCK_TYPES as readonly string[]).includes(block.type);
@@ -39,7 +39,11 @@ export function pageRowsOf(benchmark: Benchmark): Block[][] {
   for (const type of TRUST_BLOCK_TYPES)
     if (!shownTypes.has(type)) rows.push([blocks.find((block) => block.type === type) ?? ({ id: type, type } as Block)]);
 
-  return rows.filter((row) => row.length > 0);
+  return rows
+    .flatMap((row) =>
+      row.some(isTrustBlock) ? [row.filter((block) => !isTrustBlock(block)), ...row.filter(isTrustBlock).map((block) => [block])] : [row],
+    )
+    .filter((row) => row.length > 0);
 }
 
 /** A file with no presentation still answers its question: its first primary comparisons, as on the default README card. */
@@ -50,23 +54,13 @@ function defaultBlocksOf(benchmark: Benchmark): Block[] {
     .map((comparison) => ({ id: comparison.id, type: "headline", comparison: comparison.id, title: `{metric:${comparison.metric}}` }));
 }
 
-const filtersOf = (block: Block) => ("filters" in block ? (block.filters ?? []) : []);
+/** How each kind of block is framed: headlines as stat cells, charts and tables as panels, words in the reading column. */
+function frameOf(block: Block): string {
+  if (block.type === "headline") return "stat";
 
-function filterBarHtml(benchmark: Benchmark, rows: Block[][], inputs: PageInputs): string {
-  const listenedTo = new Set(rows.flat().flatMap(filtersOf));
-  const fieldsets = (benchmark.filters ?? [])
-    .filter((filter) => listenedTo.has(filter.id))
-    .map((filter) => {
-      const options = optionsOf(filter, inputs.lookup).map((option) => {
-        const label = option === EVERY_OPTION ? "All" : (inputs.lookup.nodeLabel.get(option) ?? option);
+  if (block.type === "chart" || block.type === "table") return "panel";
 
-        return `<label><input type="radio" name="${escapeHtml(filter.id)}" value="${escapeHtml(option)}"${option === filter.default ? " checked" : ""}> ${escapeHtml(label)}</label>`;
-      });
-
-      return `<fieldset><legend>${escapeHtml(filter.label)}</legend>\n${options.join("\n")}\n</fieldset>`;
-    });
-
-  return fieldsets.length > 0 ? `<form class="filters" data-filter-bar hidden aria-label="Filters">\n${fieldsets.join("\n")}\n</form>` : "";
+  return isTrustBlock(block) ? "trust" : "prose";
 }
 
 export interface PageHead {
@@ -108,30 +102,27 @@ function headHtml(benchmark: Benchmark, head: PageHead): string {
     ...address,
     ...preview,
     '<link rel="stylesheet" href="page.css">',
-    '<script src="filters.js" defer></script>',
+    '<script src="page.js" defer></script>',
     "</head>",
   ].join("\n");
 }
 
-/** The whole page: the question, the blocks row by row, every filter state rendered in advance, and the provenance. */
+/** The whole page: the question and its answer, the blocks row by row with every filter state rendered in advance, the provenance. */
 export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): string {
   const { benchmark } = inputs;
   const lookup = lookupOf(benchmark.results);
   const pageInputs = { ...inputs, lookup };
   const results = benchmark.results;
-  const rows = pageRowsOf(benchmark);
-  const filterBar = filterBarHtml(benchmark, rows, pageInputs);
-  const firstFilteredRow = rows.findIndex((row) => row.some((block) => filtersOf(block).length > 0));
   const provenance = provenanceParts(benchmark, inputs.context);
-  const rowsHtml = rows.map((row, rowIndex) => {
-    const width = Math.floor((CONTENT_WIDTH - (row.length - 1) * GAP_BETWEEN_COLUMNS) / row.length);
+  const rowsHtml = pageRowsOf(benchmark).map((row) => {
+    const columnWidth = (PAGE_WIDTH - (row.length - 1) * COLUMN_GAP) / row.length;
     const blocks = row.map(
       (block) =>
-        `<section class="block ${escapeHtml(block.type)}${isTrustBlock(block) ? " trust" : ""}" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, width)}\n</section>`,
+        `<section class="block ${frameOf(block)} ${escapeHtml(block.type)}" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, Math.floor(columnWidth - 2 - 2 * PANEL_PADDING))}\n</section>`,
     );
-    const rowHtml = `<div class="row"${row.length > 1 ? ` style="--columns: ${row.length}"` : ""}>\n${blocks.join("\n")}\n</div>`;
+    const isStatRow = row.every((block) => block.type === "headline");
 
-    return rowIndex === firstFilteredRow && filterBar ? `${filterBar}\n${rowHtml}` : rowHtml;
+    return `<div class="row${isStatRow ? " stats" : ""}"${row.length > 1 ? ` style="--columns: ${row.length}"` : ""}>\n${blocks.join("\n")}\n</div>`;
   });
   const footer = [
     provenance.source.replace(/^https?:\/\//, ""),
@@ -139,26 +130,32 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
     provenance.date,
     ...(provenance.continuousIntegration ? [`commit ${provenance.continuousIntegration.commit}`] : []),
     `astrolabe-bench ${inputs.context.generatorVersion}`,
-    ...(provenance.attribution ? ["Built with Astrolabe"] : []),
-  ].join(" · ");
+  ]
+    .map(escapeHtml)
+    .concat(provenance.attribution ? [`<a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a>`] : [])
+    .join(" · ");
 
   return [
     "<!doctype html>",
     '<html lang="en">',
     headHtml(benchmark, head),
     "<body>",
+    '<header class="top-bar"><div class="top-bar-inner">',
+    `<span class="label">Benchmark · ${escapeHtml(results.benchmark.id)}</span>`,
+    '<a class="label" href="benchmark.json">Download the data</a>',
+    "</div></header>",
     "<main>",
-    '<header class="page-header">',
-    `<p class="eyebrow">Benchmark ${escapeHtml(results.benchmark.id)}, version ${escapeHtml(results.benchmark.version)} · baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
+    '<section class="hero">',
+    `<p class="label">Version ${escapeHtml(results.benchmark.version)} · updated ${escapeHtml(provenance.date)} · baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
     `<h1>${escapeHtml(results.benchmark.goal)}</h1>`,
-    results.benchmark.scope ? `<p>${escapeHtml(results.benchmark.scope)}</p>` : "",
-    "</header>",
+    results.benchmark.scope ? `<p class="lede">${escapeHtml(results.benchmark.scope)}</p>` : "",
+    `<p class="answer">${escapeHtml(head.description)}</p>`,
+    "</section>",
     ...rowsHtml,
     "</main>",
-    `<footer><p>${escapeHtml(footer)}</p></footer>`,
+    `<footer><div class="footer-inner"><p class="label">${footer}</p></div></footer>`,
     "</body>",
     "</html>",
-    "",
   ]
     .filter((line) => line !== "")
     .join("\n")
