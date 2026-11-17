@@ -1,13 +1,13 @@
 # Presentation: honest claims
 
-Read before writing any sentence about the results: the answer in a README, a report, a title, your final reply. The tables and the card come from `astrolabe build`; what you add is words, and the words must claim no more than the numbers.
+Read before writing any sentence about the results: a title or a description on the page, the answer in a README, a report, your final reply. The page, the tables and the card come from `astrolabe build`, drawn from the sections you declare; what you add is words, and the words must claim no more than the numbers.
 
 ## Where each thing comes from
 
 | In the write-up | Source |
 | --- | --- |
 | Values, intervals, n, failures, effects, verdicts | Copied from `dist/benchmark.md` by a command, or quoted exactly as printed there. Never retyped from memory, rounded again or recomputed |
-| The card | The snippet `astrolabe build` prints. Never edit the SVG or PNG, and never draw your own chart beside it |
+| The page, the card and the images | `astrolabe build`, from the presentation sections of `benchmark.json`. Never edit `dist/`, and never draw a chart of your own beside them |
 | The answer in words | Yours, held to the rules below |
 | Method, environment, limitations | Written in the plan, so they appear in `dist/benchmark.md`; the write-up keeps them or links to them |
 
