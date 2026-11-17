@@ -1,6 +1,6 @@
 ---
 name: astrolabe-benchmark
-description: Design, run and report an honest benchmark or comparison with the astrolabe command. You write the plan and the measuring scripts, the scripts write raw data, and `astrolabe compute` produces every number, interval and verdict. Use this skill whenever the user wants to compare or benchmark anything (libraries, tools, commands, APIs, services, models, prompts, apps, configurations) or asks which option is faster, cheaper, lighter, more accurate or easier to use, including when nobody is available to test. Use it too whenever measured results go into a README or a report, for example when the user pastes a tool's output or figures they already measured and wants a results section, asks for a winner, or asks to change a finished benchmark (drop failed runs, remove outliers, add runs, make a difference stand out, favour one candidate, publish it), or wants a results page or chart. Use it even when they never say "benchmark". Not for profiling one program on its own or for explaining a chart someone else made.
+description: Design, run and report an honest benchmark or comparison with the astrolabe command. Scripts write raw data and `astrolabe compute` produces every number and verdict. Use this skill whenever the user wants to compare or benchmark anything (libraries, tools, commands, APIs, services, models, prompts, apps, configurations) or asks which option is faster, cheaper, lighter, more accurate or easier to use, including when nobody is available to test. Use it too whenever measured results go into a README or a report, as when the user pastes a tool's output or figures they already measured and wants a results section, asks for a winner, or asks to change a finished benchmark (drop failed runs, remove outliers, add runs, make a difference stand out, favour one candidate). Also for a benchmark's page, chart or README card, and to put that page online (GitHub Pages, Netlify, a docs site). Use it even when they never say "benchmark". Not for profiling one program on its own or for explaining a chart someone else made.
 compatibility: Needs Node.js 22 or later and the astrolabe-bench npm package, which provides the astrolabe command.
 ---
 
@@ -30,7 +30,7 @@ Copy this checklist into your working notes and tick each step. Before acting on
 
 Putting the site online is not a step: do it only when the user asks, after reading deploy.md.
 
-If the request is about a benchmark that already exists (drop runs, clean outliers, zoom, restyle, add a candidate), go to "Requests that push against the rules" below first.
+If the request is about a benchmark that already exists (drop runs, clean outliers, zoom, restyle, add a candidate, put it online), go to "Requests that push against the rules" below first.
 
 ## Which file to read when
 
@@ -224,7 +224,7 @@ Users ask for these in good faith. Do not comply silently and do not just refuse
 | "Which is easier to use?" with nobody to test | A usability comparison needs people (measurement/usability.md). Write the tasks, their success criteria, the users and the number of participants needed; report any review of your own as an indicative hypothesis that names no winner; invent no participant data |
 | "Publish it" when a licence restricts benchmark results | Quote the clause and where it is, give the options from step 2, say this is not legal advice, and keep that candidate's results out of anything published until the user has decided |
 | "Change the theme", "reword the title", "add a chart" | Presentation only: edit `style` or `blocks`, then `validate` and `build`. The plan's measured part, the raw files and the computed results do not change. A new title still lists in `asserts` the verdicts it relies on |
-| "Put it online" | Read deploy.md first. Say what becomes public, including the raw data, and wait for the answer; write the workflow or config, and leave pushing and the host's settings to the user |
+| "Put it online" | Read deploy.md first. Write the workflow or config and say what becomes public, including the raw data; leave pushing and the host's settings to the user. When the repository is private or the raw data looks sensitive, ask before writing anything |
 
 On a finished benchmark, any change goes through the same path: edit the plan, run the script again if the measurement changes, `astrolabe compute`, `astrolabe validate`, `astrolabe build`, then update the write-up from the new `dist/benchmark.md`. Never edit `dist/` or the card by hand.
 

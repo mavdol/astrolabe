@@ -16,7 +16,8 @@ Read only when the user asks to put the page online. `astrolabe build` writes th
 ## Before anything
 
 - **Publish only when asked.** Never push, change a repository setting or create an account on your own initiative. Write the files, then let the user commit, push and click.
-- **Say what becomes public**, before the first publication: the page, `benchmark.json` and every raw file `build` lists as copied. Read the raw files for secrets and personal data (keys, tokens, emails, names, internal addresses) and report what you found. When the repository is private, say that the site will not be: Pages sites are public on most plans. Wait for the user's answer.
+- **Say what becomes public**, before the first publication: the page, `benchmark.json` and every raw file `build` lists as copied. Read the raw files for secrets and personal data (keys, tokens, emails, names, internal addresses) and report what you found.
+- **Ask first only for a private repository or sensitive data.** A workflow or config file publishes nothing until the user pushes it, so write it and say what becomes public in the same reply. Stop before writing anything, say why and wait for the answer when the repository is private (a Pages site is public on most plans, even when its repository is not) or the raw data holds something that looks like a secret or personal data. When you cannot tell whether the repository is private, write the files and say that the site will be public either way.
 - **Nothing goes online from a file that fails `validate`.** `build` validates first and writes nothing on failure; never work around it.
 
 ## Which case applies
