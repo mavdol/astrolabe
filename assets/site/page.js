@@ -137,9 +137,14 @@ document.addEventListener("click", (event) => {
   const address = new URL(link.getAttribute("href"), window.location.href);
 
   navigator.clipboard.writeText(address.href).then(() => {
-    const text = link.textContent;
+    const status = link.querySelector("[data-copy-status]");
+    const text = status.textContent;
 
-    link.textContent = "Copied";
-    window.setTimeout(() => (link.textContent = text), 1500);
+    link.classList.add("is-done");
+    status.textContent = "Link copied";
+    window.setTimeout(() => {
+      link.classList.remove("is-done");
+      status.textContent = text;
+    }, 1500);
   });
 });

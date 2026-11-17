@@ -10,7 +10,7 @@ export interface Colours {
   rule: string;
   /** The zone of effects too small to matter, and other quiet fills. */
   band: string;
-  /** The chrome of a panel on the page: its toolbar and table headers. */
+  /** Quiet fills on the page: the track of a control, the head of a table, a row under the pointer. */
   surface: string;
   inkOnFill: string;
   /** Candidates without a colour of their own, in the order of candidates: ink, then greys that keep 3:1 against the background. */
@@ -25,7 +25,7 @@ export const THEME: Record<Mode, Colours> = {
     secondary: "#5c5c5c",
     rule: "#e5e5e5",
     band: "#e3e3e3",
-    surface: "#f7f7f7",
+    surface: "#f5f5f5",
     inkOnFill: "#ffffff",
     series: ["#0a0a0a", "#525252", "#7a7a7a", "#949494"],
   },
@@ -35,7 +35,7 @@ export const THEME: Record<Mode, Colours> = {
     secondary: "#a3a3a3",
     rule: "#2a2a2a",
     band: "#2b2b2b",
-    surface: "#141414",
+    surface: "#171717",
     inkOnFill: "#0a0a0a",
     series: ["#fafafa", "#b3b3b3", "#8c8c8c", "#6e6e6e"],
   },
