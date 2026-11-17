@@ -49,7 +49,7 @@ pr_commit=$(git rev-parse FETCH_HEAD)
 changed_files=$(git diff --name-only "$main_commit...$pr_commit")
 changed_in_skill=$(echo "$changed_files" | grep -c '^skills/' || true)
 changed_in_evals=$(echo "$changed_files" | grep -c '^evals/' || true)
-changed_elsewhere=$(echo "$changed_files" | grep -v -e '^skills/' -e '^evals/' -e '^$' | wc -l | tr -d ' ')
+changed_elsewhere=$(echo "$changed_files" | grep -c -v -e '^skills/' -e '^evals/' -e '^$' || true)
 
 if [ "$changed_in_skill" -eq 0 ]; then
   echo "PR #$pull_request does not change skills/: there is nothing to evaluate."

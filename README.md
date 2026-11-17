@@ -47,6 +47,13 @@ pnpm gen:schema           # rewrite the JSON Schema and its copy in the skill, a
 
 Requires Node 22 or later.
 
+The skill is tested on real model runs, which are billed to your own Claude account and ask before they start:
+
+```bash
+scripts/run-evals.sh --quick          # the cases of evals/, with and without the skill
+scripts/review-skill-pr.sh <number>   # a pull request's skill against main's, with a summary to paste on it
+```
+
 ## Licence
 
 The code is under the MIT licence (`LICENSE`).
