@@ -44,6 +44,12 @@ export interface TextStyle {
 export class SvgTextRenderer {
   private readonly glyphDefinitions = new Map<string, string>();
   private readonly missingCharacters = new Set<string>();
+  /** Real text, for an SVG inside a page that loads the same font: lighter, selectable, read by search engines. */
+  private readonly realText: boolean;
+
+  constructor(options: { realText?: boolean } = {}) {
+    this.realText = options.realText === true;
+  }
 
   private glyphFor(character: string, style: TextStyle): { key: string; glyph: Glyph } {
     const weightData = FONT.weights[String(style.weight)];
@@ -118,6 +124,8 @@ export class SvgTextRenderer {
    * anchored at the end. Returns the SVG of its glyphs.
    */
   draw(text: string, x: number, y: number, style: TextStyle & { fill: string; anchor?: "start" | "end"; halo?: string }): string {
+    if (this.realText) return this.textElement(text, x, y, style);
+
     const scale = style.size / FONT.units_per_em;
     const characters = [...text];
     let penInFontUnits = 0;
@@ -151,13 +159,37 @@ export class SvgTextRenderer {
     return `<g fill="${style.fill}"${halo} transform="${transform}">${placements.join("")}</g>`;
   }
 
+  private textElement(
+    text: string,
+    x: number,
+    y: number,
+    style: TextStyle & { fill: string; anchor?: "start" | "end"; halo?: string },
+  ): string {
+    if (text === "") return "";
+
+    const attributes = [
+      `x="${round(x)}"`,
+      `y="${round(y)}"`,
+      `font-size="${style.size}"`,
+      `font-weight="${style.weight}"`,
+      `fill="${style.fill}"`,
+      style.anchor === "end" ? 'text-anchor="end"' : "",
+      style.tracking ? `letter-spacing="${round(style.tracking * style.size, 2)}"` : "",
+      style.tabular ? 'style="font-variant-numeric:tabular-nums"' : "",
+      style.halo ? `stroke="${style.halo}" stroke-width="${HALO_WIDTH}" stroke-linejoin="round" paint-order="stroke"` : "",
+    ].filter(Boolean);
+    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    return `<text ${attributes.join(" ")}>${escaped}</text>`;
+  }
+
   /** The <defs> holding every glyph drawn so far, in font units with the y axis pointing up. */
   definitions(): string {
     const paths = [...this.glyphDefinitions.entries()]
       .sort(([first], [second]) => (first < second ? -1 : 1))
       .map(([key, path]) => `<path id="g${key}" d="${path}"/>`);
 
-    return `<defs>${paths.join("")}</defs>`;
+    return paths.length > 0 ? `<defs>${paths.join("")}</defs>` : "";
   }
 
   charactersWithoutGlyph(): string[] {

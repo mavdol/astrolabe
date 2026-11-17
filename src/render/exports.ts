@@ -1,7 +1,10 @@
+import type { RawFile } from "../compute/raw-data.js";
 import type { Benchmark } from "../schema/benchmark.js";
 import type { ChartBlock } from "../schema/presentation.js";
 import type { CardMode } from "./card.js";
 import { defaultFilterState, type FilterState } from "./chart/chart-data.js";
+import { renderChart, type RenderedChart } from "./chart/render-chart.js";
+import type { BuildContext } from "./describe.js";
 
 export interface PlannedCard {
   id: string;
@@ -83,6 +86,33 @@ export function exportPlanOf(benchmark: Benchmark): ExportPlan {
   }
 
   return plan;
+}
+
+/** A planned image in one mode: laid out at its layout width and enlarged to the size of its shape. */
+export function renderImage(
+  benchmark: Benchmark,
+  image: PlannedImage,
+  mode: CardMode,
+  context: BuildContext,
+  rawFiles: Record<string, RawFile>,
+): RenderedChart {
+  const { width, height, layoutWidth } = IMAGE_SIZES[image.size];
+  const enlargement = width / layoutWidth;
+
+  return renderChart(
+    benchmark,
+    image.block,
+    {
+      width: layoutWidth,
+      height: Math.round(height / enlargement),
+      mode,
+      filterState: image.filterState,
+      standalone: true,
+      enlargement,
+      rawFiles,
+    },
+    context,
+  );
 }
 
 export const exportFileName = (exportId: string, mode: CardMode, extension: "svg" | "png" = "svg") => `${exportId}-${mode}.${extension}`;

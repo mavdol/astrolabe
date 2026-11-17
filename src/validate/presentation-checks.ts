@@ -12,7 +12,12 @@ interface Block {
   comparison?: unknown;
   comparisons?: unknown;
   asserts?: unknown;
+  metrics?: string[];
+  show?: string[];
 }
+
+const LARGEST_ROW = 2;
+const LARGEST_HEADLINE_COUNT = 3;
 
 function verdictLabel(comparison: Comparison): string {
   return comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
@@ -26,6 +31,7 @@ function verdictLabel(comparison: Comparison): string {
 export function checkPresentation(benchmark: Benchmark): Issue[] {
   const issues: Issue[] = [];
   const error = (rule: string, path: string, message: string) => issues.push({ severity: "error", rule, path, message });
+  const warning = (rule: string, path: string, message: string) => issues.push({ severity: "warning", rule, path, message });
   const blocks = (benchmark.blocks ?? []) as Block[];
   const results = benchmark.results;
   const comparisonById = new Map((results.comparisons ?? []).map((comparison) => [comparison.id, comparison]));
@@ -44,8 +50,42 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
   }
 
   (benchmark.layout ?? []).forEach((row, rowIndex) => {
+    if (row.length > LARGEST_ROW)
+      warning("V39", `layout[${rowIndex}]`, `${row.length} blocks side by side: beyond ${LARGEST_ROW}, each is too narrow to read`);
+
     for (const blockId of row)
       if (!blockIds.includes(blockId)) error("V38", `layout[${rowIndex}]`, `"${blockId}" is not the id of a block`);
+  });
+
+  const headlineCount = blocks.filter((block) => block.type === "headline").length;
+
+  if (headlineCount > LARGEST_HEADLINE_COUNT)
+    warning(
+      "V39",
+      "blocks",
+      `${headlineCount} headline blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the others as charts or tables`,
+    );
+
+  blocks.forEach((block, blockIndex) => {
+    if (block.type !== "table") return;
+
+    const metrics = new Set(block.metrics ?? []);
+    const show = new Set(block.show ?? []);
+    const values = (results.values ?? []).filter((value) => metrics.has(value.metric));
+    const missing = [
+      show.has("n") ? "" : "n",
+      !show.has("ci") && values.some((value) => value.ci) ? "ci" : "",
+      !show.has("failures") && (results.failures ?? []).some((failure) => metrics.has(failure.metric) && failure.count > 0)
+        ? "failures"
+        : "",
+    ].filter(Boolean);
+
+    if (missing.length > 0)
+      error(
+        "V31",
+        `blocks[${blockIndex}].show`,
+        `the table leaves out ${missing.join(", ")}: a value is only weighed with its observations, its interval and its failures`,
+      );
   });
 
   const requirePrimary = (comparisonId: unknown, path: string, usedFor: string) => {

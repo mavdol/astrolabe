@@ -97,12 +97,12 @@ export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardCo
   };
 }
 
-function pairOf(lookup: Lookup, comparison: Comparison): string {
+export function pairOf(lookup: Lookup, comparison: Comparison): string {
   return `${lookup.candidateName.get(comparison.candidate)} against ${lookup.candidateName.get(comparison.vs)}`;
 }
 
 /** The metric, and the group it is measured on unless that group is the whole benchmark. */
-function measuredOf(lookup: Lookup, comparison: Comparison): string {
+export function measuredOf(lookup: Lookup, comparison: Comparison): string {
   const metric = lookup.metricById.get(comparison.metric)!;
   const isRootNode = comparison.node === undefined || lookup.tree.parentOf.get(comparison.node) === undefined;
 
@@ -192,13 +192,13 @@ function observationsOf(lookup: Lookup, comparison: Comparison): string | null {
   return `n = ${candidateCount} (${lookup.candidateName.get(comparison.candidate)}), ${baselineCount} (${lookup.candidateName.get(comparison.vs)})`;
 }
 
-interface Detail {
+export interface Detail {
   text: string;
   isWarning?: boolean;
 }
 
 /** The level is written once in the legend when every headline shares it, as primary comparisons do. */
-function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: string | null): Detail[] {
+export function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: string | null): Detail[] {
   const metric = lookup.metricById.get(comparison.metric)!;
   const { interval, level } = effectAndInterval(metric, comparison);
   const details: Detail[] = [];
@@ -250,7 +250,7 @@ export interface RenderedCard {
 }
 
 /** Firm conclusions are filled; "likely" and "inconclusive" stay outlined, so the eye tells them apart without colour. */
-function isFirmVerdict(comparison: Comparison): boolean {
+export function isFirmVerdict(comparison: Comparison): boolean {
   return comparison.qualifier === undefined && comparison.verdict !== "inconclusive";
 }
 

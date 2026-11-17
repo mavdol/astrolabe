@@ -80,7 +80,14 @@ function nodesAllowedBy(filter: Filter, option: string, lookup: Lookup): Set<str
  * The nodes a block shows, in declared order: the nodes of its breakdown level under its node,
  * narrowed by the filters it listens to; or its single node; or the top of the structure.
  */
-export function nodesOf(block: ChartBlock, benchmark: Benchmark, lookup: Lookup, filterState: FilterState): NodeId[] {
+export interface NodeSelection {
+  id: string;
+  node?: string;
+  breakdown?: string;
+  filters?: string[];
+}
+
+export function nodesOf(block: NodeSelection, benchmark: Benchmark, lookup: Lookup, filterState: FilterState): NodeId[] {
   const structure = lookup.results.structure;
 
   if (!structure) return [undefined];

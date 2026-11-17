@@ -13,7 +13,8 @@
     "dist",
     "schema",
     "skills",
-    "assets/fonts/OFL.txt"
+    "assets/fonts",
+    "assets/site"
   ],
   "engines": {
     "node": ">=22"

@@ -27,12 +27,22 @@ export interface ChartOptions {
   enlargement?: number;
   /** The raw files, for the charts that draw every observation. */
   rawFiles?: Record<string, RawFile>;
+  /**
+   * The plot alone, inside a page that writes the title, the reading and how to read it around it,
+   * with real text in the page's font rather than paths.
+   */
+  plotOnly?: boolean;
 }
 
 export interface RenderedChart {
   svg: string;
   width: number;
   height: number;
+  title: string;
+  /** What is measured and which way is better. */
+  subtitle: string;
+  /** The author's reading, its templates filled. */
+  reading: string;
   /** The short text alternative: what the chart is and what its title claims. */
   altText: string;
   /** The long text alternative: what is plotted, every value, and the author's reading. */
@@ -53,6 +63,8 @@ const STYLE = {
 } as const;
 
 const PADDING = 32;
+
+export const PAGE_FONT_FAMILY = "Inter, system-ui, sans-serif";
 const CORNER_RADIUS = 12;
 
 /** The chart types whose main axis can be shared with another block: the others have two axes, or one per row. */
@@ -167,10 +179,11 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const common = { benchmark, lookup, mode: options.mode, compact: options.height !== undefined, rawFiles: options.rawFiles ?? {} };
   const sharedExtent = sharedExtentOf(block, benchmark, lookup, common);
   const content = contentOf({ ...common, block, filterState: options.filterState, sharedExtent });
-  const text = new SvgTextRenderer();
+  const plotOnly = options.plotOnly === true;
+  const text = new SvgTextRenderer({ realText: plotOnly });
   const marks: string[] = [];
   const textLines: string[] = [];
-  const padding = options.standalone ? PADDING : 0;
+  const padding = options.standalone && !plotOnly ? PADDING : 0;
   const innerWidth = options.width - 2 * padding;
   const title = resolveTemplates(block.title, lookup, block.effect_format);
   const reading = block.description ? resolveTemplates(block.description, lookup, block.effect_format) : "";
@@ -191,20 +204,24 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   }
 
   const wrapped = (words: string, style: TextStyle) => text.wrap(words, style, innerWidth);
-  const header: TextPart[] = [
-    { lines: wrapped(title, STYLE.title), style: STYLE.title, fill: colours.ink, gapAfter: 4 },
-    { lines: wrapped(content.subtitle, STYLE.subtitle), style: STYLE.subtitle, fill: colours.secondary, gapAfter: reading ? 8 : 16 },
-    ...(reading ? [{ lines: wrapped(reading, STYLE.description), style: STYLE.description, fill: colours.ink, gapAfter: 16 }] : []),
-  ];
-  const footer: TextPart[] = [
-    { lines: wrapped(content.howToRead, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 6 },
-    ...(options.standalone
-      ? [{ lines: wrapped(provenanceText, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 0 }]
-      : []),
-  ];
+  const header: TextPart[] = plotOnly
+    ? []
+    : [
+        { lines: wrapped(title, STYLE.title), style: STYLE.title, fill: colours.ink, gapAfter: 4 },
+        { lines: wrapped(content.subtitle, STYLE.subtitle), style: STYLE.subtitle, fill: colours.secondary, gapAfter: reading ? 8 : 16 },
+        ...(reading ? [{ lines: wrapped(reading, STYLE.description), style: STYLE.description, fill: colours.ink, gapAfter: 16 }] : []),
+      ];
+  const footer: TextPart[] = plotOnly
+    ? []
+    : [
+        { lines: wrapped(content.howToRead, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 6 },
+        ...(options.standalone
+          ? [{ lines: wrapped(provenanceText, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 0 }]
+          : []),
+      ];
   const heightOf = (parts: TextPart[]) =>
     parts.reduce((height, part) => height + part.lines.length * part.style.lineHeight + part.gapAfter, 0);
-  const gapBeforeFooter = 16;
+  const gapBeforeFooter = plotOnly ? 0 : 16;
   const fixedHeight = 2 * padding + heightOf(header) + gapBeforeFooter + heightOf(footer);
   const plotHeights = content.plot.heightsAt(innerWidth, text);
   const room = options.height === undefined ? plotHeights.usual : options.height - fixedHeight;
@@ -255,24 +272,30 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
     .filter(Boolean)
     .join(" ");
   const enlargement = options.enlargement ?? 1;
-  const frame = options.standalone
-    ? `<rect x="0.5" y="0.5" width="${options.width - 1}" height="${height - 1}" rx="${CORNER_RADIUS}" fill="${colours.background}" stroke="${colours.rule}"/>`
-    : "";
-  const svg = [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(options.width * enlargement)}" height="${Math.round(height * enlargement)}" viewBox="0 0 ${options.width} ${height}" role="img" aria-labelledby="title description"`,
-    ` data-results-sha256="${provenance.hash}" data-build-date="${provenance.date}" data-generator="astrolabe-bench ${context.generatorVersion}">`,
-    `<title id="title">${escapeXml(altText)}</title>`,
-    `<desc id="description">${escapeXml(description)}</desc>`,
-    text.definitions(),
-    frame,
-    ...marks,
-    "</svg>\n",
-  ].join("");
+  const frame =
+    options.standalone && !plotOnly
+      ? `<rect x="0.5" y="0.5" width="${options.width - 1}" height="${height - 1}" rx="${CORNER_RADIUS}" fill="${colours.background}" stroke="${colours.rule}"/>`
+      : "";
+  const opening = plotOnly
+    ? [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${options.width}" height="${height}" viewBox="0 0 ${options.width} ${height}" role="img" aria-label="${escapeXml(altText)}"`,
+        ` font-family="${PAGE_FONT_FAMILY}">`,
+      ]
+    : [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(options.width * enlargement)}" height="${Math.round(height * enlargement)}" viewBox="0 0 ${options.width} ${height}" role="img" aria-labelledby="title description"`,
+        ` data-results-sha256="${provenance.hash}" data-build-date="${provenance.date}" data-generator="astrolabe-bench ${context.generatorVersion}">`,
+        `<title id="title">${escapeXml(altText)}</title>`,
+        `<desc id="description">${escapeXml(description)}</desc>`,
+      ];
+  const svg = [...opening, text.definitions(), frame, ...marks, "</svg>\n"].join("");
 
   return {
     svg,
     width: options.width,
     height,
+    title,
+    subtitle: content.subtitle,
+    reading,
     altText,
     description,
     howToRead: content.howToRead,
