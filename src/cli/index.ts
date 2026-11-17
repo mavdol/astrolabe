@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 import { compute, ComputeError } from "../compute/compute.js";
 import { findBenchmark, formatBenchmark, loadRaw, resultsHash, resultsKeepingPlanAsWritten } from "../compute/files.js";
 import type { RawRow } from "../compute/raw-data.js";
+import { installSkill, SHARED_SKILLS_FOLDER } from "../init/install-skill.js";
 import { importHyperfine } from "../import/hyperfine.js";
 import { importInspect, readInspectLog } from "../import/inspect.js";
 import { ImportError, rawFileContent } from "../import/raw-file.js";
@@ -43,6 +44,11 @@ Usage
                               A log names its candidate by model, or by
                               inspect eval --metadata candidate=<id>; a task names its
                               node by its name, or by --metadata node=<id>.
+  astrolabe init [--dir folder] [--force]
+                              Copy the skill into this project, where agents look for
+                              skills: .agents/skills/astrolabe-benchmark. With --dir,
+                              into another skills folder, for an agent that reads its
+                              own. A copy that was changed is kept unless --force.
   astrolabe explain <rule>    Print one rule: instruction, pitfall, level, field.
   astrolabe schema            Print the JSON Schema of benchmark.json.
 
@@ -308,6 +314,41 @@ function importFromInspect(logPaths: string[], results: Results): ImportedRows {
   return { rows: imported.rows, countPerCandidate: imported.samplesPerCandidate, countName: "samples", measures: imported.measures };
 }
 
+function runInit(skillsFolderOption: string | undefined, replaceChangedFiles: boolean): number {
+  const installation = installSkill(skillsFolderOption ?? SHARED_SKILLS_FOLDER, { replaceChangedFiles });
+  const folder = relative(process.cwd(), resolve(installation.folder)) || ".";
+  const listed = (files: string[]) => files.map((file) => `  ${file}`).join("\n");
+
+  if (installation.state === "kept") {
+    console.error(
+      `The skill in ${folder} is not the one of astrolabe ${packageVersion}: these files were changed, or are new in this version.\n${listed(installation.filesThatDiffer)}\nNothing was written. To replace them: astrolabe init --force`,
+    );
+
+    return 1;
+  }
+
+  if (installation.state === "already current") console.log(`The skill in ${folder} is already the one of astrolabe ${packageVersion}.`);
+  else
+    console.log(
+      `${installation.state === "installed" ? "Installed" : "Updated"} the skill of astrolabe ${packageVersion} in ${folder}:\n${listed(installation.filesWritten)}`,
+    );
+
+  if (installation.filesOnlyInDestination.length > 0)
+    console.log(`Not part of the skill, left in place:\n${listed(installation.filesOnlyInDestination)}`);
+
+  if (installation.state === "installed") {
+    const whereAgentsLook = skillsFolderOption
+      ? ""
+      : `\nAgents that follow the Agent Skills format read ${SHARED_SKILLS_FOLDER}. If yours reads its own folder: astrolabe init --dir <that folder>.`;
+
+    console.log(
+      `${whereAgentsLook}\nThe skill runs the astrolabe command from this project: keep astrolabe-bench in its development dependencies.\nThen ask your agent for a benchmark or a comparison.`,
+    );
+  }
+
+  return 0;
+}
+
 function runExplain(ruleId?: string): number {
   if (!ruleId) {
     console.log(
@@ -348,6 +389,8 @@ function main(): number {
       benchmark: { type: "string" },
       format: { type: "string" },
       out: { type: "string" },
+      dir: { type: "string" },
+      force: { type: "boolean" },
     },
   });
   const [command, argument, ...rest] = positionals;
@@ -365,6 +408,8 @@ function main(): number {
       return runBuild(argument, flags.format, flags.out);
     case "import":
       return runImport(argument, rest, flags.raw, flags.benchmark);
+    case "init":
+      return runInit(flags.dir, flags.force === true);
     case "explain":
       return runExplain(argument);
     case "schema":

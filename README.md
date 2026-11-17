@@ -8,7 +8,15 @@ Status: early development. The schema, `validate`, `compute`, the hyperfine and 
 
 ## The skill
 
-`skills/astrolabe-benchmark/` teaches an agent the method: frame the decision, plan, measure with scripts, compute, write up. It is a plain folder of Markdown files that follows the Agent Skills format and reads nothing else from this repository: copy it where your agent looks for skills. `SKILL.md` is the entry point.
+`skills/astrolabe-benchmark/` teaches an agent the method: frame the decision, plan, measure with scripts, compute, write up. It is a plain folder of Markdown files that follows the Agent Skills format and reads nothing else from this repository. `SKILL.md` is the entry point.
+
+```bash
+npm install --save-dev astrolabe-bench
+npx astrolabe init                        # copies the skill into .agents/skills/astrolabe-benchmark
+npx astrolabe init --dir <skills folder>  # for an agent that reads its own skills folder
+```
+
+Run `init` again after upgrading the package: it updates the copy, and keeps one you changed unless you pass `--force`.
 
 ## Commands
 
@@ -18,6 +26,7 @@ astrolabe compute [file]    # write values, intervals, failures, comparisons and
 astrolabe import hyperfine <export.json...> --raw <id>   # convert hyperfine --export-json files into a raw file
 astrolabe import inspect <log...> --raw <id>             # convert Inspect logs (.eval or .json) into a raw file
 astrolabe build [file]      # validate, then write dist/benchmark.md and the README card in dist/exports/: SVG light and dark, PNG for the GitHub app
+astrolabe init              # copy the skill into the project, under .agents/skills/
 astrolabe explain <rule>    # print one rule: instruction, pitfall, level, field
 astrolabe schema            # print the JSON Schema of benchmark.json
 ```
