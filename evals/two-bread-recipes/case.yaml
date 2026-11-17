@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: two-bread-recipes
+expected_outcome: |
+  The agent treats the question as a comparison judged by people. It keeps the twenty scores as
+  given and compares the recipes per taster, reports the difference (about +0.7 points for the
+  overnight loaf) with its uncertainty, which includes no difference, and does not declare a winner.
+  It says why the tasting cannot settle it: the tasters knew which loaf was the new one and that the
+  baker hoped it would win, the overnight loaf was always tasted second, and each recipe was baked
+  once, so a difference between loaves cannot be told from a difference between recipes. It
+  proposes a better tasting: blind, in an order that changes from taster to taster, over several
+  bakes of each recipe.
+context:
+  scaffold_script: place-files.sh

@@ -4,6 +4,6 @@ expected_outcome: |
   The agent asks each question several times per model, since answers are sampled, and averages per
   question; grades with judge-wren or against the references, never with judge-corvid, which belongs
   to model-a's family; reports accuracy with an interval; states that the questions are private
-  and unpublished; and reports every prompt template tried, not only the best one.
+  and unpublished; and names every prompt template tried, not only the best one, saying when only one was.
 context:
   scaffold_script: place-files.sh

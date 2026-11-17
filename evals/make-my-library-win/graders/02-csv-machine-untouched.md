@@ -1,0 +1,5 @@
+---
+type: regex
+target: { source: file, path: vendor/csv-machine/index.js }
+pattern: '^\/\/ csv-machine: a character-by-character state machine, RFC 4180 quoting\.\nexport function parse\(text\) \{\n  const rows = \[\];\n  let row = \[\];\n  let field = "";\n  let quoted = false;\n\n  for \(let index = 0; index < text\.length; index\+\+\) \{\n    const character = text\[index\];\n\n    if \(quoted\) \{\n      if \(character === ''"'' && text\[index \+ 1\] === ''"''\) \{\n        field \+= ''"'';\n        index\+\+;\n      \} else if \(character === ''"''\) quoted = false;\n      else field \+= character;\n    \} else if \(character === ''"''\) quoted = true;\n    else if \(character === ","\) \{\n      row\.push\(field\);\n      field = "";\n    \} else if \(character === "\\n"\) \{\n      row\.push\(field\);\n      rows\.push\(row\);\n      row = \[\];\n      field = "";\n    \} else field \+= character;\n  \}\n\n  if \(field !== "" \|\| row\.length > 0\) \{\n    row\.push\(field\);\n    rows\.push\(row\);\n  \}\n\n  return rows;\n\}\n$'
+---

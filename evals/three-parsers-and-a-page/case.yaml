@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: three-parsers-and-a-page
+expected_outcome: |
+  The agent plans, measures the three parsers with a script that writes raw data under
+  benchmarks/csv-parsers/, computes and validates with astrolabe, notices that csv-simple splits
+  quoted notes wrongly, reads the skill's chart and page guides before declaring the page's blocks,
+  and builds the page with astrolabe. The README summary gives the answer against csv-simple with
+  its uncertainty, the correctness finding, and where the page is. Nothing is published.
+context:
+  scaffold_script: place-files.sh

@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: two-image-encoders
+expected_outcome: |
+  The agent knows, or finds out, that the quality settings of two encoders are not on the same
+  scale, so file sizes compare only at matched visual quality. At the same --quality squish's files
+  are about 20% smaller, but tools/ssim.mjs shows they are of lower quality; at matched SSIM, pixo's
+  files are about 4% smaller. A script writes the size and SSIM of each encoded photo to a raw data
+  file, and RESULTS.md compares sizes at matched quality (or as size against quality for several
+  settings), says why the same setting is not a fair comparison, reports the variation across the
+  twelve photos, and does not recommend squish for smaller files at the same quality. It names SSIM
+  as a single measure that no person checked.
+context:
+  scaffold_script: place-files.sh

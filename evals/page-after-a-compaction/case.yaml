@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: page-after-a-compaction
+expected_outcome: |
+  The same request as three-parsers-and-a-page, with automatic compaction set low enough that the
+  conversation is summarised while the agent measures. After the summary, the agent opens the
+  skill's chart or page guide again before declaring the blocks, instead of writing charts from
+  memory, and the page is built by astrolabe from declared blocks; no chart is drawn by hand.
+context:
+  scaffold_script: place-files.sh
