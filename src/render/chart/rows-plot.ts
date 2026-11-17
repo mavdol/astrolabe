@@ -127,11 +127,11 @@ function legendLayout(plot: RowsPlot, text: SvgTextRenderer, width: number): { e
   return { entries, height: entries.length > 0 ? (line + 1) * LEGEND_LINE_HEIGHT + 4 : 0 };
 }
 
-function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
-  const { x, width } = area;
-  const legend = legendLayout(plot, text, width);
-  const fixedHeight = legend.height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
-  const rowHeight = (area.height - fixedHeight) / rowUnitsOf(plot);
+/** Below this share of the width, the plot is too narrow to read: the notes move under the values. */
+const SMALLEST_PLOT_SHARE = 0.45;
+const NOTE_BELOW_HEIGHT = 14;
+
+function columnsOf(plot: RowsPlot, text: SvgTextRenderer, width: number) {
   const rows = plot.groups.flatMap((group) => group.rows);
   const labelWidth = Math.min(
     widestOf(
@@ -151,8 +151,22 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
     rows.map((row) => row.note ?? ""),
     PLOT_STYLE.note,
   );
+  const plotWidthBeside = width - labelWidth - valueWidth - 2 * COLUMN_GAP - (noteWidth > 0 ? noteWidth + 8 : 0);
+
+  return { labelWidth, valueWidth, noteWidth, notesBelow: noteWidth > 0 && plotWidthBeside < width * SMALLEST_PLOT_SHARE };
+}
+
+function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
+  const { x, width } = area;
+  const legend = legendLayout(plot, text, width);
+  const fixedHeight = legend.height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
+  const rowHeight = (area.height - fixedHeight) / rowUnitsOf(plot);
+  const rows = plot.groups.flatMap((group) => group.rows);
+  const { labelWidth, valueWidth, noteWidth, notesBelow } = columnsOf(plot, text, width);
   const plotLeft = x + labelWidth + COLUMN_GAP;
-  const plotRight = x + width - valueWidth - COLUMN_GAP - (noteWidth > 0 ? noteWidth + 8 : 0);
+  const plotRight = notesBelow
+    ? x + width - Math.max(valueWidth, noteWidth) - COLUMN_GAP
+    : x + width - valueWidth - COLUMN_GAP - (noteWidth > 0 ? noteWidth + 8 : 0);
   const startsAtZero = plot.mark === "bar" || plot.mark === "stack";
   const scaleExtent: [number, number] = startsAtZero ? [Math.min(0, plot.extent[0]), Math.max(0, plot.extent[1])] : plot.extent;
   const targetTicks = plotRight - plotLeft < 260 ? 3 : 5;
@@ -302,10 +316,11 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
         marks.push(marker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
       }
 
-      const valueRight = x + width - (noteWidth > 0 ? noteWidth + 8 : 0);
+      const valueRight = notesBelow ? x + width : x + width - (noteWidth > 0 ? noteWidth + 8 : 0);
+      const valueBaseline = baselineIn(cursorY, rowHeight, PLOT_STYLE.value.size) - (notesBelow && row.note ? NOTE_BELOW_HEIGHT / 2 : 0);
 
       marks.push(
-        text.draw(row.valueText, valueRight, baselineIn(cursorY, rowHeight, PLOT_STYLE.value.size), {
+        text.draw(row.valueText, valueRight, valueBaseline, {
           ...PLOT_STYLE.value,
           fill: colours.ink,
           anchor: "end",
@@ -314,10 +329,16 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
 
       if (row.note)
         marks.push(
-          text.draw(row.note, x + width - noteWidth, baselineIn(cursorY, rowHeight, PLOT_STYLE.note.size), {
-            ...PLOT_STYLE.note,
-            fill: colours.secondary,
-          }),
+          notesBelow
+            ? text.draw(row.note, x + width, valueBaseline + NOTE_BELOW_HEIGHT, {
+                ...PLOT_STYLE.note,
+                fill: colours.secondary,
+                anchor: "end",
+              })
+            : text.draw(row.note, x + width - noteWidth, baselineIn(cursorY, rowHeight, PLOT_STYLE.note.size), {
+                ...PLOT_STYLE.note,
+                fill: colours.secondary,
+              }),
         );
 
       textLines.push([row.label, row.valueText, row.note].filter(Boolean).join("  "));
@@ -333,11 +354,12 @@ export function rowsPlot(plot: RowsPlot): Plot {
     heightsAt(width, text) {
       const fixedHeight = legendLayout(plot, text, width).height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
       const units = rowUnitsOf(plot);
+      const extra = columnsOf(plot, text, width).notesBelow ? NOTE_BELOW_HEIGHT : 0;
 
       return {
-        smallest: fixedHeight + units * ROW_HEIGHT.smallest,
-        usual: fixedHeight + units * ROW_HEIGHT.usual,
-        largest: fixedHeight + units * ROW_HEIGHT.largest,
+        smallest: fixedHeight + units * (ROW_HEIGHT.smallest + extra),
+        usual: fixedHeight + units * (ROW_HEIGHT.usual + extra),
+        largest: fixedHeight + units * (ROW_HEIGHT.largest + extra),
       };
     },
     draw: (text, colours, area) => drawRows(plot, text, colours, area),

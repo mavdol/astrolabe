@@ -4,16 +4,18 @@ import type { RawFile } from "../compute/raw-data.js";
 import type { Benchmark } from "../schema/benchmark.js";
 import { cardContentOf, renderCard, type CardMode } from "./card.js";
 import type { BuildContext } from "./describe.js";
-import { renderChart } from "./chart/render-chart.js";
-import { exportFileName, exportPlanOf, IMAGE_SIZES, pictureHtml, type CardFiles } from "./exports.js";
+import { exportFileName, exportPlanOf, pictureHtml, renderImage, type CardFiles } from "./exports.js";
 import { renderMarkdown } from "./markdown.js";
 import { pngOf } from "./png.js";
+import { writeSite, type WrittenSite } from "./site/write-site.js";
 
-export const AVAILABLE_FORMATS = ["md", "svg"] as const;
+export const AVAILABLE_FORMATS = ["site", "md", "svg"] as const;
 
 export type OutputFormat = (typeof AVAILABLE_FORMATS)[number];
 
 const EXPORTS_FOLDER = "exports";
+
+export const SITE_FOLDER = "site";
 
 export interface BuildResult {
   /** Files written, relative to the output folder, with their size in bytes. */
@@ -21,19 +23,28 @@ export interface BuildResult {
   warnings: string[];
   /** The first README card: its text alternative and its files, relative to the output folder. */
   readmeCard?: { altText: string; files: CardFiles };
+  site?: WrittenSite;
+}
+
+export interface BuildInputs {
+  rawFiles?: Record<string, RawFile>;
+  /** The benchmark file, so the site carries a copy of it and of its raw files. */
+  sourcePath?: string;
+  /** The public address of the site, for its link preview. */
+  url?: string;
 }
 
 /**
- * Writes the outputs of a computed benchmark into the output folder: the
- * README cards (an SVG per mode and a PNG of the first), then the Markdown
- * that shows the first card.
+ * Writes the outputs of a computed benchmark into the output folder: the README cards
+ * (an SVG per mode and a PNG of the first) and the declared images, the Markdown
+ * that shows the first card, and the site.
  */
 export function buildOutputs(
   benchmark: Benchmark,
   formats: OutputFormat[],
   outputFolder: string,
   context: BuildContext,
-  rawFiles: Record<string, RawFile> = {},
+  inputs: BuildInputs = {},
 ): BuildResult {
   const result: BuildResult = { files: [], warnings: [] };
   const write = (relativePath: string, content: string | Buffer) => {
@@ -79,24 +90,8 @@ export function buildOutputs(
     }
 
     for (const image of plan.images) {
-      const { width, height, layoutWidth } = IMAGE_SIZES[image.size];
-      const enlargement = width / layoutWidth;
-
       for (const mode of image.modes) {
-        const chart = renderChart(
-          benchmark,
-          image.block,
-          {
-            width: layoutWidth,
-            height: Math.round(height / enlargement),
-            mode,
-            filterState: image.filterState,
-            standalone: true,
-            enlargement,
-            rawFiles,
-          },
-          context,
-        );
+        const chart = renderImage(benchmark, image, mode, context, inputs.rawFiles ?? {});
         const content = image.format === "png" ? pngOf(chart.svg, 1) : chart.svg;
 
         write(`${EXPORTS_FOLDER}/${exportFileName(image.id, mode, image.format)}`, content);
@@ -108,6 +103,13 @@ export function buildOutputs(
     const cardPicture = result.readmeCard ? pictureHtml(result.readmeCard.altText, result.readmeCard.files) : undefined;
 
     write("benchmark.md", renderMarkdown(benchmark, { ...context, cardPicture }));
+  }
+
+  if (formats.includes("site")) {
+    const site = writeSite(benchmark, context, inputs, (relativePath, content) => write(`${SITE_FOLDER}/${relativePath}`, content));
+
+    result.warnings.push(...site.warnings);
+    result.site = site;
   }
 
   return result;

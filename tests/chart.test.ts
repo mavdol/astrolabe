@@ -80,6 +80,17 @@ describe("the colours of the default theme", () => {
     expect(new Set(styles.map((style) => style.colour)).size).toBe(4);
   });
 
+  it("keeps a candidate's colour and marker on every chart, whichever candidates a chart shows", () => {
+    const support = loadBenchmark("support-assistant-eval");
+    const circleColours = (svg: string) =>
+      new Set([...svg.matchAll(/<circle [^>]*fill="(#[0-9a-f]{6})" stroke=/g)].map((match) => match[1]));
+    const onlyModelA = draw(support, chartBlockOf(support, "chart-by-category"));
+    const bothModels = draw(support, chartBlockOf(support, "chart-cost-accuracy"));
+
+    expect(circleColours(onlyModelA.svg).size).toBe(1);
+    expect(circleColours(bothModels.svg)).toEqual(circleColours(onlyModelA.svg));
+  });
+
   it("gives the highlighted candidate the ink or the accent, and greys to the others", () => {
     const withInk = seriesStylesOf(["a", "b"], { highlight: "b" }, "light");
     const withAccent = seriesStylesOf(["a", "b"], { highlight: "b", accent: "#2f6fed" }, "light");

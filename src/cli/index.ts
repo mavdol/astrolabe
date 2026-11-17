@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, watch, writeFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { compute, ComputeError } from "../compute/compute.js";
@@ -12,9 +12,10 @@ import { ImportError, rawFileContent } from "../import/raw-file.js";
 import { allRules, formatIssue, rule as findRule, type Issue } from "../rules/registry.js";
 import { benchmarkSchema, type Benchmark } from "../schema/benchmark.js";
 import { jsonSchemaFileContent } from "../schema/json-schema.js";
-import { AVAILABLE_FORMATS, buildOutputs, type OutputFormat } from "../render/build.js";
+import { AVAILABLE_FORMATS, buildOutputs, SITE_FOLDER, type BuildResult, type OutputFormat } from "../render/build.js";
 import { buildDateFrom, continuousIntegrationFrom } from "../render/describe.js";
 import { pictureHtml } from "../render/exports.js";
+import { servePreview } from "../preview/serve.js";
 import { validate } from "../validate/validate.js";
 
 const packageVersion: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
@@ -27,11 +28,16 @@ Usage
                               raw files and compared.
   astrolabe compute [file]    Read the plan and the raw files; write values, intervals,
                               failures, aggregates, comparisons and verdicts into results.
-  astrolabe build [file] [--format md,svg] [--out dir]
+  astrolabe build [file] [--format site,md,svg] [--out dir] [--url address]
                               Validate, then write the outputs next to the file:
-                              dist/benchmark.md and the README cards in dist/exports/:
-                              an SVG per mode, and a PNG for the GitHub mobile app.
-                              Nothing is written when a rule fails.
+                              the site in dist/site/, dist/benchmark.md, and in
+                              dist/exports/ the README cards (an SVG per mode, a PNG
+                              for the GitHub mobile app) and the declared images.
+                              --url is the public address of the site, for the image
+                              a shared link shows. Nothing is written when a rule fails.
+  astrolabe preview [file] [--port 4321]
+                              Build the site, serve it on this computer, and build it
+                              again when a file of the benchmark changes.
   astrolabe import hyperfine <export.json...> --raw <id> [--benchmark file]
                               Convert hyperfine --export-json files into the raw file
                               declared as <id> in raw_data. Name each command after its
@@ -144,9 +150,50 @@ function withoutStamp(results: unknown): unknown {
   return declaredValues && declaredValues.length > 0 ? { ...plan, values: declaredValues } : plan;
 }
 
-const PLANNED_FORMATS = ["site", "png"];
+const PLANNED_FORMATS = ["png"];
 
-function runBuild(fileArgument: string | undefined, formatOption: string | undefined, outOption: string | undefined): number {
+/** Validates the file, then builds; prints why nothing was written when it cannot. */
+function validateAndBuild(
+  fileArgument: string | undefined,
+  formats: OutputFormat[],
+  outOption: string | undefined,
+  urlOption: string | undefined,
+): { built: BuildResult; outputFolder: string; benchmarkPath: string } | undefined {
+  const benchmarkPath = findBenchmark(fileArgument);
+  const benchmarkFile = readJson(benchmarkPath);
+  const rawFiles = loadRawOrReport(benchmarkFile, benchmarkPath);
+  const report = validate(benchmarkFile, rawFiles);
+
+  if (printIssues(report.issues) > 0) {
+    console.log("Nothing was written: fix the errors above, then build again.");
+
+    return undefined;
+  }
+
+  if (report.state === "plan") {
+    console.log("Nothing was written: the results have not been computed yet. Run astrolabe compute first.");
+
+    return undefined;
+  }
+
+  const benchmark = benchmarkSchema.parse(benchmarkFile);
+  const outputFolder = resolve(dirname(benchmarkPath), outOption ?? "dist");
+  const context = {
+    generatorVersion: packageVersion,
+    buildDate: buildDateFrom(process.env),
+    continuousIntegration: continuousIntegrationFrom(process.env),
+  };
+  const built = buildOutputs(benchmark, formats, outputFolder, context, { rawFiles, sourcePath: benchmarkPath, url: urlOption });
+
+  return { built, outputFolder, benchmarkPath };
+}
+
+function runBuild(
+  fileArgument: string | undefined,
+  formatOption: string | undefined,
+  outOption: string | undefined,
+  urlOption: string | undefined,
+): number {
   const requestedFormats = (formatOption ?? AVAILABLE_FORMATS.join(","))
     .split(",")
     .map((format) => format.trim())
@@ -161,37 +208,29 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
     return 2;
   }
 
-  const benchmarkPath = findBenchmark(fileArgument);
-  const benchmarkFile = readJson(benchmarkPath);
-  const rawFiles = loadRawOrReport(benchmarkFile, benchmarkPath);
-  const report = validate(benchmarkFile, rawFiles);
+  const outcome = validateAndBuild(fileArgument, requestedFormats as OutputFormat[], outOption, urlOption);
 
-  if (printIssues(report.issues) > 0) {
-    console.log("Nothing was written: fix the errors above, then build again.");
+  if (!outcome) return 1;
 
-    return 1;
-  }
-
-  if (report.state === "plan") {
-    console.log("Nothing was written: the results have not been computed yet. Run astrolabe compute first.");
-
-    return 1;
-  }
-
-  const benchmark = benchmarkSchema.parse(benchmarkFile);
-  const outputFolder = resolve(dirname(benchmarkPath), outOption ?? "dist");
-  const context = {
-    generatorVersion: packageVersion,
-    buildDate: buildDateFrom(process.env),
-    continuousIntegration: continuousIntegrationFrom(process.env),
-  };
-  const built = buildOutputs(benchmark, requestedFormats as OutputFormat[], outputFolder, context, rawFiles);
+  const { built, outputFolder } = outcome;
 
   for (const warning of built.warnings) console.log(`warning: ${warning}`);
 
   console.log(`Wrote to ${relative(process.cwd(), outputFolder) || "."}:`);
 
-  for (const file of built.files) console.log(`  ${file.path}  ${(file.bytes / 1024).toFixed(1)} KB`);
+  for (const file of built.files.filter((entry) => !entry.path.startsWith(`${SITE_FOLDER}/`)))
+    console.log(`  ${file.path}  ${(file.bytes / 1024).toFixed(1)} KB`);
+
+  if (built.site) {
+    const siteFiles = built.files.filter((entry) => entry.path.startsWith(`${SITE_FOLDER}/`));
+    const siteBytes = siteFiles.reduce((total, entry) => total + entry.bytes, 0);
+
+    console.log(
+      `  ${SITE_FOLDER}/  ${siteFiles.length} files, ${(siteBytes / 1024).toFixed(1)} KB: open ${SITE_FOLDER}/index.html, or publish the folder`,
+    );
+
+    if (built.site.copied.length > 0) console.log(`    copied into the site, public once it is published: ${built.site.copied.join(", ")}`);
+  }
 
   if (built.readmeCard) {
     const fromHere = (path: string) => relative(process.cwd(), resolve(outputFolder, path)).split(sep).join("/");
@@ -203,6 +242,47 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
 
     console.log(`\nTo show the README card, linked to the full results, paste into a README in this folder:\n\n${snippet}`);
   }
+
+  return 0;
+}
+
+const DEFAULT_PREVIEW_PORT = 4321;
+const REBUILD_DELAY_MS = 150;
+
+/** Builds the site, serves it, and builds it again whenever a file of the benchmark changes. */
+function runPreview(fileArgument: string | undefined, outOption: string | undefined, portOption: string | undefined): number {
+  const port = portOption === undefined ? DEFAULT_PREVIEW_PORT : Number(portOption);
+
+  if (!Number.isInteger(port) || port <= 0) {
+    console.error("astrolabe preview: --port takes a port number");
+
+    return 2;
+  }
+
+  const first = validateAndBuild(fileArgument, ["site"], outOption, undefined);
+
+  if (!first) return 1;
+
+  const benchmarkFolder = dirname(first.benchmarkPath);
+  const preview = servePreview(resolve(first.outputFolder, SITE_FOLDER));
+  let pending: NodeJS.Timeout | undefined;
+
+  preview.server.listen(port, "127.0.0.1", () =>
+    console.log(`\nPreview at http://localhost:${port}/ (Ctrl+C to stop). It is built again when a file of the benchmark changes.`),
+  );
+
+  watch(benchmarkFolder, { recursive: true }, (_event, changed) => {
+    const changedPath = changed ? resolve(benchmarkFolder, changed.toString()) : "";
+
+    if (changedPath.startsWith(first.outputFolder)) return;
+
+    clearTimeout(pending);
+    pending = setTimeout(() => {
+      console.log(`\n${new Date().toLocaleTimeString()}: building again`);
+
+      if (validateAndBuild(fileArgument, ["site"], outOption, undefined)) preview.reload();
+    }, REBUILD_DELAY_MS);
+  });
 
   return 0;
 }
@@ -392,6 +472,8 @@ function main(): number {
       out: { type: "string" },
       dir: { type: "string" },
       force: { type: "boolean" },
+      url: { type: "string" },
+      port: { type: "string" },
     },
   });
   const [command, argument, ...rest] = positionals;
@@ -406,7 +488,9 @@ function main(): number {
     case "compute":
       return runCompute(argument);
     case "build":
-      return runBuild(argument, flags.format, flags.out);
+      return runBuild(argument, flags.format, flags.out, flags.url);
+    case "preview":
+      return runPreview(argument, flags.out, flags.port);
     case "import":
       return runImport(argument, rest, flags.raw, flags.benchmark);
     case "init":

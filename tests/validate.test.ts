@@ -6,6 +6,7 @@ import type { Issue } from "../src/rules/registry.js";
 import { rule } from "../src/rules/registry.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { checkCharts } from "../src/validate/chart-checks.js";
+import { checkPresentation } from "../src/validate/presentation-checks.js";
 import { validate } from "../src/validate/validate.js";
 import { planOf, rawFileOf } from "./helpers.js";
 
@@ -221,6 +222,30 @@ describe("charts in the presentation", () => {
     const filters = [filterOf("category", "category"), filterOf("task", "task"), filterOf("again", "task")];
 
     expect(errorsAt(withPresentation({ filters }))).toEqual([{ rule: "V37", path: "filters" }]);
+  });
+
+  it("a table that leaves out the observations, intervals or failures of its values is refused", () => {
+    const table = { id: "table", type: "table", metrics: ["accuracy"], rows: "task", show: ["n"] };
+    const checked = (blocks: unknown[]) => locate(checkPresentation(benchmarkSchema.parse(withPresentation({ blocks }))));
+
+    expect(checked([table])).toEqual([{ rule: "V31", path: "blocks[0].show" }]);
+    expect(checked([{ ...table, show: ["n", "ci", "failures"] }])).toEqual([]);
+  });
+
+  it("more than two blocks in a row, or more than three headlines, is a warning", () => {
+    const headline = (id: string) => ({
+      id,
+      type: "headline",
+      comparison: "accuracy__suite__model_a",
+      title: "{effect:accuracy__suite__model_a}",
+    });
+    const blocks = ["one", "two", "three", "four"].map(headline);
+    const issues = checkPresentation(benchmarkSchema.parse(withPresentation({ blocks, layout: [["one", "two", "three"], ["four"]] })));
+
+    expect(issues.map((issue) => [issue.severity, issue.rule, issue.path])).toEqual([
+      ["warning", "V39", "layout[0]"],
+      ["warning", "V39", "blocks"],
+    ]);
   });
 
   it("an image export its chart does not fit fails the file", () => {

@@ -26,4 +26,17 @@ describe("the command line", () => {
     expect(build.stdout).toContain("Nothing was written");
     expect(existsSync(join(folder, "dist"))).toBe(false);
   });
+
+  it("build writes the site and names the files it copies into it, which become public", () => {
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-cli-"));
+
+    cpSync("examples/json-cli-parse", folder, { recursive: true });
+
+    const build = runAstrolabe("build", join(folder, "benchmark.json"), "--format", "site");
+
+    expect(build.status).toBe(0);
+    expect(build.stdout).toContain("copied into the site, public once it is published: benchmark.json, data/runs.jsonl");
+    expect(existsSync(join(folder, "dist", "site", "index.html"))).toBe(true);
+    expect(existsSync(join(folder, "dist", "site", ".nojekyll"))).toBe(true);
+  });
 });

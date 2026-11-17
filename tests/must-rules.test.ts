@@ -8,14 +8,10 @@ import { planOf, suiteStructure } from "./helpers.js";
  * How each Must rule is proved. Every Must rule appears once:
  * - plan: a plan broken in one place, which validate refuses with that rule at that field;
  * - test: an existing test that feeds a failing input, or checks what the generator writes by construction;
- * - agent: what the agent does (asking, publishing, wording), which no check of the file can prove;
- * - page: the site and its filters, which the generator does not build yet.
+ * - agent: what the agent does (asking, publishing, wording), which no check of the file can prove.
  */
 type Proof =
-  | { plan: string; change: (plan: any) => void; field: string; reportedAs?: string }
-  | { test: string; title: string }
-  | { agent: string }
-  | { page: string };
+  { plan: string; change: (plan: any) => void; field: string; reportedAs?: string } | { test: string; title: string } | { agent: string };
 
 const humanJudge = { type: "human", used_for: [], method: "rubric", blinded: true, order_policy: "random per item", raters: 1 };
 const modelJudge = {
@@ -175,8 +171,8 @@ const PROOFS: Record<string, Proof> = {
   },
   V9: { test: "tests/chart.test.ts", title: "draws a log scale with real values on its ticks, names it, and refuses bars on it" },
   V11: { test: "tests/chart.test.ts", title: "draws the interval of every value that has one" },
-  V16: { page: "colours from style only" },
-  V17: { page: "one colour per candidate" },
+  V16: { test: "tests/site.test.ts", title: "takes every colour from the theme" },
+  V17: { test: "tests/chart.test.ts", title: "keeps a candidate's colour and marker on every chart, whichever candidates a chart shows" },
   V18: { test: "tests/chart.test.ts", title: "tells candidates apart by shape as well as by colour" },
   V19: { test: "tests/chart.test.ts", title: "moves a colour that would be too faint towards the ink, and keeps one that is visible" },
   V23: { test: "tests/chart.test.ts", title: "shades with a single grey ramp, the figures readable on every shade" },
@@ -188,7 +184,7 @@ const PROOFS: Record<string, Proof> = {
   },
   V31: { test: "tests/markdown.test.ts", title: "keeps the interval, the number of observations and the failures next to every value" },
   V33: { test: "tests/validate.test.ts", title: "a filter default that is not one of its options is refused" },
-  V34: { page: "tooltips" },
+  V34: { test: "tests/site.test.ts", title: "shows no value that only a pointer can reach" },
   V41: {
     test: "tests/card.test.ts",
     title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
@@ -204,7 +200,10 @@ const PROOFS: Record<string, Proof> = {
   V44: { test: "tests/markdown.test.ts", title: "keeps the interval, the number of observations and the failures next to every value" },
   V46: { test: "tests/card.test.ts", title: "carries a text alternative for screen readers and for the README image" },
   V47: { test: "tests/chart.test.ts", title: "gives every chart type a data table and a text alternative" },
-  V48: { page: "keyboard use of filters" },
+  V48: {
+    test: "tests/site.test.ts",
+    title: "offers filters a keyboard can use: native radio buttons under a legend, with a visible focus",
+  },
   V49: { test: "tests/card.test.ts", title: "draws no text below 12 px" },
   V54: {
     test: "tests/chart.test.ts",
@@ -225,7 +224,7 @@ const mustRules = allRules().filter((entry) => entry.level === "must");
 const entries = Object.entries(PROOFS);
 
 describe("Must rules", () => {
-  it("each has a proof: a failing plan, a test, the agent's behaviour, or the page still to build", () => {
+  it("each has a proof: a failing plan, a test, or the agent's behaviour", () => {
     const mustIds = mustRules.map((entry) => entry.id).sort();
 
     expect(
