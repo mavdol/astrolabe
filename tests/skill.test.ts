@@ -52,6 +52,16 @@ describe("the skill folder", () => {
     expect(description.length).toBeLessThanOrEqual(1024);
   });
 
+  it("has a frontmatter that strict YAML parsers read, such as GitHub's", () => {
+    const block = /^---\n([\s\S]*?)\n---\n/.exec(textOf(ENTRY_FILE))![1];
+    const valuesThatEndTheirKeyTooEarly = block
+      .split("\n")
+      .map((line) => line.slice(line.indexOf(":") + 1).trim())
+      .filter((value) => !/^["']/.test(value) && /: | #/.test(value));
+
+    expect(valuesThatEndTheirKeyTooEarly).toEqual([]);
+  });
+
   it("keeps its entry file short enough to be read whole", () => {
     expect(textOf(ENTRY_FILE).split("\n").length).toBeLessThan(500);
   });
