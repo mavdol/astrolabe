@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: put-it-online-no-site
+expected_outcome: |
+  The repository is on GitHub and has no site. The agent writes a GitHub Actions workflow that builds
+  the benchmark's site with a pinned astrolabe-bench version and publishes dist/site/ to GitHub Pages.
+  It pushes nothing and changes no setting itself. Its reply tells the user what becomes public (the
+  page, benchmark.json and the raw data file) and the one setting only they can change: Settings,
+  Pages, Build and deployment, Source: GitHub Actions.
+context:
+  scaffold_script: place-files.sh

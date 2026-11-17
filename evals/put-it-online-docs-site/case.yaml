@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: put-it-online-docs-site
+expected_outcome: |
+  The repository already publishes its MkDocs documentation to GitHub Pages with
+  .github/workflows/docs.yml. The agent publishes the benchmark inside that site, in a sub-folder such
+  as benchmarks/bundlers/, by adding steps to the existing workflow that build the benchmark's site
+  and copy dist/site/ into what MkDocs publishes. The documentation pages and the docs deployment stay
+  as they were, no second Pages workflow is added, and nothing is pushed.
+context:
+  scaffold_script: place-files.sh
