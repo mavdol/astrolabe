@@ -129,7 +129,6 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
     `results ${provenance.hash}`,
     provenance.date,
     ...(provenance.continuousIntegration ? [`commit ${provenance.continuousIntegration.commit}`] : []),
-    `astrolabe-bench ${inputs.context.generatorVersion}`,
   ]
     .map(escapeHtml)
     .concat(provenance.attribution ? [`<a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a>`] : [])
