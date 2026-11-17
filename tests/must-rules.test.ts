@@ -9,7 +9,7 @@ import { planOf, suiteStructure } from "./helpers.js";
  * - plan: a plan broken in one place, which validate refuses with that rule at that field;
  * - test: an existing test that feeds a failing input, or checks what the generator writes by construction;
  * - agent: what the agent does (asking, publishing, wording), which no check of the file can prove;
- * - page: charts, filters and the site, which the generator does not build yet.
+ * - page: the site and its filters, which the generator does not build yet.
  */
 type Proof =
   | { plan: string; change: (plan: any) => void; field: string; reportedAs?: string }
@@ -36,7 +36,7 @@ const PROOFS: Record<string, Proof> = {
     change: (plan) => plan.candidates.forEach((candidate: any) => (candidate.pricing = { model: "per call", source: "price page" })),
     field: "candidates[0].pricing.date",
   },
-  D1: { page: "bar charts" },
+  D1: { test: "tests/chart.test.ts", title: "refuses a bar chart of negative values" },
   D3: { test: "tests/card.test.ts", title: "never cuts the axis, even when the interval lies far beyond the band" },
   D4: { test: "tests/markdown.test.ts", title: "keeps the interval, the number of observations and the failures next to every value" },
   D5: { plan: "weights without saying how a single score is made", change: (plan) => (plan.metrics[0].weight = 1), field: "composite" },
@@ -165,21 +165,21 @@ const PROOFS: Record<string, Proof> = {
   U1: { plan: "a usability metric without tasks and users", change: (plan) => (plan.metrics[0].kind = "usability"), field: "workload" },
   U2: { agent: "measuring success, time and satisfaction in a usability study" },
   U6: { test: "tests/compute.test.ts", title: "a usability comparison with fewer than 20 participants is indicative and names no winner" },
-  V1: { page: "chart choice from the shape of the data" },
-  V2: { page: "the closed chart set has no angle or area encoding" },
-  V5: { page: "the closed chart set has no second y-axis" },
-  V6: { page: "shared scales across panels" },
+  V1: { test: "tests/validate.test.ts", title: "a chart that does not fit the shape of its data is refused" },
+  V2: { test: "tests/chart.test.ts", title: "accepts only the closed set of chart types: no angle, no area, no second axis" },
+  V5: { test: "tests/chart.test.ts", title: "accepts only the closed set of chart types: no angle, no area, no second axis" },
+  V6: { test: "tests/chart.test.ts", title: "shares its scale with the blocks it names" },
   V7: {
     test: "tests/card.test.ts",
     title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
   },
-  V9: { page: "log scales and their reason" },
-  V11: { page: "intervals drawn on charts" },
+  V9: { test: "tests/chart.test.ts", title: "draws a log scale with real values on its ticks, names it, and refuses bars on it" },
+  V11: { test: "tests/chart.test.ts", title: "draws the interval of every value that has one" },
   V16: { page: "colours from style only" },
   V17: { page: "one colour per candidate" },
-  V18: { page: "direct labels and marker shapes" },
-  V19: { page: "contrast checks of the user's colours" },
-  V23: { page: "single-hue ramps" },
+  V18: { test: "tests/chart.test.ts", title: "tells candidates apart by shape as well as by colour" },
+  V19: { test: "tests/chart.test.ts", title: "moves a colour that would be too faint towards the ink, and keeps one that is visible" },
+  V23: { test: "tests/chart.test.ts", title: "shades with a single grey ramp, the figures readable on every shade" },
   V25: { test: "tests/validate.test.ts", title: "an asserted verdict that no longer holds fails the file" },
   V26: { test: "tests/validate.test.ts", title: "a number typed in a title is refused, a template is not" },
   V27: {
@@ -187,7 +187,7 @@ const PROOFS: Record<string, Proof> = {
     title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
   },
   V31: { test: "tests/markdown.test.ts", title: "keeps the interval, the number of observations and the failures next to every value" },
-  V33: { page: "filter defaults" },
+  V33: { test: "tests/validate.test.ts", title: "a filter default that is not one of its options is refused" },
   V34: { page: "tooltips" },
   V41: {
     test: "tests/card.test.ts",
@@ -197,13 +197,19 @@ const PROOFS: Record<string, Proof> = {
     test: "tests/card.test.ts",
     title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
   },
-  V43: { page: "frozen filter states in exports" },
+  V43: {
+    test: "tests/chart.test.ts",
+    title: "plans a wide or square image of one chart, in light mode unless asked otherwise, with the default filter state",
+  },
   V44: { test: "tests/markdown.test.ts", title: "keeps the interval, the number of observations and the failures next to every value" },
   V46: { test: "tests/card.test.ts", title: "carries a text alternative for screen readers and for the README image" },
-  V47: { page: "a data table for every chart" },
+  V47: { test: "tests/chart.test.ts", title: "gives every chart type a data table and a text alternative" },
   V48: { page: "keyboard use of filters" },
   V49: { test: "tests/card.test.ts", title: "draws no text below 12 px" },
-  V54: { page: "comparison-rows charts" },
+  V54: {
+    test: "tests/chart.test.ts",
+    title: "shows each comparison on its own row, with a factor and its word, or the verdict instead of a figure",
+  },
   V56: {
     plan: "a declared value without its source",
     change: (plan) => {

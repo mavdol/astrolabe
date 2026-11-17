@@ -25,6 +25,8 @@ export const CAP_HEIGHT_RATIO = FONT.cap_height / FONT.units_per_em;
 
 const MISSING_CHARACTER = "?";
 const ELLIPSIS = "…";
+/** The width in px of the background drawn around text that sits over lines, so that no line strikes it through. */
+const HALO_WIDTH = 3;
 
 export interface TextStyle {
   weight: FontWeight;
@@ -115,7 +117,7 @@ export class SvgTextRenderer {
    * One line of text whose baseline starts at (x, y), or ends there when
    * anchored at the end. Returns the SVG of its glyphs.
    */
-  draw(text: string, x: number, y: number, style: TextStyle & { fill: string; anchor?: "start" | "end" }): string {
+  draw(text: string, x: number, y: number, style: TextStyle & { fill: string; anchor?: "start" | "end"; halo?: string }): string {
     const scale = style.size / FONT.units_per_em;
     const characters = [...text];
     let penInFontUnits = 0;
@@ -142,7 +144,11 @@ export class SvgTextRenderer {
 
     const transform = `translate(${round(startX)} ${round(y)}) scale(${round(scale, 6)} ${round(-scale, 6)})`;
 
-    return `<g fill="${style.fill}" transform="${transform}">${placements.join("")}</g>`;
+    const halo = style.halo
+      ? ` stroke="${style.halo}" stroke-width="${round(HALO_WIDTH / scale)}" stroke-linejoin="round" paint-order="stroke"`
+      : "";
+
+    return `<g fill="${style.fill}"${halo} transform="${transform}">${placements.join("")}</g>`;
   }
 
   /** The <defs> holding every glyph drawn so far, in font units with the y axis pointing up. */

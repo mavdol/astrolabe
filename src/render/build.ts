@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { RawFile } from "../compute/raw-data.js";
 import type { Benchmark } from "../schema/benchmark.js";
 import { cardContentOf, renderCard, type CardMode } from "./card.js";
 import type { BuildContext } from "./describe.js";
@@ -27,7 +28,13 @@ export interface BuildResult {
  * README cards (an SVG per mode and a PNG of the first), then the Markdown
  * that shows the first card.
  */
-export function buildOutputs(benchmark: Benchmark, formats: OutputFormat[], outputFolder: string, context: BuildContext): BuildResult {
+export function buildOutputs(
+  benchmark: Benchmark,
+  formats: OutputFormat[],
+  outputFolder: string,
+  context: BuildContext,
+  rawFiles: Record<string, RawFile> = {},
+): BuildResult {
   const result: BuildResult = { files: [], warnings: [] };
   const write = (relativePath: string, content: string | Buffer) => {
     const path = join(outputFolder, relativePath);
@@ -86,6 +93,7 @@ export function buildOutputs(benchmark: Benchmark, formats: OutputFormat[], outp
             filterState: image.filterState,
             standalone: true,
             enlargement,
+            rawFiles,
           },
           context,
         );

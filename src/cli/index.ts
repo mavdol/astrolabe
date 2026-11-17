@@ -163,7 +163,8 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
 
   const benchmarkPath = findBenchmark(fileArgument);
   const benchmarkFile = readJson(benchmarkPath);
-  const report = validate(benchmarkFile, loadRawOrReport(benchmarkFile, benchmarkPath));
+  const rawFiles = loadRawOrReport(benchmarkFile, benchmarkPath);
+  const report = validate(benchmarkFile, rawFiles);
 
   if (printIssues(report.issues) > 0) {
     console.log("Nothing was written: fix the errors above, then build again.");
@@ -184,7 +185,7 @@ function runBuild(fileArgument: string | undefined, formatOption: string | undef
     buildDate: buildDateFrom(process.env),
     continuousIntegration: continuousIntegrationFrom(process.env),
   };
-  const built = buildOutputs(benchmark, requestedFormats as OutputFormat[], outputFolder, context);
+  const built = buildOutputs(benchmark, requestedFormats as OutputFormat[], outputFolder, context, rawFiles);
 
   for (const warning of built.warnings) console.log(`warning: ${warning}`);
 

@@ -5,6 +5,7 @@ import { loadRaw } from "../src/compute/files.js";
 import type { Issue } from "../src/rules/registry.js";
 import { rule } from "../src/rules/registry.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
+import { checkCharts } from "../src/validate/chart-checks.js";
 import { validate } from "../src/validate/validate.js";
 import { planOf, rawFileOf } from "./helpers.js";
 
@@ -173,6 +174,60 @@ describe("claims in the presentation", () => {
     const unknown = withBlock({ id: "claim", type: "text", description: "{verdict:accuracy__nowhere__model_a}" });
 
     expect(rulesOf(errorsOf(validate(unknown, rawFiles).issues))).toEqual(["V26"]);
+  });
+});
+
+describe("charts in the presentation", () => {
+  const { benchmark, rawFiles } = loadExample("support-assistant-eval");
+  const withPresentation = (presentation: Record<string, unknown>) => ({
+    ...copyOf(benchmark),
+    blocks: [],
+    layout: undefined,
+    exports: undefined,
+    ...presentation,
+  });
+  const locate = (issues: Issue[]) => errorsOf(issues).map((issue) => ({ rule: issue.rule, path: issue.path }));
+  const errorsAt = (file: unknown) => locate(checkCharts(benchmarkSchema.parse(file), rawFiles));
+
+  it("a chart that does not fit the shape of its data is refused", () => {
+    const barsOfABreakdown = withPresentation({
+      blocks: [{ id: "chart", type: "chart", chart: "bar", metric: "accuracy", breakdown: "category", title: "Accuracy" }],
+    });
+
+    expect(errorsAt(barsOfABreakdown)).toEqual([{ rule: "V1", path: "blocks[0]" }]);
+  });
+
+  it("a paired comparison shown only as two separate intervals is refused", () => {
+    const twoIntervals = { id: "chart", type: "chart", chart: "dot-interval", metric: "accuracy", title: "Accuracy" };
+    const headline = {
+      id: "claim",
+      type: "headline",
+      comparison: "accuracy__suite__model_a",
+      title: "{effect:accuracy__suite__model_a} accuracy",
+    };
+
+    expect(errorsAt(withPresentation({ blocks: [twoIntervals] }))).toEqual([{ rule: "V13", path: "blocks[0]" }]);
+    expect(errorsAt(withPresentation({ blocks: [twoIntervals, headline] }))).toEqual([]);
+  });
+
+  it("a filter default that is not one of its options is refused", () => {
+    const filters = [{ id: "category", label: "Category", level: "category", options: "from_structure", default: "nowhere" }];
+
+    expect(errorsAt(withPresentation({ filters }))).toEqual([{ rule: "V33", path: "filters[0].default" }]);
+  });
+
+  it("filters with more combinations than can be rendered in advance are refused", () => {
+    const filterOf = (id: string, level: string) => ({ id, label: id, level, options: "from_structure", default: "all", allow_all: true });
+    const filters = [filterOf("category", "category"), filterOf("task", "task"), filterOf("again", "task")];
+
+    expect(errorsAt(withPresentation({ filters }))).toEqual([{ rule: "V37", path: "filters" }]);
+  });
+
+  it("an image export its chart does not fit fails the file", () => {
+    const usability = loadExample("notes-apps-onboarding");
+    const wide = { ...copyOf(usability.benchmark), exports: [{ id: "social", blocks: ["chart-tasks"], format: "png", size: "wide" }] };
+
+    expect(locate(validate(wide, usability.rawFiles).issues)).toEqual([{ rule: "V41", path: "exports[0]" }]);
   });
 });
 

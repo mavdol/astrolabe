@@ -5,6 +5,7 @@ import { verdictOf, withEnoughParticipants } from "../compute/verdict.js";
 import type { Issue } from "../rules/registry.js";
 import { benchmarkSchema, type Benchmark, type Comparison, type Results } from "../schema/benchmark.js";
 import { checkPlan } from "./plan-checks.js";
+import { checkCharts } from "./chart-checks.js";
 import { checkPresentation } from "./presentation-checks.js";
 
 export interface ValidationReport {
@@ -106,9 +107,12 @@ export function validate(file: unknown, rawFiles: Record<string, RawFile>): Vali
   }
 
   if (planIsSound) {
-    issues.push(...checkComputedFields(results, rawFiles));
-    issues.push(...checkVerdictsAgainstStoredNumbers(results));
-    issues.push(...checkPresentation(benchmark));
+    const computedIssues = [...checkComputedFields(results, rawFiles), ...checkVerdictsAgainstStoredNumbers(results)];
+    const computedFieldsHold = !computedIssues.some((issue) => issue.severity === "error");
+
+    issues.push(...computedIssues, ...checkPresentation(benchmark));
+
+    if (computedFieldsHold) issues.push(...checkCharts(benchmark, rawFiles));
   }
 
   return { issues, state: "computed", resultsHash: resultsHash(results) };

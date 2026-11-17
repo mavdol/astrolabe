@@ -1,0 +1,133 @@
+import type { RawFile } from "../../compute/raw-data.js";
+import type { Benchmark, Comparison, Metric } from "../../schema/benchmark.js";
+import type { ChartBlock } from "../../schema/presentation.js";
+import { seriesStylesOf, type Mode, type SeriesStyle } from "../../themes/astrolabe.js";
+import { STATISTIC_WORD, type Lookup } from "../describe.js";
+import { formatLevel } from "../number-format.js";
+import { ChartError, type FilterState } from "./chart-data.js";
+import type { Plot } from "./plot.js";
+import { extentAroundData } from "./scale.js";
+
+export interface DataTable {
+  header: string[];
+  rows: string[][];
+}
+
+export interface ChartContent {
+  plot: Plot;
+  subtitle: string;
+  /** How to read the chart: what is measured, its direction, the observations and the intervals. */
+  howToRead: string;
+  table: DataTable;
+  /** What is plotted, in words, for the text alternative. */
+  kind: string;
+  /** The values the main axis covers, so that every filter state and every block sharing the scale can use one axis. */
+  axisExtent?: [number, number];
+}
+
+export interface ChartInputs {
+  block: ChartBlock;
+  benchmark: Benchmark;
+  lookup: Lookup;
+  filterState: FilterState;
+  mode: Mode;
+  /** A chart of a set size leaves out the definitions of its metrics. */
+  compact: boolean;
+  rawFiles: Record<string, RawFile>;
+  /** The values the main axis must cover besides this chart's own. */
+  sharedExtent?: [number, number];
+}
+
+export const directionWords = (metric: Metric) => (metric.direction === "lower" ? "lower is better" : "higher is better");
+export const sentence = (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`);
+export const statisticWord = (metric: Metric) => STATISTIC_WORD[metric.statistic].toLowerCase();
+export const withUnit = (number: string, unit: string) => (unit === "%" ? `${number}%` : `${number} ${unit}`);
+
+export function rangeOf(numbers: number[]): string {
+  const [lowest, highest] = [Math.min(...numbers), Math.max(...numbers)];
+
+  return lowest === highest ? String(lowest) : `${lowest} to ${highest}`;
+}
+
+export function levelsOf(entries: { ci?: [number, number]; ci_level?: number }[]): string | null {
+  const levels = [...new Set(entries.filter((entry) => entry.ci && entry.ci_level).map((entry) => formatLevel(entry.ci_level!)))];
+
+  return levels.length > 0 ? `${levels.join("% and ")}%` : null;
+}
+
+export function intervalSentence(values: { ci?: [number, number]; ci_level?: number; method?: string }[], name = "Lines"): string {
+  const levels = levelsOf(values);
+  const methods = [...new Set(values.filter((value) => value.ci && value.method).map((value) => value.method!))];
+
+  return levels
+    ? `${name}: ${levels} confidence intervals${methods.length > 0 ? ` (${methods.join(", ")})` : ""}.`
+    : "No interval: too few observations, or declared values.";
+}
+
+export function failureSentences(metric: Metric, comparisons: Comparison[]): string {
+  const leftOut = metric.failures_count_as === "excluded" ? "Failed attempts are left out: successful attempts only." : "";
+  const warning = comparisons.some((comparison) => comparison.failure_warning) ? "Warning: the candidates did not fail equally often." : "";
+
+  return [leftOut, warning].filter(Boolean).join(" ");
+}
+
+export function comparisonsOn(metric: Metric, lookup: Lookup): Comparison[] {
+  return (lookup.results.comparisons ?? []).filter((comparison) => comparison.metric === metric.id);
+}
+
+export function seriesOf(inputs: ChartInputs): Map<string, SeriesStyle> {
+  return seriesStylesOf(
+    inputs.lookup.results.candidates.map((candidate) => candidate.id),
+    inputs.benchmark.style,
+    inputs.mode,
+  );
+}
+
+export const candidateNameOf = (lookup: Lookup, candidate: string) => lookup.candidateName.get(candidate) ?? candidate;
+
+export function unionOf(first: [number, number], second?: [number, number]): [number, number] {
+  return second ? [Math.min(first[0], second[0]), Math.max(first[1], second[1])] : first;
+}
+
+export interface ValueAxis {
+  extent: [number, number];
+  logScale: boolean;
+  startsAtZero: boolean;
+  /** Why the axis does not start at zero, or is on a log scale, for the how-to-read line. */
+  note: string;
+}
+
+/**
+ * The axis of a metric's values: from zero; or around the data when the block gives the reason, wide
+ * enough that a difference too small to matter cannot fill it; or the powers of ten of a log scale.
+ */
+export function valueAxisOf(inputs: ChartInputs, metric: Metric, plotted: number[], drawsBars: boolean): ValueAxis {
+  const { block } = inputs;
+  const isLog = block.scale?.type === "log";
+
+  if (isLog && drawsBars) throw new ChartError("V9", `block "${block.id}": a log scale has no zero, so it cannot carry bars`);
+
+  if (isLog && plotted.some((value) => value <= 0))
+    throw new ChartError("V9", `block "${block.id}": a log scale only shows values above zero`);
+
+  if (drawsBars && block.scale?.zero === false)
+    throw new ChartError("D1", `block "${block.id}": bars start at zero; remove scale.zero, or use dot-interval`);
+
+  const dataExtent: [number, number] = [Math.min(...plotted), Math.max(...plotted)];
+  const largest = Math.max(...plotted.map(Math.abs));
+  const meaningfulInUnits = metric.compare_as === "relative" ? (metric.minimum_meaningful / 100) * largest : metric.minimum_meaningful;
+  const startsAtZero = !isLog && block.scale?.zero !== false;
+  const ownExtent: [number, number] = isLog
+    ? dataExtent
+    : startsAtZero
+      ? [Math.min(0, dataExtent[0]), Math.max(0, dataExtent[1])]
+      : extentAroundData(dataExtent, meaningfulInUnits);
+  const reason = block.scale?.reason ? sentence(block.scale.reason) : "";
+
+  return {
+    extent: unionOf(ownExtent, inputs.sharedExtent),
+    logScale: isLog,
+    startsAtZero,
+    note: isLog ? `The axis is on a log scale: ${reason}` : startsAtZero ? "" : `The axis does not start at zero: ${reason}`,
+  };
+}

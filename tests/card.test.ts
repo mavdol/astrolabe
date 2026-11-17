@@ -212,12 +212,12 @@ describe("exports", () => {
     });
   });
 
-  it("skips the charts that are not available yet, and says so", () => {
-    expect(exportPlanOf(loadBenchmark("geocoding-apis"))).toEqual({
-      cards: [],
-      images: [],
-      skipped: [{ id: "social", reason: "scatter charts are not available yet" }],
-    });
+  it("writes only the exports a file declares, without a default card", () => {
+    const plan = exportPlanOf(loadBenchmark("geocoding-apis"));
+
+    expect(plan.cards).toEqual([]);
+    expect(plan.skipped).toEqual([]);
+    expect(plan.images.map((image) => [image.id, image.size, image.format, image.modes])).toEqual([["social", "wide", "png", ["light"]]]);
   });
 });
 
