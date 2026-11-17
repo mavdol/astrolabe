@@ -55,6 +55,11 @@ describe("scripts/run-evals.sh", () => {
 
     expect(cases.map(({ name }) => name)).toEqual(["make-me-a-page", "three-parsers-and-a-page", "page-after-a-compaction"]);
     expect(cases.every(({ scaffold }) => scaffold === "ok")).toBe(true);
-    expect(cases.map(({ compactAt }) => compactAt)).toEqual(["", "", "22"]);
+    const compactAt = /^CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=(\S+)$/m.exec(
+      readFileSync("evals/page-after-a-compaction/operator.env", "utf8"),
+    )?.[1];
+
+    expect(compactAt).toBeDefined();
+    expect(cases.map((entry) => entry.compactAt)).toEqual(["", "", compactAt]);
   }, 120_000);
 });
