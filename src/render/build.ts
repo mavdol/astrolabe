@@ -3,7 +3,8 @@ import { join } from "node:path";
 import type { Benchmark } from "../schema/benchmark.js";
 import { cardContentOf, renderCard, type CardMode } from "./card.js";
 import type { BuildContext } from "./describe.js";
-import { cardFileName, exportPlanOf, pictureHtml, type CardFiles } from "./exports.js";
+import { renderChart } from "./chart/render-chart.js";
+import { exportFileName, exportPlanOf, IMAGE_SIZES, pictureHtml, type CardFiles } from "./exports.js";
 import { renderMarkdown } from "./markdown.js";
 import { pngOf } from "./png.js";
 
@@ -49,14 +50,14 @@ export function buildOutputs(benchmark: Benchmark, formats: OutputFormat[], outp
 
       for (const mode of card.modes) {
         const rendered = renderCard(benchmark, content, mode, context);
-        const relativePath = `${EXPORTS_FOLDER}/${cardFileName(card.id, mode)}`;
+        const relativePath = `${EXPORTS_FOLDER}/${exportFileName(card.id, mode)}`;
 
         write(relativePath, rendered.svg);
         svgPaths[mode] = relativePath;
         altText = rendered.altText;
 
         if (!pngPath) {
-          pngPath = `${EXPORTS_FOLDER}/${cardFileName(card.id, mode, "png")}`;
+          pngPath = `${EXPORTS_FOLDER}/${exportFileName(card.id, mode, "png")}`;
           write(pngPath, pngOf(rendered.svg));
         }
 
@@ -68,6 +69,30 @@ export function buildOutputs(benchmark: Benchmark, formats: OutputFormat[], outp
       }
 
       result.readmeCard ??= { altText, files: { svg: svgPaths, png: pngPath } };
+    }
+
+    for (const image of plan.images) {
+      const { width, height, layoutWidth } = IMAGE_SIZES[image.size];
+      const enlargement = width / layoutWidth;
+
+      for (const mode of image.modes) {
+        const chart = renderChart(
+          benchmark,
+          image.block,
+          {
+            width: layoutWidth,
+            height: Math.round(height / enlargement),
+            mode,
+            filterState: image.filterState,
+            standalone: true,
+            enlargement,
+          },
+          context,
+        );
+        const content = image.format === "png" ? pngOf(chart.svg, 1) : chart.svg;
+
+        write(`${EXPORTS_FOLDER}/${exportFileName(image.id, mode, image.format)}`, content);
+      }
     }
   }
 
