@@ -4,14 +4,11 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseRaw } from "../src/compute/compute.js";
 import { allRules, rule } from "../src/rules/registry.js";
-import { resultsSchema } from "../src/schema/benchmark.js";
+import { benchmarkSchema, resultsSchema } from "../src/schema/benchmark.js";
 import { validate } from "../src/validate/validate.js";
 
 const SKILL_FOLDER = "skills/astrolabe-benchmark";
 const ENTRY_FILE = "SKILL.md";
-
-/** Files of the web page phase: rules point to them, and they are written with the page. */
-const FILES_WRITTEN_WITH_THE_PAGE = ["visualization/charts.md", "visualization/style.md", "visualization/page.md", "deploy.md"];
 
 const filesUnder = (folder: string): string[] =>
   readdirSync(folder).flatMap((name) => {
@@ -40,6 +37,8 @@ function codeOf(file: string): string[] {
 
   return [...fenced, ...inline];
 }
+
+const PRESENTATION_SECTIONS = { style: true, filters: true, layout: true, blocks: true, exports: true } as const;
 
 const jsonSnippetsOf = (file: string) => [...textOf(file).matchAll(/```json\n([\s\S]*?)```/g)].map((match) => match[1].trim());
 
@@ -87,11 +86,10 @@ describe("the skill folder", () => {
 describe("the rules in the skill", () => {
   const rulesExplainedIn = (file: string) => allRules().filter((entry) => entry.explained_in === file);
 
-  it("has every file a rule points to, apart from those of the web page", () => {
+  it("has every file a rule points to", () => {
     const filesRulesPointTo = [...new Set(allRules().map((entry) => entry.explained_in))];
-    const missing = filesRulesPointTo.filter((file) => !existsSync(join(SKILL_FOLDER, file)));
 
-    expect(missing.sort()).toEqual([...FILES_WRITTEN_WITH_THE_PAGE].sort());
+    expect(filesRulesPointTo.filter((file) => !existsSync(join(SKILL_FOLDER, file)))).toEqual([]);
   });
 
   it("gives each rule, in the file that explains it, the same level and words as astrolabe explain", () => {
@@ -173,8 +171,9 @@ describe("the JSON shown in the skill", () => {
     expect(Object.keys(examplePlan.results).filter((section) => !explained.includes(section))).toEqual([]);
   });
 
-  it("shows only sections, metrics and raw rows that the format accepts", () => {
+  it("shows only sections, metrics, presentation and raw rows that the format accepts", () => {
     const sectionSchemas = resultsSchema.shape;
+    const presentationSchemas = benchmarkSchema.shape;
     const candidateFieldSchemas = sectionSchemas.candidates.element.shape;
     const refused: string[] = [];
 
@@ -205,7 +204,9 @@ describe("the JSON shown in the skill", () => {
           const schema =
             section in sectionSchemas
               ? sectionSchemas[section as keyof typeof sectionSchemas]
-              : candidateFieldSchemas[section as keyof typeof candidateFieldSchemas];
+              : section in PRESENTATION_SECTIONS
+                ? presentationSchemas[section as keyof typeof PRESENTATION_SECTIONS]
+                : candidateFieldSchemas[section as keyof typeof candidateFieldSchemas];
           const outcome = schema?.safeParse(content);
 
           if (!outcome?.success) refused.push(where);
@@ -214,5 +215,30 @@ describe("the JSON shown in the skill", () => {
     }
 
     expect(refused).toEqual([]);
+  });
+
+  it("claims, in the page examples, only primary comparisons and candidates of the example plan", () => {
+    const primaryMetrics = new Set(examplePlan.results.analysis.primary.map((entry: { metric: string }) => entry.metric));
+    const candidates = new Set(examplePlan.results.candidates.map((candidate: { id: string }) => candidate.id));
+    const wrong: string[] = [];
+
+    for (const file of markdownFiles.filter((name) => name.startsWith("visualization/"))) {
+      const blocks = jsonSnippetsOf(file).flatMap((snippet) => JSON.parse(snippet.startsWith("{") ? snippet : `{${snippet}}`).blocks ?? []);
+
+      for (const block of blocks) {
+        const claimed = [...Object.keys(block.asserts ?? {}), ...(block.type === "headline" ? [block.comparison] : [])];
+
+        for (const id of claimed) {
+          const [metric, candidate] = [id.split("__")[0], id.split("__").at(-1)];
+
+          if (!primaryMetrics.has(metric) || !candidates.has(candidate)) wrong.push(`${id} in ${file}`);
+        }
+
+        for (const [, named] of JSON.stringify(block).matchAll(/\{candidate:([^}]+)\}/g))
+          if (!candidates.has(named)) wrong.push(`{candidate:${named}} in ${file}`);
+      }
+    }
+
+    expect(wrong).toEqual([]);
   });
 });

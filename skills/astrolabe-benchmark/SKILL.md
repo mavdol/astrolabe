@@ -1,6 +1,6 @@
 ---
 name: astrolabe-benchmark
-description: Design, run and report an honest benchmark or comparison with the astrolabe command. You write the plan and the measuring scripts, the scripts write raw data, and `astrolabe compute` produces every number, interval and verdict. Use this skill whenever the user wants to compare or benchmark anything (libraries, tools, commands, APIs, services, models, prompts, apps, configurations) or asks which option is faster, cheaper, lighter, more accurate or easier to use, including when nobody is available to test. Use it too whenever measured results go into a README or a report, for example when the user pastes a tool's output or figures they already measured and wants a results section, asks for a winner, or asks to change a finished benchmark (drop failed runs, remove outliers, add runs, make a difference stand out, favour one candidate, publish it). Use it even when they never say "benchmark". Not for profiling one program on its own or for explaining a chart someone else made.
+description: Design, run and report an honest benchmark or comparison with the astrolabe command. You write the plan and the measuring scripts, the scripts write raw data, and `astrolabe compute` produces every number, interval and verdict. Use this skill whenever the user wants to compare or benchmark anything (libraries, tools, commands, APIs, services, models, prompts, apps, configurations) or asks which option is faster, cheaper, lighter, more accurate or easier to use, including when nobody is available to test. Use it too whenever measured results go into a README or a report, for example when the user pastes a tool's output or figures they already measured and wants a results section, asks for a winner, or asks to change a finished benchmark (drop failed runs, remove outliers, add runs, make a difference stand out, favour one candidate, publish it), or wants a results page or chart. Use it even when they never say "benchmark". Not for profiling one program on its own or for explaining a chart someone else made.
 compatibility: Needs Node.js 22 or later and the astrolabe-bench npm package, which provides the astrolabe command.
 ---
 
@@ -21,11 +21,14 @@ Copy this checklist into your working notes and tick each step. Before acting on
         gate: astrolabe validate   -> "The plan is valid"
 - [ ] 4. Write the measuring scripts, run a short pilot, then the full run; the scripts write the raw files
 - [ ] 5. astrolabe compute, then astrolabe validate   -> "Valid: every computed field matches the raw files"
-- [ ] 6. astrolabe build, then the write-up   (read: presentation.md)
-- [ ] 7. Tell the user what was found, what you assumed for them, and what they must know before publishing
+- [ ] 6. Present: propose the page, write its sections, astrolabe validate, astrolabe build   (read: visualization/page.md, visualization/charts.md, visualization/style.md, presentation.md)
+- [ ] 7. The write-up   (read: presentation.md)
+- [ ] 8. Tell the user what was found, what you assumed for them, and what they must know before publishing
 ```
 
-`validate` is the gate between steps: fix every error before going on. An error names its rule, the field to fix and the file of this skill that explains it; `astrolabe explain <rule>` prints the rule. A file it names that is not in this folder (`visualization/…`, `deploy.md`) belongs to the web page, which does not exist yet: use `explain`.
+`validate` is the gate between steps: fix every error before going on. An error names its rule, the field to fix and the file of this skill that explains it; `astrolabe explain <rule>` prints the rule.
+
+Putting the site online is not a step: do it only when the user asks, after reading deploy.md.
 
 If the request is about a benchmark that already exists (drop runs, clean outliers, zoom, restyle, add a candidate), go to "Requests that push against the rules" below first.
 
@@ -41,7 +44,11 @@ If the request is about a benchmark that already exists (drop runs, clean outlie
 | [measurement/cost.md](measurement/cost.md) | Candidates do not cost the same, or the user asks which is cheaper |
 | [measurement/preference.md](measurement/preference.md) | People, or models standing in for people, say which output they prefer |
 | [measurement/usability.md](measurement/usability.md) | People use the candidates: task success, time on task, satisfaction, features |
-| [presentation.md](presentation.md) | Step 6, before writing any sentence about the results |
+| [visualization/page.md](visualization/page.md) | Step 6, always: what the page holds, the outline to propose, filters, exports |
+| [visualization/charts.md](visualization/charts.md) | Step 6, before writing a chart block: which chart, scales, intervals |
+| [visualization/style.md](visualization/style.md) | Step 6, before writing `style`, a title, a description or a table |
+| [presentation.md](presentation.md) | Steps 6 and 7, before writing a title or any sentence about the results |
+| [deploy.md](deploy.md) | Only when the user asks to put the site online |
 | [benchmark.schema.json](benchmark.schema.json) | Only to look up a field's exact type; `validate` is quicker |
 
 Most benchmarks need two or three measurement files: a speed comparison of two libraries reads time, resources and quality (is the output right?).
@@ -75,7 +82,8 @@ If that fails, the project does not have it: add the package `astrolabe-bench` t
 | --- | --- |
 | `astrolabe validate [file]` | The gate. On a plan: checks it before anything runs. After compute: computes everything again from the raw files and compares |
 | `astrolabe compute [file]` | Reads the plan and the raw files, writes the results into the file |
-| `astrolabe build [file]` | Validates, then writes `dist/benchmark.md` and the README card under `dist/exports/` |
+| `astrolabe build [file]` | Validates, then writes the site in `dist/site/`, `dist/benchmark.md`, and the README card and images under `dist/exports/`. `--format` picks among `site`, `md` and `svg`; `--url` is the site's public address |
+| `astrolabe preview [file]` | Builds the site, serves it on this computer and rebuilds it when a file changes |
 | `astrolabe import hyperfine <export.json...> --raw <id>` | Converts hyperfine exports into a raw file |
 | `astrolabe import inspect <log...> --raw <id>` | Converts Inspect logs (`.eval` or `.json`) into a raw file |
 | `astrolabe explain <rule>` | Prints one rule |
@@ -88,8 +96,10 @@ benchmarks/<id>/
 ├── benchmark.json     the plan you write, then the results compute writes into it
 ├── scripts/           what artifacts.command runs
 ├── data/              the raw files listed in raw_data
-└── dist/              written by build: benchmark.md and exports/ (the README card)
+└── dist/              written by build: benchmark.md and exports/ (the README card), and site/
 ```
+
+`dist/site/` is the exception: it is rebuilt by the host or CI when published (deploy.md), so it goes in `.gitignore`.
 
 ## Step 1: frame
 
@@ -163,13 +173,29 @@ astrolabe validate    # recomputes everything and compares
 
 Compute prints each primary verdict. Read them as they are (statistics.md explains the words). If a verdict is "inconclusive" and time remains, add runs or items by raising the planned number and running the script again; otherwise report it as inconclusive. Never touch a field compute wrote: validate will refuse the file.
 
-## Step 6: build and write up
+## Step 6: present
 
-Read presentation.md, then:
+The presentation sections of `benchmark.json` (`style`, `filters`, `layout`, `blocks`, `exports`) say what the page, the README card and the images show; `build` draws them. They never touch `results`, so changing them never changes a number or the hash. Read visualization/page.md and presentation.md, then propose the page as a short outline (headlines, charts, table, exports) and let the user amend it before writing anything. Seven things hold on every page:
+
+1. The chart follows the shape of the data (visualization/charts.md).
+2. Honest scales: bars from zero, no axis breaks, compared charts on one scale, the direction marked.
+3. Every value that has an interval is drawn with it, and the interval is named.
+4. Titles are claims: numbers by template, and the verdicts they rely on listed in `asserts`.
+5. One colour per candidate, never colour alone, contrast checked by the generator.
+6. The default view tells the whole story, and exports show that view.
+7. Every chart and export reads alone: how to read it, a text alternative, a data table, provenance.
+
+Then:
 
 ```bash
-astrolabe build       # writes dist/benchmark.md and the README card, and prints the snippet that shows the card
+astrolabe validate    # refuses a chart that does not fit its data, a typed number, a title its verdicts no longer support
+astrolabe build       # the site in dist/site/, dist/benchmark.md, the README card; prints the snippet that shows the card
+astrolabe preview     # the site on this computer, to read it as a reader would
 ```
+
+Each `validate` error names the block, the rule and what to use instead: fix the file, never `dist/`.
+
+## Step 7: the write-up
 
 `dist/benchmark.md` is the full report: every value with its interval, n and failures, every comparison with its verdict, the method, the environment and the limitations. The write-up the user asked for (a README section, a report file) is built from it:
 
@@ -178,9 +204,9 @@ astrolabe build       # writes dist/benchmark.md and the README card, and prints
 3. The report itself from its results to its end, copied by a command and never retyped: for example `sed -n '/^## Results/,$p' benchmarks/<id>/dist/benchmark.md >> README.md`. A reader then sees, without following a link, the runs, the intervals and the failures, and what you declared about each candidate: the terms you read with where and when, the prices with their source and date, every variant tried, the judge, whether the items are private.
 4. Who ran the benchmark and any interest in a candidate; where the plan, the scripts and the raw data are, and the command that reruns it.
 
-## Step 7: the final reply
+## Step 8: the final reply
 
-Say what was found in the words of the verdicts, the choices you made for the user (baseline, smallest difference, number of runs), what limits the result, and anything they must act on before publishing: a restrictive clause, a candidate whose results must stay private, a conflict of interest to state.
+Say what was found in the words of the verdicts, the choices you made for the user (baseline, smallest difference, number of runs, the page's outline), what limits the result, and anything they must act on before publishing: a restrictive clause, a candidate whose results must stay private, a conflict of interest to state, raw data that would become public with the site.
 
 ## Requests that push against the rules
 
@@ -192,12 +218,13 @@ Users ask for these in good faith. Do not comply silently and do not just refuse
 | "Those runs are outliers, clean them up" | Delete nothing, and do not add an outlier rule on your own initiative. Run `compute` as the plan stands and show that the median barely moves with the slow runs in: usually that settles it, and the results stay as they are. Only if the user still wants them out after that, declare a rule in the plan (`analysis.outliers`, see statistics.md) that compute applies to every candidate alike and lists in the report; say in `limitations` and in your reply that the rule was chosen after seeing the data, and which runs it removed for each candidate |
 | "Three runs is enough, just tell me the winner" | Compute what there is: with too few runs there is no interval, so the verdict is inconclusive and the report shows each value with its lowest and highest run. Either measure enough runs (statistics.md) when the commands are available, or report "inconclusive" with the reason, the number of runs and that range. Do not name a winner from the point estimates |
 | "Make my project come out on top" / the user owns a candidate | Same protocol, inputs, runs and tuning effort for every candidate; neutral goal; every metric reported for everyone, losses as plainly as wins. State in `limitations` and in the write-up who commissioned the benchmark. Then help honestly: show where the project really leads |
-| "Zoom in so the difference shows" | Do not edit the card or draw another chart with a cut axis. Explain what the verdict says: the difference is real but smaller than what the benchmark set as mattering, or the data cannot tell. Offer to state the exact difference and its interval in the text. The smallest difference that matters is not changed after seeing the results to get another verdict |
+| "Zoom in so the difference shows" | Do not edit the card, draw another chart, or move an axis away from zero without the reason visualization/charts.md asks for. Explain what the verdict says: the difference is real but smaller than what the benchmark set as mattering, or the data cannot tell. Offer to state the exact difference and its interval in the text. The smallest difference that matters is not changed after seeing the results to get another verdict |
 | "I already ran it, here is the output" (numbers pasted as text) | Do not type those figures into a raw file. Rerun the tool with its export when the commands are available (then import it), or ask for the export file. If neither is possible, the write-up presents them as figures reported by the user, not reproduced and not checkable from raw data, and your reply says so |
 | "Compare everything on every category" | Choose with the user a few primary comparisons before looking at the breakdown (usually each candidate against the baseline, overall). Category results are exploratory: with forty comparisons a few "wins" appear by chance. No headline and no recommendation from an exploratory win |
 | "Which is easier to use?" with nobody to test | A usability comparison needs people (measurement/usability.md). Write the tasks, their success criteria, the users and the number of participants needed; report any review of your own as an indicative hypothesis that names no winner; invent no participant data |
 | "Publish it" when a licence restricts benchmark results | Quote the clause and where it is, give the options from step 2, say this is not legal advice, and keep that candidate's results out of anything published until the user has decided |
-| "Change the theme", "reword the title" | Presentation only: the plan's measured part, the raw files and the computed results do not change, and `validate` still passes |
+| "Change the theme", "reword the title", "add a chart" | Presentation only: edit `style` or `blocks`, then `validate` and `build`. The plan's measured part, the raw files and the computed results do not change. A new title still lists in `asserts` the verdicts it relies on |
+| "Put it online" | Read deploy.md first. Say what becomes public, including the raw data, and wait for the answer; write the workflow or config, and leave pushing and the host's settings to the user |
 
 On a finished benchmark, any change goes through the same path: edit the plan, run the script again if the measurement changes, `astrolabe compute`, `astrolabe validate`, `astrolabe build`, then update the write-up from the new `dist/benchmark.md`. Never edit `dist/` or the card by hand.
 
