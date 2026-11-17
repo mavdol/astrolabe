@@ -1,0 +1,7 @@
+site_name: Storefront
+site_url: https://example.github.io/storefront/
+nav:
+  - Home: index.md
+  - Deploying: deploying.md
+theme:
+  name: material

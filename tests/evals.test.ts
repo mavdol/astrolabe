@@ -29,7 +29,7 @@ const gradersOf = (caseName: string) =>
 
 describe("the evaluation cases", () => {
   it("are all there", () => {
-    expect(caseNames.length).toBe(13);
+    expect(caseNames.length).toBe(18);
   });
 
   it.each(caseNames)("%s has a request, its run settings and the files it starts from", (caseName) => {
