@@ -121,8 +121,9 @@ describe("the site", () => {
   });
 
   it("draws each chart in a wide and a narrow version, in both modes, with real text", () => {
-    const svgs = support.html.match(/<svg[\s\S]*?<\/svg>/g)!;
+    const svgs = support.html.match(/<svg[\s\S]*?<\/svg>/g)!.filter((svg) => !/^<svg[^>]*aria-hidden="true"/.test(svg));
 
+    expect(svgs.length).toBeGreaterThan(0);
     expect(support.html).toContain('<div data-mode="dark">');
     expect(support.html).toContain('<div data-width="narrow">');
     expect(svgs.every((svg) => svg.includes("<text ") && !svg.includes("<use "))).toBe(true);
@@ -192,6 +193,17 @@ describe("the site", () => {
     expect(texts.filter((text) => text === "exploratory").length).toBeGreaterThan(0);
   });
 
+  it("names its copy-link buttons in words, and draws their icons for the eye only", () => {
+    const buttons = support.html.match(/<a class="icon-button"[\s\S]*?<\/a>/g)!;
+
+    expect(buttons).toHaveLength(4);
+
+    for (const button of buttons) {
+      expect(button).toContain('<span class="visually-hidden" data-copy-status>Copy a link to this part</span>');
+      expect(button.match(/<svg [^>]*aria-hidden="true"/g)).toHaveLength(2);
+    }
+  });
+
   it("shows no value that only a pointer can reach", () => {
     expect(support.html).not.toContain(' title="');
     expect(support.html.match(/<title>/g)).toHaveLength(1);
@@ -224,11 +236,24 @@ describe("the site", () => {
     );
   });
 
-  it("closes with how it was built and how to check it: the full hash and links to the evidence", () => {
-    expect(support.html).toMatch(/<li>Results sha256: <code>[0-9a-f]{64}<\/code><\/li>/);
+  it("closes with how to check it: the full hash, the command at the version that built it, and links to the evidence", () => {
+    expect(support.html).toMatch(/<p class="hash"><span class="label">Results sha256<\/span><br><code>[0-9a-f]{64}<\/code><\/p>/);
     expect(support.html).toContain('<a href="benchmark.json">benchmark.json</a>');
     expect(support.html).toContain('<a href="data/items.jsonl">data/items.jsonl</a>');
-    expect(support.html).toContain("run npx astrolabe-bench validate benchmark.json");
+    expect(support.html).toContain("run <code>npx astrolabe-bench@0.2.0 validate benchmark.json</code>");
+  });
+
+  it("gives each fact of its provenance once: the date at the top, the source and the data at the bottom", () => {
+    const footer = support.html.match(/<footer>[\s\S]*<\/footer>/)![0];
+
+    expect(support.html).toContain("<body>\n<main>");
+    expect(support.html.match(/2026-11-17/g)).toHaveLength(1);
+    expect(footer).toContain('<a href="https://github.com/example/support-assistant-eval">github.com/example/support-assistant-eval</a>');
+    expect(footer).toContain('<a href="benchmark.json">Download the data</a>');
+  });
+
+  it("gives the trust blocks the full width of the page", () => {
+    expect(support.css).not.toMatch(/\.trust \{[^}]*max-width/);
   });
 
   it("links its credit to the Astrolabe repository, unless the author turns the credit off", () => {

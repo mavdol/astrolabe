@@ -18,7 +18,6 @@ import { renderChart, type RenderedChart } from "../chart/render-chart.js";
 import {
   effectAndInterval,
   finestDecimals,
-  provenanceParts,
   resolveTemplates,
   STATISTIC_WORD,
   valueDecimals,
@@ -93,12 +92,9 @@ function headlineHtml(block: HeadlineBlock, inputs: PageInputs): string {
     `<span class="label">${escapeHtml(measured)} · ${metric.direction === "lower" ? "lower is better" : "higher is better"}</span>`,
     `<span class="verdict${isFirmVerdict(comparison) ? " firm" : ""}">${escapeHtml(verdictLabel(comparison))}</span>`,
     "</div>",
-    '<div class="stat-body">',
-    title === measured ? "" : `<p class="label">${escapeHtml(pair)}</p>`,
-    anchoredTitle(block, title === measured ? pair : title),
     `<p class="figure">${escapeHtml(effectAndInterval(metric, comparison).effect)}</p>`,
-    `<ul class="details">\n${details.join("\n")}\n</ul>`,
-    "</div>",
+    anchoredTitle(block, title === measured ? pair : title),
+    `<ul class="details">\n${[...(title === measured ? [] : [`<li>${escapeHtml(pair)}</li>`]), ...details].join("\n")}\n</ul>`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -126,7 +122,9 @@ function panelToolsOf(block: Block & { filters?: string[] }, inputs: PageInputs)
     return [
       `<span class="label" data-static-state>${escapeHtml(filter.label)}: ${escapeHtml(optionLabel(filter.default, inputs))}</span>`,
       `<fieldset class="segmented" data-filter="${escapeHtml(filterId)}" hidden><legend class="label">${escapeHtml(filter.label)}</legend>`,
+      '<span class="track">',
       ...options,
+      "</span>",
       "</fieldset>",
     ].join("\n");
   });
@@ -134,11 +132,16 @@ function panelToolsOf(block: Block & { filters?: string[] }, inputs: PageInputs)
   return `<div class="panel-tools">\n${controls.join("\n")}\n</div>`;
 }
 
+const iconOf = (className: string, path: string) =>
+  `<svg class="${className}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`;
+const LINK_ICON = iconOf("ready", "M6.5 9.5l3-3M7 4.5l1.2-1.2a2.8 2.8 0 014 4L11 8.5M9 11.5l-1.2 1.2a2.8 2.8 0 01-4-4L5 7.5");
+const COPIED_ICON = iconOf("done", "M3.5 8.5l3 3 6-7");
+
 const panelHead = (block: Block, title: string) =>
   [
     '<header class="panel-head">',
     `<h2 id="${escapeHtml(block.id)}-title"><a href="#${escapeHtml(block.id)}">${escapeHtml(title)}</a></h2>`,
-    `<a class="panel-link label" href="#${escapeHtml(block.id)}" data-copy-link>Copy link</a>`,
+    `<a class="icon-button" href="#${escapeHtml(block.id)}" data-copy-link>${LINK_ICON}${COPIED_ICON}<span class="visually-hidden" data-copy-status>Copy a link to this part</span></a>`,
     "</header>",
   ].join("\n");
 
@@ -315,8 +318,6 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
 
 function provenanceHtml(block: Block, inputs: PageInputs): string {
   const { benchmark, context } = inputs;
-  const provenance = provenanceParts(benchmark, context);
-  const ciRun = provenance.continuousIntegration;
   const evidence = [
     `<li><a href="benchmark.json">benchmark.json</a>: the plan, the results and this page's presentation</li>`,
     ...benchmark.results.raw_data.flatMap((raw) => {
@@ -331,19 +332,9 @@ function provenanceHtml(block: Block, inputs: PageInputs): string {
   ];
 
   return [
-    anchoredTitle(block, "Provenance"),
-    "<ul>",
-    `<li>Results sha256: <code>${resultsHash(benchmark.results)}</code></li>`,
-    `<li>Built on ${escapeHtml(provenance.date)} with astrolabe-bench ${escapeHtml(context.generatorVersion)}</li>`,
-    `<li>Source: ${withLinks(provenance.source)}</li>`,
-    ...(ciRun
-      ? [`<li>Commit ${escapeHtml(ciRun.commit)}${ciRun.runUrl ? `, <a href="${escapeHtml(ciRun.runUrl)}">CI run</a>` : ""}</li>`]
-      : []),
-    "</ul>",
-    "<h3>Check it yourself</h3>",
-    listOf([
-      "Download the file and its raw data, keep them in the same folders, and run npx astrolabe-bench validate benchmark.json: it computes every number again and prints the hash above.",
-    ]),
+    anchoredTitle(block, "Check it yourself"),
+    `<p>Download the file and its raw data, keep them in the same folders, and run <code>npx astrolabe-bench@${escapeHtml(context.generatorVersion)} validate benchmark.json</code>: it computes every number again and prints this hash of the results.</p>`,
+    `<p class="hash"><span class="label">Results sha256</span><br><code>${resultsHash(benchmark.results)}</code></p>`,
     `<ul>\n${evidence.join("\n")}\n</ul>`,
   ].join("\n");
 }

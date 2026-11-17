@@ -10,6 +10,12 @@ const ASTROLABE_REPOSITORY = "https://github.com/mavdol/astrolabe";
 
 const HEADLINES_PER_ROW = 2;
 
+function linkedIfAddress(source: string): string {
+  const shown = escapeHtml(source.replace(/^https?:\/\//, ""));
+
+  return /^https?:\/\//.test(source) ? `<a href="${escapeHtml(source)}">${shown}</a>` : shown;
+}
+
 const isTrustBlock = (block: Block) => (TRUST_BLOCK_TYPES as readonly string[]).includes(block.type);
 
 /**
@@ -124,25 +130,20 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
 
     return `<div class="row${isStatRow ? " stats" : ""}"${row.length > 1 ? ` style="--columns: ${row.length}"` : ""}>\n${blocks.join("\n")}\n</div>`;
   });
+  const ciRun = provenance.continuousIntegration;
+  const commit = ciRun ? `commit ${escapeHtml(ciRun.commit)}` : undefined;
   const footer = [
-    provenance.source.replace(/^https?:\/\//, ""),
-    `results ${provenance.hash}`,
-    provenance.date,
-    ...(provenance.continuousIntegration ? [`commit ${provenance.continuousIntegration.commit}`] : []),
-  ]
-    .map(escapeHtml)
-    .concat(provenance.attribution ? [`<a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a>`] : [])
-    .join(" · ");
+    linkedIfAddress(provenance.source),
+    ...(commit ? [ciRun?.runUrl ? `<a href="${escapeHtml(ciRun.runUrl)}">${commit}</a>` : commit] : []),
+    '<a href="benchmark.json">Download the data</a>',
+    ...(provenance.attribution ? [`<a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a>`] : []),
+  ].join(" · ");
 
   return [
     "<!doctype html>",
     '<html lang="en">',
     headHtml(benchmark, head),
     "<body>",
-    '<header class="top-bar"><div class="top-bar-inner">',
-    `<span class="label">Benchmark · ${escapeHtml(results.benchmark.id)}</span>`,
-    '<a class="label" href="benchmark.json">Download the data</a>',
-    "</div></header>",
     "<main>",
     '<section class="hero">',
     `<p class="label">Version ${escapeHtml(results.benchmark.version)} · updated ${escapeHtml(provenance.date)} · baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
