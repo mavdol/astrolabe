@@ -2,7 +2,6 @@ import type { Benchmark } from "../schema/benchmark.js";
 import type { ChartBlock } from "../schema/presentation.js";
 import type { CardMode } from "./card.js";
 import { defaultFilterState, type FilterState } from "./chart/chart-data.js";
-import { DRAWN_CHART_TYPES } from "./chart/render-chart.js";
 
 export interface PlannedCard {
   id: string;
@@ -72,7 +71,6 @@ export function exportPlanOf(benchmark: Benchmark): ExportPlan {
 
     if (entry.blocks.length !== 1 || !block) skip(`a ${entry.size} image shows one existing block`);
     else if (block.type !== "chart") skip(`${block.type} blocks cannot be drawn as a ${entry.size} image yet`);
-    else if (!DRAWN_CHART_TYPES.includes(block.chart)) skip(`${block.chart} charts are not available yet`);
     else
       plan.images.push({
         id: entry.id,

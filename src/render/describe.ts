@@ -133,10 +133,56 @@ export function effectAndInterval(
   };
 }
 
+const LARGEST_FACTOR_DECIMALS = 2;
+
+/** The word that says which way a factor goes, so that no factor is read as a gain when it is a loss. */
+function factorWord(metric: Metric, ratioIsAboveOne: boolean): string {
+  switch (metric.kind) {
+    case "run_time":
+    case "latency":
+      return ratioIsAboveOne ? "slower" : "faster";
+    case "memory":
+    case "cpu":
+    case "energy":
+      return ratioIsAboveOne ? "more" : "less";
+    case "cost":
+      return ratioIsAboveOne ? "more expensive" : "cheaper";
+    default:
+      return ratioIsAboveOne ? "higher" : "lower";
+  }
+}
+
+/**
+ * A relative effect as a factor, the larger value over the smaller, with its word: "2.0× faster".
+ * Its interval is the interval of the ratio turned the same way, or null when that interval reaches 1.
+ */
+export function effectAsFactor(metric: Metric, comparison: Comparison): { factor: string; interval: string | null } {
+  const ratio = 1 + comparison.effect / 100;
+  const isAboveOne = ratio >= 1;
+  const hasMeasuredInterval = comparison.ci !== undefined && comparison.source !== "declared";
+  const ratioInterval = hasMeasuredInterval ? comparison.ci!.map((effect) => 1 + effect / 100) : undefined;
+  const staysOnOneSide = ratioInterval !== undefined && (isAboveOne ? ratioInterval[0] > 1 : ratioInterval[1] < 1 && ratioInterval[0] > 0);
+  const factorInterval: [number, number] | undefined = staysOnOneSide
+    ? isAboveOne
+      ? [ratioInterval![0], ratioInterval![1]]
+      : [1 / ratioInterval![1], 1 / ratioInterval![0]]
+    : undefined;
+  const supported = factorInterval ? decimalsForUncertainty(undefined, factorInterval, comparison.ci_level) : null;
+  const decimals = Math.min(Math.max(supported ?? 1, 0), LARGEST_FACTOR_DECIMALS);
+  const factor = isAboveOne ? ratio : 1 / ratio;
+
+  return {
+    factor: `${formatNumber(factor, decimals)}× ${factorWord(metric, isAboveOne)}`,
+    interval: factorInterval ? `${formatInterval(factorInterval, decimals)}×` : null,
+  };
+}
+
+export type EffectFormat = "percent" | "times";
+
 const TEMPLATE = /\{(candidate|metric|node|effect|verdict):([^}]+)\}/g;
 
 /** Fills the templates of a block title or description: names, effects and verdicts always come from the results. */
-export function resolveTemplates(text: string, lookup: Lookup): string {
+export function resolveTemplates(text: string, lookup: Lookup, effectFormat: EffectFormat = "percent"): string {
   const comparisonById = new Map((lookup.results.comparisons ?? []).map((comparison) => [comparison.id, comparison]));
 
   return text.replace(TEMPLATE, (template, kind: string, id: string) => {
@@ -150,7 +196,13 @@ export function resolveTemplates(text: string, lookup: Lookup): string {
 
     if (!comparison) return template;
 
-    return kind === "verdict" ? verdictLabel(comparison) : effectAndInterval(lookup.metricById.get(comparison.metric)!, comparison).effect;
+    const metric = lookup.metricById.get(comparison.metric)!;
+
+    if (kind === "verdict") return verdictLabel(comparison);
+
+    return effectFormat === "times" && metric.compare_as === "relative"
+      ? effectAsFactor(metric, comparison).factor
+      : effectAndInterval(metric, comparison).effect;
   });
 }
 

@@ -1,13 +1,41 @@
-import type { Colours, MarkerShape, SeriesStyle } from "../../themes/astrolabe.js";
+import type { Colours, SeriesStyle } from "../../themes/astrolabe.js";
 import type { Decimals } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, type SvgTextRenderer } from "../svg-text.js";
-import { linearScale } from "./scale.js";
+import {
+  arrow,
+  INTERVAL_STROKE,
+  intervalAcross,
+  marker,
+  PLOT_STYLE,
+  round,
+  widestOf,
+  type DrawnPlot,
+  type Plot,
+  type PlotArea,
+} from "./plot.js";
+import { linearScale, logScale } from "./scale.js";
+
+/** The middle half of the observations as a box, and the range that holds most of them as a line. */
+export interface Box {
+  quartiles: [number, number];
+  whiskers: [number, number];
+}
+
+export interface Segment {
+  value: number;
+  colour: string;
+}
 
 export interface PlotRow {
   label: string;
   series: SeriesStyle;
   value: number;
   interval?: [number, number];
+  /** Every observation, drawn as a point. */
+  points?: number[];
+  box?: Box;
+  /** The parts of the value, drawn end to end from zero. */
+  segments?: Segment[];
   /** The value as the reader sees it, right of the plot: digits line up down the column. */
   valueText: string;
   /** A word that qualifies the value: a verdict, "declared". */
@@ -19,12 +47,13 @@ export interface PlotGroup {
   rows: PlotRow[];
 }
 
-/** A chart of horizontal rows on one shared scale: a dot or a bar per row, its interval, its value in digits. */
+/** A chart of horizontal rows on one shared scale: a mark per row, its interval, its value in digits. */
 export interface RowsPlot {
   groups: PlotGroup[];
-  mark: "dot" | "bar";
-  /** The values the axis must enclose. A bar plot always encloses zero. */
+  mark: "dot" | "bar" | "distribution" | "stack";
+  /** The values the axis must enclose. Bars and stacks always enclose zero. */
   extent: [number, number];
+  logScale?: boolean;
   tickText: (value: number, decimals: Decimals) => string;
   /** A zone drawn behind the marks, such as the differences too small to matter. */
   band?: [number, number];
@@ -32,15 +61,9 @@ export interface RowsPlot {
   zeroLine?: boolean;
   /** The side of the axis where results are better. */
   betterSide: "left" | "right";
+  /** What each colour of a stack stands for. */
+  legend?: { label: string; colour: string }[];
 }
-
-export const PLOT_STYLE = {
-  heading: { weight: 600, size: 13 },
-  label: { weight: 500, size: 13 },
-  value: { weight: 600, size: 13, tabular: true },
-  note: { weight: 400, size: 12 },
-  tick: { weight: 400, size: 12, tabular: true },
-} as const;
 
 export const ROW_HEIGHT = { smallest: 22, usual: 30, largest: 44 };
 
@@ -50,55 +73,22 @@ const DIRECTION_LINE_HEIGHT = 20;
 const AXIS_HEIGHT = 24;
 const COLUMN_GAP = 12;
 const LARGEST_LABEL_SHARE = 0.34;
-const MARKER_RADIUS = 5;
-const INTERVAL_STROKE = 2;
-const INTERVAL_CAP = 8;
 const BAR_SHARE_OF_ROW = 0.56;
+const BOX_SHARE_OF_ROW = 0.5;
+const POINT_RADIUS = 3;
+const POINT_OPACITY = 0.45;
+const CENTRE_TICK_SHARE_OF_ROW = 0.7;
 const ARROW_LENGTH = 10;
 const ARROW_GAP = 5;
+const LEGEND_LINE_HEIGHT = 20;
+const LEGEND_SWATCH = 10;
+const LEGEND_GAP = 16;
 
-const round = (value: number) => String(Math.round(value * 10) / 10);
-
-/** The height of a plot in rows, so a caller with a fixed canvas can choose the height of one row. */
-export function rowUnitsOf(plot: RowsPlot): number {
+function rowUnitsOf(plot: RowsPlot): number {
   return plot.groups.reduce(
     (units, group, index) => units + group.rows.length + (group.heading ? HEADING_ROWS : 0) + (index > 0 ? GAP_BETWEEN_GROUPS_ROWS : 0),
     0,
   );
-}
-
-export const PLOT_FIXED_HEIGHT = DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
-
-function marker(shape: MarkerShape, x: number, y: number, colour: string, halo: string): string {
-  const r = MARKER_RADIUS;
-  const outline = `fill="${colour}" stroke="${halo}" stroke-width="1.5"`;
-
-  switch (shape) {
-    case "circle":
-      return `<circle cx="${round(x)}" cy="${round(y)}" r="${r}" ${outline}/>`;
-    case "square":
-      return `<rect x="${round(x - r + 0.5)}" y="${round(y - r + 0.5)}" width="${2 * r - 1}" height="${2 * r - 1}" ${outline}/>`;
-    case "diamond":
-      return `<path d="M${round(x)} ${round(y - r - 1)}L${round(x + r + 1)} ${round(y)}L${round(x)} ${round(y + r + 1)}L${round(x - r - 1)} ${round(y)}Z" ${outline}/>`;
-    case "triangle":
-      return `<path d="M${round(x)} ${round(y - r - 1)}L${round(x + r + 1)} ${round(y + r)}L${round(x - r - 1)} ${round(y + r)}Z" ${outline}/>`;
-  }
-}
-
-function intervalLine(from: number, to: number, y: number, colour: string, width: number): string {
-  const cap = INTERVAL_CAP / 2;
-  const path = `M${round(from)} ${round(y)}H${round(to)}M${round(from)} ${round(y - cap)}V${round(y + cap)}M${round(to)} ${round(y - cap)}V${round(y + cap)}`;
-
-  return `<path d="${path}" stroke="${colour}" stroke-width="${width}" fill="none"/>`;
-}
-
-/** An arrow starting at x and pointing right, or left. */
-function arrow(x: number, centreY: number, pointsRight: boolean, colour: string): string {
-  const sign = pointsRight ? 1 : -1;
-  const tip = x + sign * ARROW_LENGTH;
-  const head = tip - sign * 3.5;
-
-  return `<path d="M${round(x)} ${round(centreY)}H${round(tip)}M${round(head)} ${round(centreY - 3.5)}L${round(tip)} ${round(centreY)}L${round(head)} ${round(centreY + 3.5)}" stroke="${colour}" stroke-width="1.25" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
 /** Where the rows of each group start and end: a heading has the full width, so no line crosses it. */
@@ -114,61 +104,93 @@ function rowSpansOf(plot: RowsPlot, rowsTop: number, rowHeight: number): [number
   });
 }
 
-export interface DrawnPlot {
-  marks: string[];
-  textLines: string[];
-  height: number;
+interface LegendEntry {
+  label: string;
+  colour: string;
+  x: number;
+  line: number;
 }
 
-/** Draws the plot with its top-left corner at (x, y). Every row is rowHeight tall. */
-export function drawRowsPlot(
-  plot: RowsPlot,
-  text: SvgTextRenderer,
-  colours: Colours,
-  x: number,
-  y: number,
-  width: number,
-  rowHeight: number,
-): DrawnPlot {
+function legendLayout(plot: RowsPlot, text: SvgTextRenderer, width: number): { entries: LegendEntry[]; height: number } {
+  const entries: LegendEntry[] = [];
+  let [x, line] = [0, 0];
+
+  for (const entry of plot.legend ?? []) {
+    const entryWidth = LEGEND_SWATCH + 6 + text.measure(entry.label, PLOT_STYLE.note);
+
+    if (x > 0 && x + entryWidth > width) [x, line] = [0, line + 1];
+
+    entries.push({ ...entry, x, line });
+    x += entryWidth + LEGEND_GAP;
+  }
+
+  return { entries, height: entries.length > 0 ? (line + 1) * LEGEND_LINE_HEIGHT + 4 : 0 };
+}
+
+function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
+  const { x, width } = area;
+  const legend = legendLayout(plot, text, width);
+  const fixedHeight = legend.height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
+  const rowHeight = (area.height - fixedHeight) / rowUnitsOf(plot);
   const rows = plot.groups.flatMap((group) => group.rows);
-  const widest = (texts: string[], style: Parameters<SvgTextRenderer["measure"]>[1]) =>
-    Math.max(0, ...texts.map((entry) => text.measure(entry, style)));
   const labelWidth = Math.min(
-    widest(
+    widestOf(
+      text,
       rows.map((row) => row.label),
       PLOT_STYLE.label,
     ),
     width * LARGEST_LABEL_SHARE,
   );
-  const valueWidth = widest(
+  const valueWidth = widestOf(
+    text,
     rows.map((row) => row.valueText),
     PLOT_STYLE.value,
   );
-  const noteWidth = widest(
+  const noteWidth = widestOf(
+    text,
     rows.map((row) => row.note ?? ""),
     PLOT_STYLE.note,
   );
   const plotLeft = x + labelWidth + COLUMN_GAP;
   const plotRight = x + width - valueWidth - COLUMN_GAP - (noteWidth > 0 ? noteWidth + 8 : 0);
-  const scaleExtent: [number, number] = plot.mark === "bar" ? [Math.min(0, plot.extent[0]), Math.max(0, plot.extent[1])] : plot.extent;
+  const startsAtZero = plot.mark === "bar" || plot.mark === "stack";
+  const scaleExtent: [number, number] = startsAtZero ? [Math.min(0, plot.extent[0]), Math.max(0, plot.extent[1])] : plot.extent;
   const targetTicks = plotRight - plotLeft < 260 ? 3 : 5;
-  const scale = linearScale(scaleExtent, [plotLeft, plotRight], targetTicks);
+  const scale = plot.logScale ? logScale(scaleExtent, [plotLeft, plotRight]) : linearScale(scaleExtent, [plotLeft, plotRight], targetTicks);
   const marks: string[] = [];
   const textLines: string[] = [];
-  const rowsTop = y + DIRECTION_LINE_HEIGHT;
+  const directionTop = area.y + legend.height;
+  const rowsTop = directionTop + DIRECTION_LINE_HEIGHT;
   const rowsBottom = rowsTop + rowUnitsOf(plot) * rowHeight;
   const baselineIn = (top: number, height: number, size: number) => top + height / 2 + (size * CAP_HEIGHT_RATIO) / 2;
   const rowSpans = rowSpansOf(plot, rowsTop, rowHeight);
   const verticalLines = (lineX: number) => rowSpans.map(([top, bottom]) => `M${round(lineX)} ${round(top)}V${round(bottom)}`).join("");
 
-  const directionBaseline = y + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO + 2;
+  for (const entry of legend.entries) {
+    const top = area.y + entry.line * LEGEND_LINE_HEIGHT;
+
+    marks.push(
+      `<rect x="${round(x + entry.x)}" y="${round(top + (LEGEND_LINE_HEIGHT - LEGEND_SWATCH) / 2)}" width="${LEGEND_SWATCH}" height="${LEGEND_SWATCH}" fill="${entry.colour}"/>`,
+    );
+    marks.push(
+      text.draw(entry.label, x + entry.x + LEGEND_SWATCH + 6, baselineIn(top, LEGEND_LINE_HEIGHT, PLOT_STYLE.note.size), {
+        ...PLOT_STYLE.note,
+        fill: colours.ink,
+      }),
+    );
+  }
+
+  if (legend.entries.length > 0) textLines.push(legend.entries.map((entry) => entry.label).join("  "));
+
+  const directionBaseline = directionTop + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO + 2;
   const arrowCentreY = directionBaseline - (PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO) / 2;
   const wordWidth = text.measure("better", PLOT_STYLE.tick);
   const pointsRight = plot.betterSide === "right";
   const wordX = pointsRight ? plotRight - ARROW_LENGTH - ARROW_GAP - wordWidth : plotLeft + ARROW_LENGTH + ARROW_GAP;
+  const arrowStart = pointsRight ? plotRight - ARROW_LENGTH : plotLeft + ARROW_LENGTH;
 
   marks.push(text.draw("better", wordX, directionBaseline, { ...PLOT_STYLE.tick, fill: colours.secondary }));
-  marks.push(arrow(pointsRight ? plotRight - ARROW_LENGTH : plotLeft + ARROW_LENGTH, arrowCentreY, pointsRight, colours.secondary));
+  marks.push(arrow([arrowStart, arrowCentreY], [pointsRight ? plotRight : plotLeft, arrowCentreY], colours.secondary));
   textLines.push(pointsRight ? "better →" : "← better");
 
   if (plot.band) {
@@ -183,7 +205,7 @@ export function drawRowsPlot(
   for (const tick of scale.ticks) {
     const tickX = scale.position(tick);
     const isZeroReference = plot.zeroLine === true && tick === 0;
-    const isAxisOrigin = plot.mark === "bar" && tick === 0;
+    const isAxisOrigin = startsAtZero && tick === 0;
     const label = plot.tickText(tick, scale.tickDecimals);
     const labelWidthHere = text.measure(label, PLOT_STYLE.tick);
     const labelX = Math.min(Math.max(tickX - labelWidthHere / 2, x), x + width - labelWidthHere);
@@ -220,29 +242,62 @@ export function drawRowsPlot(
       const centreY = cursorY + rowHeight / 2;
       const valueX = scale.position(row.value);
       const label = text.fit(row.label, PLOT_STYLE.label, labelWidth);
+      const interval = row.interval?.map(scale.position);
 
       marks.push(text.draw(label, x, baselineIn(cursorY, rowHeight, PLOT_STYLE.label.size), { ...PLOT_STYLE.label, fill: colours.ink }));
 
-      if (plot.mark === "bar") {
-        const zeroX = scale.position(0);
+      if (plot.mark === "bar" || plot.mark === "stack") {
         const barHeight = rowHeight * BAR_SHARE_OF_ROW;
+        const segments = row.segments ?? [{ value: row.value, colour: row.series.colour }];
+        let from = 0;
+
+        for (const segment of segments) {
+          const [start, end] = [scale.position(from), scale.position(from + segment.value)];
+          const gap = row.segments && from > 0 ? 1.5 : 0;
+
+          marks.push(
+            `<rect x="${round(Math.min(start, end) + gap)}" y="${round(centreY - barHeight / 2)}" width="${round(Math.max(0, Math.abs(end - start) - gap))}" height="${round(barHeight)}" fill="${segment.colour}"/>`,
+          );
+          from += segment.value;
+        }
+
+        if (interval) {
+          marks.push(intervalAcross(interval[0], interval[1], centreY, colours.background, INTERVAL_STROKE + 2.5));
+          marks.push(intervalAcross(interval[0], interval[1], centreY, colours.ink, INTERVAL_STROKE));
+        }
+      } else if (plot.mark === "distribution") {
+        if (row.box) {
+          const [lowWhisker, highWhisker] = row.box.whiskers.map(scale.position);
+          const [firstQuartile, thirdQuartile] = row.box.quartiles.map(scale.position);
+          const boxHeight = rowHeight * BOX_SHARE_OF_ROW;
+
+          marks.push(
+            `<path d="M${round(lowWhisker)} ${round(centreY)}H${round(highWhisker)}" stroke="${row.series.colour}" stroke-width="1.5"/>`,
+          );
+          marks.push(
+            `<rect x="${round(firstQuartile)}" y="${round(centreY - boxHeight / 2)}" width="${round(thirdQuartile - firstQuartile)}" height="${round(boxHeight)}" fill="${colours.band}" stroke="${row.series.colour}" stroke-width="1.5"/>`,
+          );
+        }
+
+        if (interval) {
+          marks.push(intervalAcross(interval[0], interval[1], centreY, colours.background, INTERVAL_STROKE + 2.5));
+          marks.push(intervalAcross(interval[0], interval[1], centreY, colours.ink, INTERVAL_STROKE));
+        }
+
+        const pointPositions = new Set((row.points ?? []).map((point) => Math.round(scale.position(point))));
+
+        for (const pointX of pointPositions)
+          marks.push(
+            `<circle cx="${pointX}" cy="${round(centreY)}" r="${POINT_RADIUS}" fill="${row.series.colour}" fill-opacity="${POINT_OPACITY}"/>`,
+          );
+
+        const tickHalf = (rowHeight * CENTRE_TICK_SHARE_OF_ROW) / 2;
 
         marks.push(
-          `<rect x="${round(Math.min(zeroX, valueX))}" y="${round(centreY - barHeight / 2)}" width="${round(Math.abs(valueX - zeroX))}" height="${round(barHeight)}" fill="${row.series.colour}"/>`,
+          `<path d="M${round(valueX)} ${round(centreY - tickHalf)}V${round(centreY + tickHalf)}" stroke="${colours.ink}" stroke-width="2.5"/>`,
         );
-
-        if (row.interval) {
-          const [from, to] = row.interval.map(scale.position);
-
-          marks.push(intervalLine(from, to, centreY, colours.background, INTERVAL_STROKE + 2.5));
-          marks.push(intervalLine(from, to, centreY, colours.ink, INTERVAL_STROKE));
-        }
       } else {
-        if (row.interval) {
-          const [from, to] = row.interval.map(scale.position);
-
-          marks.push(intervalLine(from, to, centreY, row.series.colour, INTERVAL_STROKE));
-        }
+        if (interval) marks.push(intervalAcross(interval[0], interval[1], centreY, row.series.colour));
 
         marks.push(marker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
       }
@@ -270,5 +325,21 @@ export function drawRowsPlot(
     }
   });
 
-  return { marks, textLines, height: PLOT_FIXED_HEIGHT + rowUnitsOf(plot) * rowHeight };
+  return { marks, textLines };
+}
+
+export function rowsPlot(plot: RowsPlot): Plot {
+  return {
+    heightsAt(width, text) {
+      const fixedHeight = legendLayout(plot, text, width).height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
+      const units = rowUnitsOf(plot);
+
+      return {
+        smallest: fixedHeight + units * ROW_HEIGHT.smallest,
+        usual: fixedHeight + units * ROW_HEIGHT.usual,
+        largest: fixedHeight + units * ROW_HEIGHT.largest,
+      };
+    },
+    draw: (text, colours, area) => drawRows(plot, text, colours, area),
+  };
 }

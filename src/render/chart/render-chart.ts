@@ -1,33 +1,23 @@
-import type { Benchmark, Comparison, Metric, Value } from "../../schema/benchmark.js";
-import type { ChartBlock, ChartType } from "../../schema/presentation.js";
-import { seriesStylesOf, THEME, type Mode, type SeriesStyle } from "../../themes/astrolabe.js";
-import {
-  effectAndInterval,
-  effectUnit,
-  finestDecimals,
-  lookupOf,
-  lowerFirstLetterOfWord,
-  provenanceParts,
-  resolveTemplates,
-  STATISTIC_WORD,
-  valueDecimals,
-  verdictLabel,
-  type BuildContext,
-  type Lookup,
-} from "../describe.js";
-import { formatInterval, formatLevel, formatNumber, type Decimals } from "../number-format.js";
+import type { RawFile } from "../../compute/raw-data.js";
+import type { Benchmark } from "../../schema/benchmark.js";
+import type { ChartBlock } from "../../schema/presentation.js";
+import { THEME, type Mode } from "../../themes/astrolabe.js";
+import { lookupOf, provenanceParts, resolveTemplates, type BuildContext, type Lookup } from "../describe.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "../svg-text.js";
-import { ChartError, comparisonGroupsOf, metricOf, valueGroupsOf, type FilterState } from "./chart-data.js";
-import { drawRowsPlot, PLOT_FIXED_HEIGHT, ROW_HEIGHT, rowUnitsOf, type PlotGroup, type RowsPlot } from "./rows-plot.js";
-import { extentAroundData } from "./scale.js";
+import { sentence, unionOf, type ChartContent, type ChartInputs, type DataTable } from "./chart-content.js";
+import { ChartError, filterStatesOf, type FilterState } from "./chart-data.js";
+import { comparisonRowsContent } from "./comparison-rows.js";
+import { lineContent } from "./line.js";
+import { distributionContent, effectsContent, stackedContent, valuesContent } from "./rows-charts.js";
+import { scatterContent } from "./scatter.js";
+import { shadedTableContent } from "./shaded-table.js";
 
-/** The chart types the generator draws so far. */
-export const DRAWN_CHART_TYPES: ChartType[] = ["bar", "dot-interval", "effect"];
+export type { DataTable };
 
 export interface ChartOptions {
   /** Width in px at the size the chart is shown; text sizes are in the same px. */
   width: number;
-  /** A fixed height, for an image of a set shape; without it the chart is as tall as its rows need. */
+  /** A fixed height, for an image of a set shape; without it the chart is as tall as its content needs. */
   height?: number;
   mode: Mode;
   filterState: FilterState;
@@ -35,11 +25,8 @@ export interface ChartOptions {
   standalone: boolean;
   /** How much larger than its layout the file is shown: an image of a set shape is laid out small and enlarged. */
   enlargement?: number;
-}
-
-export interface DataTable {
-  header: string[];
-  rows: string[][];
+  /** The raw files, for the charts that draw every observation. */
+  rawFiles?: Record<string, RawFile>;
 }
 
 export interface RenderedChart {
@@ -68,218 +55,102 @@ const STYLE = {
 const PADDING = 32;
 const CORNER_RADIUS = 12;
 
+/** The chart types whose main axis can be shared with another block: the others have two axes, or one per row. */
+const CHART_TYPES_WITH_ONE_VALUE_AXIS = new Set([
+  "bar",
+  "grouped-bar",
+  "dot-interval",
+  "effect",
+  "distribution",
+  "line",
+  "stacked-bar",
+  "shaded-table",
+]);
+
 const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const directionWords = (metric: Metric) => (metric.direction === "lower" ? "lower is better" : "higher is better");
-const sentence = (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`);
 
-function range(numbers: number[]): string {
-  const [lowest, highest] = [Math.min(...numbers), Math.max(...numbers)];
+function contentOf(inputs: ChartInputs): ChartContent {
+  const { block } = inputs;
 
-  return lowest === highest ? String(lowest) : `${lowest} to ${highest}`;
-}
+  if (block.effect_format === "times" && block.chart !== "comparison-rows")
+    throw new ChartError(
+      "V55",
+      `block "${block.id}": factors are shown on comparison-rows charts; an ${block.chart} chart shows changes in percent`,
+    );
 
-function levelsOf(entries: { ci?: [number, number]; ci_level?: number }[]): string | null {
-  const levels = [...new Set(entries.filter((entry) => entry.ci && entry.ci_level).map((entry) => formatLevel(entry.ci_level!)))];
-
-  return levels.length > 0 ? `${levels.join("% and ")}%` : null;
-}
-
-interface ChartContent {
-  plot: RowsPlot;
-  subtitle: string;
-  howToRead: string;
-  table: DataTable;
-  /** What is plotted, in words, for the text alternative. */
-  kind: string;
-}
-
-function failureSentences(metric: Metric, comparisons: Comparison[]): string {
-  const leftOut = metric.failures_count_as === "excluded" ? " Failed attempts are left out: successful attempts only." : "";
-  const warning = comparisons.some((comparison) => comparison.failure_warning)
-    ? " Warning: the candidates did not fail equally often."
-    : "";
-
-  return `${leftOut}${warning}`;
-}
-
-function valuesContent(block: ChartBlock, benchmark: Benchmark, lookup: Lookup, options: ChartOptions): ChartContent {
-  const metric = metricOf(block, lookup);
-  const groups = valueGroupsOf(block, benchmark, lookup, options.filterState);
-  const values = groups.flatMap((group) => group.values);
-  const series = seriesStylesOf(
-    lookup.results.candidates.map((candidate) => candidate.id),
-    benchmark.style,
-    options.mode,
-  );
-  const decimals = finestDecimals(values.map((value) => valueDecimals(metric, value)));
-  const isBar = block.chart === "bar";
-
-  if (isBar && values.some((value) => value.value < 0))
-    throw new ChartError(`block "${block.id}": a bar starts at zero, so it cannot show a negative value; use dot-interval`);
-
-  if (block.scale?.type === "log") throw new ChartError(`block "${block.id}": log scales are not available yet`);
-
-  const plotted = values.flatMap((value) => [value.value, ...(value.ci ?? [])]);
-  const dataExtent: [number, number] = [Math.min(...plotted), Math.max(...plotted)];
-  const largest = Math.max(...values.map((value) => Math.abs(value.value)));
-  const meaningfulInUnits = metric.compare_as === "relative" ? (metric.minimum_meaningful / 100) * largest : metric.minimum_meaningful;
-  const startsAtZero = isBar || block.scale?.zero !== false;
-  const extent: [number, number] = startsAtZero
-    ? [Math.min(0, dataExtent[0]), Math.max(0, dataExtent[1])]
-    : extentAroundData(dataExtent, meaningfulInUnits);
-  const plotGroups: PlotGroup[] = groups.map((group) => ({
-    heading: group.heading,
-    rows: group.values.map((value) => ({
-      label: lookup.candidateName.get(value.candidate) ?? value.candidate,
-      series: series.get(value.candidate)!,
-      value: value.value,
-      interval: value.ci,
-      valueText: formatNumber(value.value, decimals),
-      note: value.source === "declared" ? "declared" : undefined,
-    })),
-  }));
-  const statistic = STATISTIC_WORD[metric.statistic].toLowerCase();
-  const observations = values.filter((value) => value.n !== undefined).map((value) => value.n!);
-  const levels = levelsOf(values);
-  const methods = [...new Set(values.filter((value) => value.ci && value.method).map((value) => value.method!))];
-  const comparisons = (lookup.results.comparisons ?? []).filter((comparison) => comparison.metric === metric.id);
-  const howToRead = [
-    options.height === undefined ? sentence(metric.definition) : "",
-    `Each ${isBar ? "bar" : "dot"}: the ${statistic}${observations.length > 0 ? ` of ${range(observations)} observations` : ""}, in ${metric.unit}; ${directionWords(metric)}.`,
-    levels ? `Lines: ${levels} confidence intervals (${methods.join(", ")}).` : "No interval: too few observations, or declared values.",
-    startsAtZero ? "" : `The axis does not start at zero: ${sentence(block.scale!.reason!)}`,
-    failureSentences(metric, comparisons).trim(),
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return {
-    plot: {
-      groups: plotGroups,
-      mark: isBar ? "bar" : "dot",
-      extent,
-      tickText: (value, tickDecimals) => formatNumber(value, tickDecimals),
-      betterSide: metric.direction === "lower" ? "left" : "right",
-    },
-    subtitle: `${metric.label}, ${statistic} in ${metric.unit} · ${directionWords(metric)}`,
-    howToRead,
-    kind: `${isBar ? "Bar chart" : "Dot chart with intervals"} of ${lowerFirstLetterOfWord(metric.label)}`,
-    table: {
-      header: [
-        ...(groups.some((group) => group.heading) ? ["Group"] : []),
-        "Candidate",
-        `${STATISTIC_WORD[metric.statistic]} (${metric.unit})`,
-        "Interval",
-        "n",
-      ],
-      rows: groups.flatMap((group) =>
-        group.values.map((value: Value) => [
-          ...(groups.some((entry) => entry.heading) ? [group.heading ?? ""] : []),
-          lookup.candidateName.get(value.candidate) ?? value.candidate,
-          `${formatNumber(value.value, decimals)}${value.source === "declared" ? " (declared)" : ""}`,
-          value.ci ? `${formatInterval(value.ci, decimals)} (${formatLevel(value.ci_level!)}%)` : "—",
-          String(value.n ?? "—"),
-        ]),
-      ),
-    },
-  };
-}
-
-function effectsContent(block: ChartBlock, benchmark: Benchmark, lookup: Lookup, options: ChartOptions): ChartContent {
-  const metric = metricOf(block, lookup);
-  const groups = comparisonGroupsOf(block, benchmark, lookup, options.filterState);
-  const comparisons = groups.flatMap((group) => group.comparisons);
-  const series = seriesStylesOf(
-    lookup.results.candidates.map((candidate) => candidate.id),
-    benchmark.style,
-    options.mode,
-  );
-  const unit = effectUnit(metric);
-  const minimum = metric.minimum_meaningful;
-  const comparedCandidates = [...new Set(comparisons.map((comparison) => comparison.candidate))];
-  const onlyCandidate = comparedCandidates.length === 1 && groups.length > 1 ? lookup.candidateName.get(comparedCandidates[0]) : undefined;
-  const plotted = comparisons.flatMap((comparison) => [comparison.effect, ...(comparison.ci ?? [])]);
-  const baselineName = lookup.candidateName.get(lookup.results.baseline);
-  const noteOf = (comparison: Comparison) =>
-    [verdictLabel(comparison), comparison.role === "exploratory" ? "exploratory" : "", comparison.source === "declared" ? "declared" : ""]
-      .filter(Boolean)
-      .join(", ");
-  const rowOf = (comparison: Comparison, label: string) => ({
-    label,
-    series: series.get(comparison.candidate)!,
-    value: comparison.effect,
-    interval: comparison.ci,
-    valueText: effectAndInterval(metric, comparison).effect,
-    note: noteOf(comparison),
-  });
-  const plotGroups: PlotGroup[] = onlyCandidate
-    ? [{ rows: groups.map((group) => rowOf(group.comparisons[0], group.heading!)) }]
-    : groups.map((group) => ({
-        heading: group.heading,
-        rows: group.comparisons.map((comparison) =>
-          rowOf(comparison, lookup.candidateName.get(comparison.candidate) ?? comparison.candidate),
-        ),
-      }));
-  const levels = levelsOf(comparisons);
-  const everyComparisonAdjusted = comparisons.every((comparison) => comparison.adjusted);
-  const adjustment =
-    everyComparisonAdjusted && lookup.results.computed!.primary_comparisons > 1
-      ? `, adjusted for ${lookup.results.computed!.primary_comparisons} primary comparisons`
-      : "";
-  const hasExploratory = comparisons.some((comparison) => comparison.role === "exploratory");
-  const howToRead = [
-    options.height === undefined ? sentence(metric.definition) : "",
-    `Each dot: the change ${onlyCandidate ? `of ${onlyCandidate} ` : ""}against ${baselineName}, ${metric.compare_as === "relative" ? "in percent of its value" : `in ${unit.trim()}`}; ${directionWords(metric)}.`,
-    levels ? `Lines: ${levels} confidence intervals${adjustment}.` : "No interval: too few observations, or declared values.",
-    `Shaded band: changes under ${formatNumber(minimum, null)}${unit}, too small to matter.`,
-    hasExploratory ? "Exploratory comparisons were not declared before measuring: none is a claim of the benchmark." : "",
-    failureSentences(metric, comparisons).trim(),
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return {
-    plot: {
-      groups: plotGroups,
-      mark: "dot",
-      extent: [Math.min(-minimum, ...plotted), Math.max(minimum, ...plotted)],
-      tickText: (value, tickDecimals: Decimals) => `${formatNumber(value, tickDecimals, { signed: true })}${unit === "%" ? "%" : ""}`,
-      band: [-minimum, minimum],
-      zeroLine: true,
-      betterSide: metric.direction === "lower" ? "left" : "right",
-    },
-    subtitle: `${metric.label}: change ${onlyCandidate ? `of ${onlyCandidate} ` : ""}against ${baselineName}${unit === "%" ? ", in %" : `, in${unit}`} · ${directionWords(metric)}`,
-    howToRead,
-    kind: `Effects on ${lowerFirstLetterOfWord(metric.label)} against ${baselineName}, with their intervals`,
-    table: {
-      header: [...(groups.some((group) => group.heading) ? ["Group"] : []), "Candidate", "Effect", "Interval", "Verdict"],
-      rows: groups.flatMap((group) =>
-        group.comparisons.map((comparison) => {
-          const { effect, interval, level } = effectAndInterval(metric, comparison);
-
-          return [
-            ...(groups.some((entry) => entry.heading) ? [group.heading ?? ""] : []),
-            lookup.candidateName.get(comparison.candidate) ?? comparison.candidate,
-            effect,
-            interval ? `${interval} (${level})` : "—",
-            noteOf(comparison),
-          ];
-        }),
-      ),
-    },
-  };
-}
-
-function contentOf(block: ChartBlock, benchmark: Benchmark, lookup: Lookup, options: ChartOptions): ChartContent {
   switch (block.chart) {
     case "bar":
+    case "grouped-bar":
     case "dot-interval":
-      return valuesContent(block, benchmark, lookup, options);
+      return valuesContent(inputs);
     case "effect":
-      return effectsContent(block, benchmark, lookup, options);
-    default:
-      throw new ChartError(`block "${block.id}": ${block.chart} charts are not available yet`);
+      return effectsContent(inputs);
+    case "distribution":
+      return distributionContent(inputs);
+    case "stacked-bar":
+      return stackedContent(inputs);
+    case "comparison-rows":
+      return comparisonRowsContent(inputs);
+    case "scatter":
+      return scatterContent(inputs);
+    case "line":
+      return lineContent(inputs);
+    case "shaded-table":
+      return shadedTableContent(inputs);
   }
+}
+
+/**
+ * The values the main axis covers in every state the reader can switch to, and in every block that
+ * shares its scale: switching a filter, or looking from one panel to the next, never changes the scale.
+ */
+function sharedExtentOf(block: ChartBlock, benchmark: Benchmark, lookup: Lookup, inputs: Omit<ChartInputs, "block" | "filterState">) {
+  const sharedWith = (block.scale?.shared_with ?? []).map((blockId) => {
+    const other = (benchmark.blocks ?? []).find((candidate) => candidate.id === blockId);
+
+    if (!other || other.type !== "chart")
+      throw new ChartError("V6", `block "${block.id}" shares its scale with "${blockId}", which is not a chart block`);
+
+    if (
+      other.metric !== block.metric ||
+      !CHART_TYPES_WITH_ONE_VALUE_AXIS.has(other.chart) ||
+      (other.chart === "effect") !== (block.chart === "effect")
+    )
+      throw new ChartError(
+        "V6",
+        `block "${block.id}" shares its scale with "${blockId}", which does not show the same measure on one axis`,
+      );
+
+    return other;
+  });
+  const namingThisBlock = (benchmark.blocks ?? []).filter(
+    (other): other is ChartBlock =>
+      other.type === "chart" && other.id !== block.id && (other.scale?.shared_with ?? []).includes(block.id) && !sharedWith.includes(other),
+  );
+  const related = [block, ...sharedWith, ...namingThisBlock];
+
+  if (!CHART_TYPES_WITH_ONE_VALUE_AXIS.has(block.chart)) {
+    if (related.length > 1) throw new ChartError("V6", `block "${block.id}": a ${block.chart} chart cannot share its scale`);
+
+    return undefined;
+  }
+
+  if (related.length === 1 && (block.filters ?? []).length === 0) return undefined;
+
+  let extent: [number, number] | undefined;
+
+  for (const entry of related)
+    for (const filterState of filterStatesOf(entry, benchmark, lookup)) {
+      try {
+        const stateExtent = contentOf({ ...inputs, block: entry, filterState }).axisExtent;
+
+        if (stateExtent) extent = extent ? unionOf(extent, stateExtent) : stateExtent;
+      } catch (failure) {
+        if (!(failure instanceof ChartError)) throw failure;
+      }
+    }
+
+  return extent;
 }
 
 /**
@@ -293,14 +164,16 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
 
   const lookup = lookupOf(results);
   const colours = THEME[options.mode];
-  const content = contentOf(block, benchmark, lookup, options);
+  const common = { benchmark, lookup, mode: options.mode, compact: options.height !== undefined, rawFiles: options.rawFiles ?? {} };
+  const sharedExtent = sharedExtentOf(block, benchmark, lookup, common);
+  const content = contentOf({ ...common, block, filterState: options.filterState, sharedExtent });
   const text = new SvgTextRenderer();
   const marks: string[] = [];
   const textLines: string[] = [];
   const padding = options.standalone ? PADDING : 0;
   const innerWidth = options.width - 2 * padding;
-  const title = resolveTemplates(block.title, lookup);
-  const reading = block.description ? resolveTemplates(block.description, lookup) : "";
+  const title = resolveTemplates(block.title, lookup, block.effect_format);
+  const reading = block.description ? resolveTemplates(block.description, lookup, block.effect_format) : "";
   const provenance = provenanceParts(benchmark, context);
   const provenanceText = [
     provenance.source.replace(/^https?:\/\//, ""),
@@ -332,17 +205,18 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const heightOf = (parts: TextPart[]) =>
     parts.reduce((height, part) => height + part.lines.length * part.style.lineHeight + part.gapAfter, 0);
   const gapBeforeFooter = 16;
-  const fixedHeight = 2 * padding + heightOf(header) + PLOT_FIXED_HEIGHT + gapBeforeFooter + heightOf(footer);
-  const rowUnits = rowUnitsOf(content.plot);
-  const rowHeight =
-    options.height === undefined
-      ? ROW_HEIGHT.usual
-      : Math.min(ROW_HEIGHT.largest, Math.floor(((options.height - fixedHeight) / rowUnits) * 10) / 10);
+  const fixedHeight = 2 * padding + heightOf(header) + gapBeforeFooter + heightOf(footer);
+  const plotHeights = content.plot.heightsAt(innerWidth, text);
+  const room = options.height === undefined ? plotHeights.usual : options.height - fixedHeight;
 
-  if (rowHeight < ROW_HEIGHT.smallest)
+  if (room < plotHeights.smallest)
     throw new ChartError(
-      `block "${block.id}" has too many rows for an image ${options.width} by ${options.height}: show fewer with a filter state, or choose another size`,
+      "V41",
+      `block "${block.id}" needs ${Math.ceil(fixedHeight + plotHeights.smallest)} px of height and the image has ${options.height}: shorten its title and reading, show less of it with a filter state, or choose another size`,
     );
+
+  const plotHeight = Math.min(room, plotHeights.largest);
+  const height = options.height ?? Math.ceil(fixedHeight + plotHeight);
 
   const drawParts = (parts: TextPart[], startY: number): number => {
     let y = startY;
@@ -365,16 +239,13 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
     return y;
   };
 
-  const naturalHeight = fixedHeight + rowUnits * rowHeight;
-  const height = options.height ?? Math.ceil(naturalHeight);
-  const spareHeight = height - naturalHeight;
-  const plotTop = drawParts(header, padding) + spareHeight / 2;
-  const plot = drawRowsPlot(content.plot, text, colours, padding, plotTop, innerWidth, rowHeight);
+  const plotTop = drawParts(header, padding) + (room - plotHeight) / 2;
+  const plot = content.plot.draw(text, colours, { x: padding, y: plotTop, width: innerWidth, height: plotHeight });
 
   marks.push(...plot.marks);
   textLines.push(...plot.textLines);
 
-  const footerTop = options.height === undefined ? plotTop + plot.height + gapBeforeFooter : height - padding - heightOf(footer);
+  const footerTop = options.height === undefined ? plotTop + plotHeight + gapBeforeFooter : height - padding - heightOf(footer);
 
   drawParts(footer, footerTop);
 

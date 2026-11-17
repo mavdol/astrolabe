@@ -5,10 +5,12 @@ import { describe, expect, it } from "vitest";
 import { buildOutputs } from "../src/render/build.js";
 import { ChartError, defaultFilterState, type FilterState } from "../src/render/chart/chart-data.js";
 import { renderChart, type ChartOptions } from "../src/render/chart/render-chart.js";
-import { extentAroundData, linearScale } from "../src/render/chart/scale.js";
+import { extentAroundData, linearScale, logScale } from "../src/render/chart/scale.js";
 import { exportPlanOf, IMAGE_SIZES } from "../src/render/exports.js";
+import { cellFill, LARGEST_SHADE } from "../src/render/chart/shaded-table.js";
+import { loadRaw } from "../src/compute/files.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
-import { blockSchema, type ChartBlock } from "../src/schema/presentation.js";
+import { blockSchema, CHART_TYPES, type ChartBlock } from "../src/schema/presentation.js";
 import { contrastRatio, MARK_CONTRAST, seriesStylesOf, TEXT_CONTRAST, THEME, visibleOn } from "../src/themes/astrolabe.js";
 import { decodePng } from "./png.js";
 
@@ -17,6 +19,8 @@ const context = { generatorVersion: "0.2.0", buildDate: "2026-11-17" };
 const chartBlockOf = (benchmark: Benchmark, id: string) => benchmark.blocks!.find((block) => block.id === id) as ChartBlock;
 const chartBlock = (fields: Record<string, unknown>) =>
   blockSchema.parse({ id: "chart", type: "chart", title: "A chart", ...fields }) as ChartBlock;
+const rawFilesOf = (id: string) => loadRaw(loadBenchmark(id).results, `examples/${id}/benchmark.json`);
+const ticksOf = (chart: { textLines: string[] }) => chart.textLines.find((line) => /^[−+\d.]+%?( {2}[−+\d.]+%?)+$/.test(line));
 const draw = (benchmark: Benchmark, block: ChartBlock, options: Partial<ChartOptions> = {}, filterState?: FilterState) =>
   renderChart(
     benchmark,
@@ -44,6 +48,13 @@ describe("the scale of an axis", () => {
 
   it("still has a span when every value is the same", () => {
     expect(linearScale([5, 5], [0, 100]).domain).toEqual([4, 6]);
+  });
+
+  it("on a log scale, ends on powers of ten, with 2 and 5 between them when it covers few", () => {
+    expect(logScale([3, 1161], [0, 100]).ticks).toEqual([1, 10, 100, 1000, 10000]);
+    expect(logScale([20, 300], [0, 100]).ticks).toEqual([10, 20, 50, 100, 200, 500, 1000]);
+    expect(logScale([0.02, 0.3], [0, 100]).tickDecimals).toBe(2);
+    expect(logScale([10, 1000], [0, 100]).position(100)).toBe(50);
   });
 
   it("cannot make a difference too small to matter fill an axis that does not start at zero", () => {
@@ -136,10 +147,14 @@ describe("a chart of values", () => {
     expect(fromZero.howToRead).not.toContain("does not start at zero");
   });
 
-  it("has no log scale yet", () => {
-    const block = chartBlock({ chart: "dot-interval", metric: "wall_time", scale: { type: "log", reason: "Long tail" } });
+  it("draws a log scale with real values on its ticks, names it, and refuses bars on it", () => {
+    const logScaled = { metric: "wall_time", scale: { type: "log", reason: "Run times span orders of magnitude" } };
+    const dots = draw(parsers, chartBlock({ chart: "dot-interval", ...logScaled }));
 
-    expect(() => draw(parsers, block)).toThrow(ChartError);
+    expect(dots.textLines).toContain("1  2  5  10");
+    expect(dots.textLines).toContain("Wall time, median in s · lower is better · log scale");
+    expect(dots.howToRead).toContain("The axis is on a log scale: Run times span orders of magnitude.");
+    expect(() => draw(parsers, chartBlock({ chart: "bar", ...logScaled }))).toThrow(/a log scale has no zero, so it cannot carry bars/);
   });
 });
 
@@ -252,7 +267,9 @@ describe("a chart as an image", () => {
   it("refuses a height its rows do not fit in, instead of shrinking them", () => {
     const notes = loadBenchmark("notes-apps-onboarding");
 
-    expect(() => draw(notes, chartBlockOf(notes, "chart-tasks"), { standalone: true, height: 200 })).toThrow(/too many rows/);
+    expect(() => draw(notes, chartBlockOf(notes, "chart-tasks"), { standalone: true, height: 200 })).toThrow(
+      /needs \d+ px of height and the image has 200/,
+    );
   });
 });
 
@@ -303,5 +320,251 @@ describe("image exports", () => {
 
     expect([png.width, png.height]).toEqual([IMAGE_SIZES.wide.width, IMAGE_SIZES.wide.height]);
     expect(readFileSync(join(outputFolder, "exports/effects-square-light.svg"), "utf8")).toContain('width="1080" height="1080"');
+  });
+});
+
+/** Accuracy is a mean of items in the example; here the categories become the parts of a total cost. */
+function withCostAsTotal(): Benchmark {
+  const support = loadBenchmark("support-assistant-eval");
+  const values = support.results.values!;
+
+  support.results.metrics.find((metric) => metric.id === "cost_per_item")!.statistic = "total";
+
+  for (const candidate of ["model_a", "model_b"]) {
+    const costOf = (node: string) =>
+      values.find((value) => value.metric === "cost_per_item" && value.candidate === candidate && value.node === node)!;
+
+    costOf("suite").value = costOf("reasoning").value + costOf("coding").value;
+    delete costOf("suite").ci;
+  }
+
+  return support;
+}
+
+describe("the chart set", () => {
+  it("accepts only the closed set of chart types: no angle, no area, no second axis", () => {
+    expect(CHART_TYPES).toHaveLength(10);
+
+    for (const refused of ["pie", "donut", "bubble", "radar", "dual-axis", "area"])
+      expect(blockSchema.safeParse({ id: "chart", type: "chart", chart: refused, title: "A chart" }).success).toBe(false);
+  });
+
+  it("gives every chart type a data table and a text alternative", () => {
+    const support = loadBenchmark("support-assistant-eval");
+    const parsers = loadBenchmark("json-cli-parse");
+    const charts = [
+      draw(parsers, chartBlock({ chart: "bar", metric: "peak_rss" })),
+      draw(support, chartBlock({ chart: "grouped-bar", metric: "accuracy", breakdown: "category" })),
+      draw(support, chartBlock({ chart: "dot-interval", metric: "accuracy", breakdown: "task" })),
+      draw(parsers, chartBlockOf(parsers, "chart-effects")),
+      draw(support, chartBlockOf(support, "chart-cost-accuracy")),
+      draw(parsers, chartBlockOf(parsers, "chart-runs"), { rawFiles: rawFilesOf("json-cli-parse") }),
+      draw(support, chartBlock({ chart: "line", metric: "accuracy", breakdown: "task" })),
+      draw(support, chartBlock({ chart: "shaded-table", metric: "accuracy", breakdown: "task" })),
+      draw(withCostAsTotal(), chartBlock({ chart: "stacked-bar", metric: "cost_per_item", breakdown: "category" })),
+      draw(parsers, chartBlockOf(parsers, "chart-fastjson")),
+    ];
+
+    for (const chart of charts) {
+      expect(chart.table.rows.length).toBeGreaterThan(0);
+      expect(chart.table.rows.every((row) => row.length === chart.table.header.length)).toBe(true);
+      expect(chart.altText.length).toBeGreaterThan(0);
+      expect(chart.description).toContain(chart.howToRead);
+      expect(chart.svg).not.toMatch(/<text|<script|<foreignObject|<image/);
+      expect(chart.charactersWithoutGlyph).toEqual([]);
+    }
+  });
+
+  it("draws the interval of every value that has one", () => {
+    const notes = loadBenchmark("notes-apps-onboarding");
+    const chart = draw(notes, chartBlockOf(notes, "chart-tasks"));
+    const intervalsAcross = chart.svg.match(/<path d="M[\d.]+ [\d.]+H[\d.]+M[\d.]+ [\d.]+V[\d.]+M[\d.]+ [\d.]+V[\d.]+"/g) ?? [];
+
+    expect(chart.table.rows.filter((row) => row[3] !== "—")).toHaveLength(6);
+    expect(intervalsAcross).toHaveLength(6);
+  });
+});
+
+describe("shared and fixed scales", () => {
+  const support = loadBenchmark("support-assistant-eval");
+  const byTask = chartBlockOf(support, "chart-by-task");
+
+  it("keeps its axis when a filter changes what it shows", () => {
+    expect(ticksOf(draw(support, byTask, {}, { category: "reasoning" }))).toBe(ticksOf(draw(support, byTask, {}, { category: "all" })));
+  });
+
+  it("shares its scale with the blocks it names", () => {
+    const byCategory = chartBlockOf(support, "chart-by-category");
+    const shared = { ...byCategory, scale: { shared_with: ["chart-by-task"] } };
+
+    expect(ticksOf(draw(support, byCategory))).not.toBe(ticksOf(draw(support, byTask)));
+    const withShared = { ...support, blocks: support.blocks!.map((block) => (block.id === shared.id ? shared : block)) };
+
+    expect(ticksOf(draw(withShared, shared))).toBe("−10  0  +10  +20  +30");
+    expect(ticksOf(draw(withShared, byTask))).toBe(ticksOf(draw(withShared, shared)));
+    expect(() => draw(support, { ...shared, scale: { shared_with: ["chart-cost-accuracy"] } })).toThrow(/does not show the same measure/);
+  });
+});
+
+describe("a distribution", () => {
+  it("shows every observation when there are few, and the summary the benchmark computed", () => {
+    const parsers = loadBenchmark("json-cli-parse");
+    const chart = draw(parsers, chartBlockOf(parsers, "chart-runs"), { rawFiles: rawFilesOf("json-cli-parse") });
+
+    expect(chart.howToRead).toContain("Each row: the 10 observations of a candidate, in s; lower is better. Dots: every observation.");
+    expect(chart.table.rows[0]).toEqual(["fastjson", "2.12", expect.stringMatching(/ \(95%\)$/), "—", expect.stringMatching(/ to /), "10"]);
+  });
+
+  it("shows a box and the observations outside it when there are many", () => {
+    const geocoding = loadBenchmark("geocoding-apis");
+    const chart = draw(geocoding, chartBlockOf(geocoding, "chart-latency"), { rawFiles: rawFilesOf("geocoding-apis") });
+
+    expect(chart.howToRead).toContain("Box: the middle half of the observations");
+    expect(chart.table.rows.map((row) => row[4])).not.toContain("—");
+  });
+
+  it("needs the raw file", () => {
+    const parsers = loadBenchmark("json-cli-parse");
+
+    expect(() => draw(parsers, chartBlockOf(parsers, "chart-runs"))).toThrow(/the raw file "runs" is needed/);
+  });
+});
+
+describe("comparison rows", () => {
+  const parsers = loadBenchmark("json-cli-parse");
+  const fastjson = chartBlockOf(parsers, "chart-fastjson");
+
+  it("shows each comparison on its own row, with a factor and its word, or the verdict instead of a figure", () => {
+    const chart = draw(parsers, fastjson);
+    const tinyjson = draw(parsers, chartBlock({ chart: "comparison-rows", comparisons: ["wall_time__tinyjson"] }));
+
+    expect(chart.textLines).toEqual(expect.arrayContaining(["Wall time  lower is better", "1.98× faster", "2.88× more"]));
+    expect(chart.textLines).toContainEqual(expect.stringMatching(/×, worse$/));
+    expect(chart.howToRead).toContain("Each row: one comparison on its own scale, both bars from zero, stdjson above and fastjson below.");
+    expect(tinyjson.textLines).toContain("equivalent");
+    expect(tinyjson.textLines).not.toContain("−4.3%");
+  });
+
+  it("writes the effects of its title and reading as factors too", () => {
+    expect(draw(parsers, fastjson).textLines).toContain("Faster, at the cost of memory: wall time 1.98× faster, peak memory 2.88× more.");
+  });
+
+  it("refuses a factor on a difference, on another chart type, and comparisons that do not exist", () => {
+    const support = loadBenchmark("support-assistant-eval");
+
+    expect(() =>
+      draw(support, chartBlock({ chart: "comparison-rows", comparisons: ["accuracy__suite__model_a"], effect_format: "times" })),
+    ).toThrow(/a factor only exists for comparisons in relative terms/);
+    expect(() => draw(parsers, { ...chartBlockOf(parsers, "chart-effects"), effect_format: "times" })).toThrow(
+      /factors are shown on comparison-rows/,
+    );
+    expect(() => draw(parsers, chartBlock({ chart: "comparison-rows", comparisons: ["wall_time__nobody"] }))).toThrow(
+      /not the id of a comparison/,
+    );
+  });
+});
+
+describe("a scatter chart", () => {
+  const support = loadBenchmark("support-assistant-eval");
+  const costAccuracy = chartBlockOf(support, "chart-cost-accuracy");
+
+  it("places each candidate by its two measures, marks the better corner and joins the candidates no other beats", () => {
+    const chart = draw(support, costAccuracy);
+
+    expect(chart.textLines).toEqual(
+      expect.arrayContaining(["Model A", "Model B", "better", "Cost per item, mean in USD · lower is better"]),
+    );
+    expect(chart.howToRead).toContain("The marked corner is better: lower cost per item and higher accuracy.");
+    expect(chart.table.rows.map((row) => row[5])).toEqual(["no", "no"]);
+    expect(chart.svg).toContain('stroke-dasharray="4 3"');
+  });
+
+  it("draws no line when one candidate beats the others on both", () => {
+    const beaten = structuredClone(support);
+
+    beaten.results.values!.find((value) => value.metric === "accuracy" && value.node === "suite" && value.candidate === "model_b")!.value =
+      90;
+
+    const chart = draw(beaten, costAccuracy);
+
+    expect(chart.table.rows.map((row) => row[5])).toEqual(["yes", "no"]);
+    expect(chart.svg).not.toContain("stroke-dasharray");
+  });
+
+  it("refuses a breakdown and a log scale", () => {
+    expect(() => draw(support, { ...costAccuracy, breakdown: "category" })).toThrow(/a scatter chart shows one node/);
+    expect(() => draw(support, { ...costAccuracy, scale: { type: "log", reason: "Wide range" } })).toThrow(ChartError);
+  });
+});
+
+describe("a line chart", () => {
+  const support = loadBenchmark("support-assistant-eval");
+
+  it("follows a metric along the nodes of a level, one labelled line per candidate", () => {
+    const chart = draw(support, chartBlock({ chart: "line", metric: "accuracy", breakdown: "task" }));
+
+    expect(chart.textLines).toEqual(
+      expect.arrayContaining(["better ↑", "Math word problems  Policy questions  Bug fixes", "Model A  73  68  59", "Model B  71  73  45"]),
+    );
+    expect(chart.table.header).toEqual(["task", "Candidate", "Share (%)", "Interval", "n"]);
+  });
+
+  it("needs a level with at least two nodes", () => {
+    expect(() => draw(support, chartBlock({ chart: "line", metric: "accuracy" }))).toThrow(/set breakdown/);
+    expect(() => draw(support, chartBlock({ chart: "line", metric: "accuracy", node: "coding", breakdown: "task" }))).toThrow(
+      /at least two nodes/,
+    );
+  });
+});
+
+describe("a shaded table", () => {
+  const support = loadBenchmark("support-assistant-eval");
+
+  it("prints every value with its interval, the darkest cell for the best", () => {
+    const chart = draw(support, chartBlock({ chart: "shaded-table", metric: "accuracy", breakdown: "task" }));
+
+    expect(chart.table.header).toEqual(["task", "Model A", "Model B"]);
+    expect(chart.textLines).toContainEqual(expect.stringMatching(/^45% … 73% · darker is better$/));
+    expect(chart.table.rows[2]).toEqual(["Bug fixes", expect.stringMatching(/^59 \(\d+ to \d+\)$/), expect.stringMatching(/^45 \(/)]);
+  });
+
+  it("shades with a single grey ramp, the figures readable on every shade", () => {
+    for (const mode of ["light", "dark"] as const)
+      for (let share = 0; share <= 1; share += 0.05) {
+        const fill = cellFill(THEME[mode], share, LARGEST_SHADE[mode]);
+        const [red, green, blue] = [1, 3, 5].map((start) => fill.slice(start, start + 2));
+
+        expect(red === green && green === blue, fill).toBe(true);
+        expect(contrastRatio(THEME[mode].ink, fill)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+      }
+  });
+});
+
+describe("a stacked bar", () => {
+  const stacked = chartBlock({ chart: "stacked-bar", metric: "cost_per_item", breakdown: "category" });
+
+  it("splits each candidate's total into its parts, with a legend", () => {
+    const chart = draw(withCostAsTotal(), stacked);
+
+    expect(chart.textLines).toContain("Reasoning  Coding");
+    expect(chart.table.header).toEqual(["Candidate", "Reasoning", "Coding", "Total (USD)", "Interval"]);
+    expect(chart.table.rows.map((row) => row[0])).toEqual(["Model B", "Model A"]);
+  });
+
+  it("shows only the parts of a total, and only when they add up to it", () => {
+    const support = withCostAsTotal();
+
+    expect(() => draw(loadBenchmark("support-assistant-eval"), stacked)).toThrow(/is not a total/);
+    support.results.values!.find((value) => value.metric === "cost_per_item" && value.node === "suite")!.value *= 2;
+    expect(() => draw(support, stacked)).toThrow(/add up to/);
+  });
+});
+
+describe("the shape of the data", () => {
+  const support = loadBenchmark("support-assistant-eval");
+
+  it("asks for bars in groups for a breakdown, and a breakdown for bars in groups", () => {
+    expect(() => draw(support, chartBlock({ chart: "bar", metric: "accuracy", breakdown: "category" }))).toThrow(/use grouped-bar/);
+    expect(() => draw(support, chartBlock({ chart: "grouped-bar", metric: "accuracy" }))).toThrow(/set breakdown/);
   });
 });

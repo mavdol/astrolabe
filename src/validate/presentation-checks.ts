@@ -21,7 +21,7 @@ function verdictLabel(comparison: Comparison): string {
 /**
  * The checks on blocks that depend on computed verdicts: templates resolve,
  * headlines and asserted titles rely on primary comparisons only, and an
- * asserted verdict still holds. Rendering rules belong to astrolabe build.
+ * asserted verdict still holds. Whether each chart can be drawn is checked in chart-checks.
  */
 export function checkPresentation(benchmark: Benchmark): Issue[] {
   const issues: Issue[] = [];
