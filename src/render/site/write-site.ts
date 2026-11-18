@@ -141,6 +141,12 @@ export function writeSite(
   write("page.js", readFileSync(new URL("site/page.js", ASSETS)));
   write(".nojekyll", "");
 
+  if (!benchmark.blocks || benchmark.blocks.length === 0) {
+    site.warnings.push(
+      "no blocks declared: the page shows only the first primary comparisons as headlines, with no chart or table; visualization/page.md says how to choose them",
+    );
+  }
+
   const description = answerOf(benchmark);
   const head: PageHead = { url: inputs.url, description };
 
