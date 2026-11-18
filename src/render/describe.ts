@@ -1,5 +1,5 @@
 import { resultsHash } from "../compute/files.js";
-import { nodeTreeOf, type NodeTree } from "../compute/structure.js";
+import { descendantsOf, hasAncestorIn, nodeTreeOf, type NodeTree } from "../compute/structure.js";
 import { VALUE_INTERVAL_LEVEL } from "../compute/values.js";
 import type { Benchmark, Comparison, Metric, Results, Value } from "../schema/benchmark.js";
 import {
@@ -63,6 +63,37 @@ export function lookupOf(results: Results): Lookup {
     nodeDepth,
     metricById: new Map(results.metrics.map((metric) => [metric.id, metric])),
   };
+}
+
+/**
+ * Whether the comparison rests on scores from judges who knew which candidate was which,
+ * which validate only accepts for data gathered before the plan.
+ */
+export function restsOnUnblindedJudges(lookup: Lookup, comparison: Comparison): boolean {
+  const { judge, structure } = lookup.results;
+
+  if (judge?.blinded !== false) return false;
+
+  const metric = lookup.metricById.get(comparison.metric)!;
+
+  if (metric.kind === "preference") return true;
+
+  if (metric.kind !== "quality") return false;
+
+  if (!lookup.tree.hasStructure) return true;
+
+  const judgedNodes = new Set([
+    ...(judge.used_for ?? []),
+    ...(structure?.nodes ?? []).filter((node) => node.scoring === "judge").map((node) => node.id),
+  ]);
+
+  if (comparison.node === undefined) return judgedNodes.size > 0;
+
+  return (
+    judgedNodes.has(comparison.node) ||
+    hasAncestorIn(lookup.tree, comparison.node, judgedNodes) ||
+    descendantsOf(lookup.tree, comparison.node).some((node) => judgedNodes.has(node))
+  );
 }
 
 export const isPercentage = (metric: Metric) => metric.unit === "%";

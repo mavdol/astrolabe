@@ -42,7 +42,7 @@ If the request is about a benchmark that already exists (drop runs, clean outlie
 | [measurement/resources.md](measurement/resources.md) | A metric is memory, CPU or energy |
 | [measurement/quality.md](measurement/quality.md) | Outputs are scored as right or wrong, or graded by a rubric or a judge; any suite of tasks; any model or other non-deterministic candidate |
 | [measurement/cost.md](measurement/cost.md) | Candidates do not cost the same, or the user asks which is cheaper |
-| [measurement/preference.md](measurement/preference.md) | People, or models standing in for people, say which output they prefer |
+| [measurement/preference.md](measurement/preference.md) | People, or models standing in for people, say which output they prefer or score the candidates, including scores given before any plan |
 | [measurement/usability.md](measurement/usability.md) | People use the candidates: task success, time on task, satisfaction, features |
 | [visualization/page.md](visualization/page.md) | Step 6, always: what the page holds, the outline to propose, filters, exports |
 | [visualization/charts.md](visualization/charts.md) | Step 6, before writing a chart block: which chart, scales, intervals |
@@ -158,7 +158,7 @@ Write the script that measures (in `scripts/`), and have it write the raw file i
 
 Other fields are kept as they are (token counts, sizes). A measure scored right or wrong is written 1 or 0.
 
-- When the observations already exist (a spreadsheet of scores, a survey export, a log the user kept), the user's file is the measurement. Write the plan first, describing in `workload` how the data was gathered (who, blind or not, in what order, how many times) and saying in `limitations` that the plan was written after the data existed. Then leave the file as it is, write a script that converts it into the raw file, and go on to step 5. Declare what happened, not what should have: if a rule then refuses the plan (a tasting that was not blind, say), tell the user why rather than change a field to pass.
+- When the observations already exist (a spreadsheet of scores, a survey export, a log the user kept), the user's file is the measurement. Write the plan first: add `gathered_before_plan` to `benchmark.conditions`, describe in `workload` how the data was gathered (who, blind or not, in what order, how many times), and say in `limitations` that the plan was written after the data existed. Then leave the file as it is, write a script that converts it into the raw file, and go on to step 5. Declare what happened, never what should have: scores people gave follow measurement/preference.md, "Scores people already gave".
 - Prefer an established tool to your own timing loop, and convert its export: hyperfine for commands, Inspect for model evaluations (measurement/time.md and measurement/quality.md give the commands).
 - Alternate or shuffle the candidates between runs. Running all of A and then all of B measures the drift of the machine.
 - Run a short pilot first (a few runs), then `astrolabe compute`: it shows whether the script works, how noisy the measure is and whether failures occur. Then do the full run; the script overwrites the raw file, so pilot rows never mix with the real ones.

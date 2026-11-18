@@ -1,6 +1,6 @@
 import { descendantsOf } from "../compute/structure.js";
 import type { Comparison, Failure, Value } from "../schema/benchmark.js";
-import { effectAndInterval, lowerFirstLetterOfWord, verdictLabel, type Lookup } from "./describe.js";
+import { effectAndInterval, lowerFirstLetterOfWord, restsOnUnblindedJudges, verdictLabel, type Lookup } from "./describe.js";
 
 /** One sentence ends with one period, even when a declared text already ends with its own. */
 const withSinglePeriods = (text: string) => text.replace(/\.\./g, ".");
@@ -33,6 +33,8 @@ export function comparisonNotes(lookup: Lookup, comparison: Comparison): string 
   if (comparison.source === "declared") notes.push("declared values");
 
   if (comparison.successful_only) notes.push("successful attempts only");
+
+  if (restsOnUnblindedJudges(lookup, comparison)) notes.push("not blind: the judges knew which candidate was which");
 
   if (comparison.indicative) notes.push("indicative: fewer than 20 participants, no winner named");
 
@@ -163,10 +165,13 @@ function judgeAndItemsLines(lookup: Lookup): string[] {
     const who =
       judge.type === "model"
         ? `${judge.model ?? "a model"} (family ${judge.family ?? "not stated"})`
-        : `${judge.raters ?? "?"} human raters`;
+        : judge.type === "participants"
+          ? "the participants themselves, each scoring the candidates"
+          : `${judge.raters ?? "?"} human raters`;
+    const agreementNotMeasured = judge.type === "human" && (judge.raters ?? 0) > 1 ? "; agreement between raters not measured" : "";
     const agreement = judge.agreement
       ? `; agreement between raters: Krippendorff's alpha ${judge.agreement.krippendorff_alpha} on ${judge.agreement.double_rated_items} items`
-      : "";
+      : agreementNotMeasured;
     const validation = judge.validation
       ? `; checked against human ratings: alpha ${judge.validation.krippendorff_alpha} on ${judge.validation.human_rated_items} items`
       : "; not checked against human ratings";

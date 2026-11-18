@@ -200,14 +200,27 @@ export function checkPlan(results: Results): Issue[] {
       return;
     }
 
-    for (const required of ["used_for", "method"] as const) {
-      if (judge[required] === undefined) error("Q6", `judge.${required}`, `a judge needs ${required}`);
-    }
+    const gatheredBeforePlan = conditions.has("gathered_before_plan");
 
-    if (judge.blinded !== true) error("P2", "judge.blinded", "the judge does not see which candidate wrote what: set blinded to true");
+    if (judge.method === undefined) error("Q6", "judge.method", "a judge needs method");
+
+    if (nodeIds.length > 0 && judge.used_for === undefined) error("Q6", "judge.used_for", "a judge needs used_for: the nodes it scores");
+
+    if (judge.blinded === false && gatheredBeforePlan) {
+      warning("P2", "judge.blinded", "the judges knew which candidate was which: every verdict that rests on them says so");
+    } else if (judge.blinded !== true) {
+      error(
+        "P2",
+        "judge.blinded",
+        gatheredBeforePlan
+          ? "say whether the judges knew which candidate was which"
+          : "the judge does not see which candidate wrote what: set blinded to true",
+      );
+    }
 
     if (judge.order_policy === undefined) {
       if (judge.type === "model") error("Q6", "judge.order_policy", "a model judge gives its order policy: both orders, or a random order");
+      else if (gatheredBeforePlan) error("P2", "judge.order_policy", "say in which order the judges saw the candidates");
       else error("P2", "judge.order_policy", "human judges see the outputs in a random order: say how it is drawn");
     }
 
@@ -224,10 +237,14 @@ export function checkPlan(results: Results): Issue[] {
       if (candidateOfSameFamily) {
         error("Q7", "judge.family", `the judge is from the family of "${candidateOfSameFamily.id}": a model never judges its own family`);
       }
-    } else {
+    } else if (judge.type === "human") {
       if (judge.raters === undefined) error("P7", "judge.raters", "human judges: say how many raters");
 
-      if ((judge.raters ?? 0) > 1 && !judge.agreement) error("P7", "judge.agreement", "several raters: report their agreement");
+      if ((judge.raters ?? 0) > 1 && !judge.agreement) {
+        if (gatheredBeforePlan)
+          warning("P7", "judge.agreement", "several raters and no agreement figure: how reliable the ratings are is unknown");
+        else error("P7", "judge.agreement", "several raters: report their agreement");
+      }
     }
   }
 

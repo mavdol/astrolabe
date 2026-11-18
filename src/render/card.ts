@@ -5,6 +5,7 @@ import {
   lowerFirstLetterOfWord,
   provenanceParts,
   resolveTemplates,
+  restsOnUnblindedJudges,
   STATISTIC_WORD,
   verdictLabel,
   type BuildContext,
@@ -221,6 +222,8 @@ export function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: s
 
   if (comparison.failure_warning) details.push({ text: "The candidates did not fail equally often", isWarning: true });
 
+  if (restsOnUnblindedJudges(lookup, comparison)) details.push({ text: "The judges knew which candidate was which", isWarning: true });
+
   return details;
 }
 
@@ -235,7 +238,9 @@ export function cardAltText(benchmark: Benchmark, content: CardContent): string 
     const measured = `${lowerFirstLetterOfWord(measuredOf(lookup, comparison))} (${directionWords(metric)})`;
     const subject = sharedPair ? measured : `${pairOf(lookup, comparison)}, ${measured}`;
 
-    return `${subject} ${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}`;
+    const unblinded = restsOnUnblindedJudges(lookup, comparison) ? " (the judges knew which candidate was which)" : "";
+
+    return `${subject} ${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}${unblinded}`;
   });
 
   return sharedPair ? `${sharedPair}: ${sentences.join("; ")}.` : `${sentences.join("; ")}.`;

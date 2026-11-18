@@ -22,7 +22,7 @@ export const METRIC_KINDS = [
   "feature",
 ] as const;
 export const STATISTICS = ["mean", "median", "p50", "p95", "p99", "rate", "share", "total"] as const;
-export const CONDITIONS = ["non_deterministic", "trained_or_tuned", "managed_runtime", "load_test"] as const;
+export const CONDITIONS = ["non_deterministic", "trained_or_tuned", "managed_runtime", "load_test", "gathered_before_plan"] as const;
 
 const candidate = z.strictObject({
   id,
@@ -192,7 +192,7 @@ export const resultsSchema = z.strictObject({
   }),
   judge: z
     .strictObject({
-      type: z.enum(["model", "human"]),
+      type: z.enum(["model", "human", "participants"]),
       used_for: z.array(id).optional(),
       method: text.optional(),
       blinded: z.boolean().optional(),

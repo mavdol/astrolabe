@@ -15,7 +15,7 @@ import {
   candidateNameOf,
   comparisonsOn,
   directionWords,
-  failureSentences,
+  caveatSentences,
   intervalSentence,
   levelsOf,
   rangeOf,
@@ -118,7 +118,7 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
     `Each ${drawsBars ? "bar" : "dot"}: the ${statisticWord(metric)}${observations.length > 0 ? ` of ${rangeOf(observations)} observations` : ""}, in ${metric.unit}; ${directionWords(metric)}.`,
     intervalSentence(values),
     axis.note,
-    failureSentences(metric, comparisonsOn(metric, lookup)),
+    caveatSentences(lookup, metric, comparisonsOn(metric, lookup)),
   ]
     .filter(Boolean)
     .join(" ");
@@ -188,7 +188,7 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     levels ? `Lines: ${levels} confidence intervals${adjustment}.` : "No interval: too few observations, or declared values.",
     `Shaded band: changes under ${formatNumber(minimum, null)}${unit}, too small to matter.`,
     hasExploratory ? "Exploratory comparisons were not declared before measuring: none is a claim of the benchmark." : "",
-    failureSentences(metric, comparisons),
+    caveatSentences(lookup, metric, comparisons),
   ]
     .filter(Boolean)
     .join(" ");
@@ -416,7 +416,7 @@ export function stackedContent(inputs: ChartInputs): ChartContent {
     inputs.compact ? "" : sentence(metric.definition),
     `Each bar: the total of a candidate in ${metric.unit}, split into its parts in the order of the legend; ${directionWords(metric)}.`,
     intervalSentence(totals, "Lines").replace("confidence intervals", "confidence intervals of the total"),
-    failureSentences(metric, comparisonsOn(metric, lookup)),
+    caveatSentences(lookup, metric, comparisonsOn(metric, lookup)),
   ]
     .filter(Boolean)
     .join(" ");

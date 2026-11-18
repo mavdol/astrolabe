@@ -2,7 +2,7 @@ import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark, Comparison, Metric } from "../../schema/benchmark.js";
 import type { ChartBlock } from "../../schema/presentation.js";
 import { seriesStylesOf, type Mode, type SeriesStyle } from "../../themes/astrolabe.js";
-import { STATISTIC_WORD, type Lookup } from "../describe.js";
+import { restsOnUnblindedJudges, STATISTIC_WORD, type Lookup } from "../describe.js";
 import { formatLevel } from "../number-format.js";
 import { ChartError, type FilterState } from "./chart-data.js";
 import type { Plot } from "./plot.js";
@@ -64,12 +64,18 @@ export function intervalSentence(values: { ci?: [number, number]; ci_level?: num
     : "No interval: too few observations, or declared values.";
 }
 
-export function failureSentences(metric: Metric, comparisons: Comparison[]): string {
+/** What a reader must weigh beside the chart: failures left out or unequal, judges who were not blind. */
+export function caveatSentences(lookup: Lookup, metric: Metric, comparisons: Comparison[]): string {
   const leftOut = metric.failures_count_as === "excluded" ? "Failed attempts are left out: successful attempts only." : "";
-  const warning = comparisons.some((comparison) => comparison.failure_warning) ? "Warning: the candidates did not fail equally often." : "";
+  const failureWarning = comparisons.some((comparison) => comparison.failure_warning)
+    ? "Warning: the candidates did not fail equally often."
+    : "";
+  const unblinded = comparisons.some((comparison) => restsOnUnblindedJudges(lookup, comparison)) ? UNBLINDED_JUDGES_WARNING : "";
 
-  return [leftOut, warning].filter(Boolean).join(" ");
+  return [leftOut, failureWarning, unblinded].filter(Boolean).join(" ");
 }
+
+export const UNBLINDED_JUDGES_WARNING = "Warning: the judges knew which candidate was which.";
 
 export function comparisonsOn(metric: Metric, lookup: Lookup): Comparison[] {
   return (lookup.results.comparisons ?? []).filter((comparison) => comparison.metric === metric.id);

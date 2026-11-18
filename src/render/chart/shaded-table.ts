@@ -7,7 +7,7 @@ import {
   candidateNameOf,
   comparisonsOn,
   directionWords,
-  failureSentences,
+  caveatSentences,
   levelsOf,
   sentence,
   statisticWord,
@@ -228,7 +228,7 @@ export function shadedTableContent(inputs: ChartInputs): ChartContent {
   const howToRead = [
     inputs.compact ? "" : sentence(metric.definition),
     `Each cell: the ${statisticWord(metric)} of a candidate on one ${level}, in ${metric.unit}${levels ? `, with its ${levels} confidence interval below` : ""}; ${directionWords(metric)}, and the better the value, the darker the cell.`,
-    failureSentences(metric, comparisonsOn(metric, lookup)),
+    caveatSentences(lookup, metric, comparisonsOn(metric, lookup)),
   ]
     .filter(Boolean)
     .join(" ");

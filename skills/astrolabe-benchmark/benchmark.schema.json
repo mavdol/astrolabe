@@ -40,7 +40,8 @@
                   "non_deterministic",
                   "trained_or_tuned",
                   "managed_runtime",
-                  "load_test"
+                  "load_test",
+                  "gathered_before_plan"
                 ]
               }
             }
@@ -581,7 +582,8 @@
               "type": "string",
               "enum": [
                 "model",
-                "human"
+                "human",
+                "participants"
               ]
             },
             "used_for": {
