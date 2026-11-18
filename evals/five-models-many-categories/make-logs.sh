@@ -24,6 +24,7 @@ import glob, json, os, sys
 work = sys.argv[1]
 for source in sorted(glob.glob(f"{work}/*/*.json")):
     log = json.load(open(source))
+    log["eval"].pop("revision", None)
     for sample in log.get("samples", []):
         for heavy in ("events", "events_data", "attachments", "messages", "timelines", "store"):
             sample.pop(heavy, None)

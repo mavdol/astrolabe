@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -75,6 +76,14 @@ describe("the evaluation cases", () => {
       .filter((entry) => !/: [A-Z][A-Z0-9_]*=\S+$/.test(entry));
 
     expect(malformed).toEqual([]);
+  });
+
+  it("keep every file they start from in the repository, none of it ignored by git", () => {
+    const ignored = spawnSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "--", ":(glob)evals/*/files/**"], {
+      encoding: "utf8",
+    });
+
+    expect(ignored.stdout.split("\n").filter(Boolean)).toEqual([]);
   });
 
   it("keep a short set for quick checks", () => {
