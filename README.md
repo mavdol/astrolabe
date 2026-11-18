@@ -52,7 +52,7 @@ pnpm test                 # statistics against scipy reference values, compute, 
 pnpm typecheck
 pnpm build
 pnpm gen:example-data     # rewrite the synthetic raw files of the examples
-pnpm gen:schema           # rewrite the JSON Schema and its copy in the skill, after changing src/schema/
+pnpm gen:schema           # rewrite the JSON Schema in the skill folder, after changing src/schema/
 ```
 
 Requires Node 22 or later.

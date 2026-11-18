@@ -3,7 +3,6 @@ node_modules
 pnpm-lock.yaml
 examples
 .artifacts
-schema
 src/render/fonts/inter.json
 tests/fixtures/inspect
 evals
