@@ -16,7 +16,7 @@ fi
 
 mkdir -p "$package" node_modules/.bin
 mkdir -p "$package/assets"
-cp -R "$repository/dist" "$repository/schema" "$repository/package.json" "$package/"
+cp -R "$repository/dist" "$repository/package.json" "$package/"
 cp -R "$repository/assets/fonts" "$repository/assets/site" "$package/assets/"
 
 for dependency in zod @resvg; do
