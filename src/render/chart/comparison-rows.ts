@@ -1,9 +1,26 @@
 import type { Comparison, Value } from "../../schema/benchmark.js";
 import { THEME, type Colours } from "../../themes/astrolabe.js";
-import { effectAndInterval, effectAsFactor, finestDecimals, lowerFirstLetterOfWord, valueDecimals, verdictLabel } from "../describe.js";
+import {
+  effectAndInterval,
+  effectAsFactor,
+  finestDecimals,
+  lowerFirstLetterOfWord,
+  restsOnUnblindedJudges,
+  valueDecimals,
+  verdictLabel,
+} from "../describe.js";
 import { formatInterval, formatNumber } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, type SvgTextRenderer } from "../svg-text.js";
-import { candidateNameOf, directionWords, levelsOf, seriesOf, withUnit, type ChartContent, type ChartInputs } from "./chart-content.js";
+import {
+  candidateNameOf,
+  directionWords,
+  levelsOf,
+  seriesOf,
+  UNBLINDED_JUDGES_WARNING,
+  withUnit,
+  type ChartContent,
+  type ChartInputs,
+} from "./chart-content.js";
 import { ChartError } from "./chart-data.js";
 import {
   INTERVAL_STROKE,
@@ -258,6 +275,7 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
       ? "Exploratory comparisons were not declared before measuring: none is a claim of the benchmark."
       : "",
     comparisons.some((comparison) => comparison.failure_warning) ? "Warning: the candidates did not fail equally often." : "",
+    comparisons.some((comparison) => restsOnUnblindedJudges(lookup, comparison)) ? UNBLINDED_JUDGES_WARNING : "",
   ]
     .filter(Boolean)
     .join(" ");

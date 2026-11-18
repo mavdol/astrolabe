@@ -2,7 +2,7 @@
   "schema_version": "0.5",
   "notes": {
     "about": "A complete plan, as written at step 3, before anything is measured. This notes section only explains the example: leave it out of your own file. Sections that depend on the kind of benchmark (structure, judge, pricing, service, contamination, declared values) are shown in the measurement files.",
-    "results.benchmark": "goal: the user's decision, phrased neutrally. scope: what the numbers cover and what they do not. conditions: any of non_deterministic, trained_or_tuned, managed_runtime, load_test; each one makes validate ask for more.",
+    "results.benchmark": "goal: the user's decision, phrased neutrally. scope: what the numbers cover and what they do not. conditions: any of non_deterministic, trained_or_tuned, managed_runtime, load_test, each making validate ask for more, and gathered_before_plan when the data existed before the plan (SKILL.md, step 4).",
     "results.domain_research": "What the domain already knows, also when the answer is 'none found'. Every list has at least one entry.",
     "results.candidates": "config has the same keys for every candidate. publication_terms records the licence or terms you read, where and when; a restriction other than 'none found' needs clause_url. variants.tested lists every configuration tried.",
     "results.baseline": "The id of the candidate every other one is compared with: usually what is in use today.",

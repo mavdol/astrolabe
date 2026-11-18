@@ -7,7 +7,7 @@ import {
   candidateNameOf,
   comparisonsOn,
   directionWords,
-  failureSentences,
+  caveatSentences,
   intervalSentence,
   sentence,
   seriesOf,
@@ -247,7 +247,7 @@ export function lineContent(inputs: ChartInputs): ChartContent {
     `Each line: the ${statisticWord(metric)} of a candidate at each ${level}, in ${metric.unit}, in the order of the structure and evenly spaced; ${directionWords(metric)}.`,
     intervalSentence(values, "Vertical lines"),
     axis.note,
-    failureSentences(metric, comparisonsOn(metric, lookup)),
+    caveatSentences(lookup, metric, comparisonsOn(metric, lookup)),
   ]
     .filter(Boolean)
     .join(" ");

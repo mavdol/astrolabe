@@ -13,7 +13,7 @@ import { allRules, formatIssue, rule as findRule, type Issue } from "../rules/re
 import { benchmarkSchema, type Benchmark } from "../schema/benchmark.js";
 import { jsonSchemaFileContent } from "../schema/json-schema.js";
 import { AVAILABLE_FORMATS, buildOutputs, SITE_FOLDER, type BuildResult, type OutputFormat } from "../render/build.js";
-import { buildDateFrom, continuousIntegrationFrom } from "../render/describe.js";
+import { buildDateFrom, continuousIntegrationFrom, lookupOf, restsOnUnblindedJudges } from "../render/describe.js";
 import { pictureHtml } from "../render/exports.js";
 import { servePreview } from "../preview/serve.js";
 import { validate } from "../validate/validate.js";
@@ -127,12 +127,14 @@ function runCompute(fileArgument?: string): number {
     `Computed ${computedResults.values!.length} values and ${computedResults.comparisons!.length} comparisons (${stamp.primary_comparisons} primary, ${stamp.exploratory_comparisons} exploratory).`,
   );
 
+  const lookup = lookupOf(computedResults);
+
   for (const comparison of computedResults.comparisons!.filter((candidate) => candidate.role === "primary")) {
     const verdict = comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
     const interval = comparison.ci ? `[${comparison.ci[0]}, ${comparison.ci[1]}]` : "no interval";
 
     console.log(
-      `  ${comparison.id}: ${verdict} (effect ${comparison.effect}, ${interval})${comparison.failure_warning ? ", failure warning" : ""}`,
+      `  ${comparison.id}: ${verdict} (effect ${comparison.effect}, ${interval})${comparison.failure_warning ? ", failure warning" : ""}${restsOnUnblindedJudges(lookup, comparison) ? ", judges not blind" : ""}`,
     );
   }
 

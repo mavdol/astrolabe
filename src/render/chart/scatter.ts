@@ -7,7 +7,7 @@ import {
   candidateNameOf,
   comparisonsOn,
   directionWords,
-  failureSentences,
+  caveatSentences,
   intervalSentence,
   sentence,
   seriesOf,
@@ -289,8 +289,8 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
     frontier.length >= 2 ? "Dashed line: the candidates that no other candidate beats on both measures." : "",
     `The marked corner is better: ${towards(xMetric)} and ${towards(yMetric)}.`,
     startsAtZero ? "" : `The axes do not start at zero: ${sentence(block.scale!.reason!)}`,
-    failureSentences(xMetric, comparisonsOn(xMetric, lookup)),
-    failureSentences(yMetric, comparisonsOn(yMetric, lookup)),
+    caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup)),
+    caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)),
   ]
     .filter(Boolean)
     .join(" ");
