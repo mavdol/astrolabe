@@ -236,6 +236,15 @@ describe("the site", () => {
     );
   });
 
+  it("says when no blocks are declared, so the page has headlines only, and stays quiet when they are", () => {
+    const noBlocksWarning = (id: string) => buildSite(id).built.warnings.filter((warning) => warning.startsWith("no blocks declared"));
+
+    expect(noBlocksWarning("js-runtimes")).toEqual([
+      "no blocks declared: the page shows only the first primary comparisons as headlines, with no chart or table; visualization/page.md says how to choose them",
+    ]);
+    expect(noBlocksWarning("json-cli-parse")).toEqual([]);
+  });
+
   it("closes with how to check it: the full hash, the command at the version that built it, and links to the evidence", () => {
     expect(support.html).toMatch(/<p class="hash"><span class="label">Results sha256<\/span><br><code>[0-9a-f]{64}<\/code><\/p>/);
     expect(support.html).toContain('<a href="benchmark.json">benchmark.json</a>');
