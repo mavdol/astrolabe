@@ -109,7 +109,7 @@ Add a step to that site's own build, before it runs: build the benchmark, then c
 ## After publishing
 
 1. Open the address and check four things: the page loads with its styles, a filter changes its chart, an evidence link (`benchmark.json`, a raw file) opens, and the results hash on the page is the one `astrolabe validate` prints.
-2. Once the address is known, put it in the build command with `--url`, so a shared link shows the preview image, and point the README card's link at the page.
+2. Once the address is known, put it in the build command with `--url`, in CI and when you build here: a shared link then shows the preview image, and the card snippet `build` prints links to the page. Replace the README's card with that snippet.
 3. Give the user the steps only they can do as a short numbered list, with the exact names of the settings.
 
 ## When it goes wrong

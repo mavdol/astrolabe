@@ -82,7 +82,7 @@ If that fails, the project does not have it: add the package `astrolabe-bench` t
 | --- | --- |
 | `astrolabe validate [file]` | The gate. On a plan: checks it before anything runs. After compute: computes everything again from the raw files and compares |
 | `astrolabe compute [file]` | Reads the plan and the raw files, writes the results into the file |
-| `astrolabe build [file]` | Validates, then writes the site in `dist/site/`, `dist/benchmark.md`, and the README card and images under `dist/exports/`. `--format` picks among `site`, `md` and `svg`; `--url` is the site's public address |
+| `astrolabe build [file]` | Validates, then writes the site in `dist/site/`, `dist/benchmark.md`, and the README card and images under `dist/exports/`. `--format` picks among `site`, `md` and `svg`; `--url` is the site's public address, which the card snippet then links to |
 | `astrolabe preview [file]` | Builds the site, serves it on this computer and rebuilds it when a file changes |
 | `astrolabe import hyperfine <export.json...> --raw <id>` | Converts hyperfine exports into a raw file |
 | `astrolabe import inspect <log...> --raw <id>` | Converts Inspect logs (`.eval` or `.json`) into a raw file |

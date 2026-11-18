@@ -33,8 +33,9 @@ Usage
                               the site in dist/site/, dist/benchmark.md, and in
                               dist/exports/ the README cards (an SVG per mode, a PNG
                               for the GitHub mobile app) and the declared images.
-                              --url is the public address of the site, for the image
-                              a shared link shows. Nothing is written when a rule fails.
+                              --url is the public address of the site: the README card
+                              links to it, and a shared link shows its image. Nothing
+                              is written when a rule fails.
   astrolabe preview [file] [--port 4321]
                               Build the site, serve it on this computer, and build it
                               again when a file of the benchmark changes.
@@ -190,6 +191,10 @@ function validateAndBuild(
   return { built, outputFolder, benchmarkPath };
 }
 
+function isWebAddress(text: string): boolean {
+  return URL.canParse(text) && ["http:", "https:"].includes(new URL(text).protocol);
+}
+
 function runBuild(
   fileArgument: string | undefined,
   formatOption: string | undefined,
@@ -206,6 +211,12 @@ function runBuild(
     const reason = unavailable.every((format) => PLANNED_FORMATS.includes(format)) ? "not available yet" : "unknown";
 
     console.error(`astrolabe build: format ${unavailable.join(", ")} ${reason} (available: ${AVAILABLE_FORMATS.join(", ")})`);
+
+    return 2;
+  }
+
+  if (urlOption !== undefined && !isWebAddress(urlOption)) {
+    console.error("astrolabe build: --url takes the full address of the site, such as https://owner.github.io/repository/");
 
     return 2;
   }
@@ -240,9 +251,11 @@ function runBuild(
     const filesFromHere = { svg: svgFromHere, png: fromHere(built.readmeCard.files.png) };
 
     const markdownWasBuilt = built.files.some((file) => file.path === "benchmark.md");
-    const snippet = pictureHtml(built.readmeCard.altText, filesFromHere, markdownWasBuilt ? fromHere("benchmark.md") : undefined);
+    const linkTo = urlOption ?? (markdownWasBuilt ? fromHere("benchmark.md") : undefined);
+    const linkedTo = urlOption ? `linked to the page at ${urlOption}` : "linked to the full results";
+    const snippet = pictureHtml(built.readmeCard.altText, filesFromHere, linkTo);
 
-    console.log(`\nTo show the README card, linked to the full results, paste into a README in this folder:\n\n${snippet}`);
+    console.log(`\nTo show the README card, ${linkedTo}, paste into a README in this folder:\n\n${snippet}`);
   }
 
   return 0;
