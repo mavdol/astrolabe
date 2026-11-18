@@ -79,7 +79,7 @@ describe("the evaluation cases", () => {
   });
 
   it("keep every file they start from in the repository, none of it ignored by git", () => {
-    const ignored = spawnSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "--", ":(glob)evals/*/files/**"], {
+    const ignored = spawnSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "--", ":(glob)evals/**/files/**"], {
       encoding: "utf8",
     });
 
@@ -94,7 +94,7 @@ describe("the evaluation cases", () => {
 });
 
 describe("the triggering test", () => {
-  const TRIGGERING_FOLDER = "triggering";
+  const TRIGGERING_FOLDER = join(EVALS_FOLDER, "triggering");
   const triggeringCases = readdirSync(TRIGGERING_FOLDER).filter((name) => existsSync(join(TRIGGERING_FOLDER, name, "prompt.md")));
   const readCase = (...path: string[]) => readFileSync(join(TRIGGERING_FOLDER, ...path), "utf8");
   const expectsTheSkill = (caseName: string) => /\bshould-load\b/.test(splitFrontmatter(readCase(caseName, "prompt.md")).settings.tags);
@@ -118,5 +118,15 @@ describe("the triggering test", () => {
         ? { type: "tool_used", tool: "Skill", input_match: "astrolabe-benchmark", min: "1", arm: "both" }
         : { type: "tool_used", tool: "Skill", input_match: "astrolabe-benchmark", min: "0", max: "0", arm: "both" },
     ]);
+  });
+
+  it.each(triggeringCases)("%s starts from the project its request implies, with every file it names", (caseName) => {
+    const { body } = splitFrontmatter(readCase(caseName, "prompt.md"));
+    const files = join(TRIGGERING_FOLDER, caseName, "files");
+    const namedFiles = body.match(/[\w./-]+\.(csv|mjs|js|ts|json|jsonl|md|yml)\b/g) ?? [];
+
+    expect(/scaffold_script: place-files\.sh/.test(readCase(caseName, "case.yaml"))).toBe(true);
+    expect(existsSync(join(files, "README.md"))).toBe(true);
+    expect(namedFiles.filter((file) => !existsSync(join(files, file)))).toEqual([]);
   });
 });

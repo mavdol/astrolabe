@@ -1,0 +1,7 @@
+{
+  "candidates": [
+    "model-a",
+    "model-b"
+  ],
+  "current": "model-a"
+}
