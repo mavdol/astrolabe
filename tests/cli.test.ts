@@ -39,4 +39,32 @@ describe("the command line", () => {
     expect(existsSync(join(folder, "dist", "site", "index.html"))).toBe(true);
     expect(existsSync(join(folder, "dist", "site", ".nojekyll"))).toBe(true);
   });
+
+  it("build links the README card to the page at --url, and to the full results without it", () => {
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-cli-"));
+    const benchmarkPath = join(folder, "benchmark.json");
+
+    cpSync("examples/json-cli-parse", folder, { recursive: true });
+
+    const withAddress = runAstrolabe("build", benchmarkPath, "--url", "https://owner.github.io/repository/");
+    const withoutAddress = runAstrolabe("build", benchmarkPath);
+
+    expect(withAddress.status).toBe(0);
+    expect(withAddress.stdout).toContain("linked to the page at https://owner.github.io/repository/");
+    expect(withAddress.stdout).toContain('<a href="https://owner.github.io/repository/">');
+    expect(withoutAddress.stdout).toMatch(/<a href="[^"]*dist\/benchmark\.md">/);
+  });
+
+  it("build refuses a --url that is not the full address of a web page", () => {
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-cli-"));
+
+    cpSync("examples/json-cli-parse", folder, { recursive: true });
+    rmSync(join(folder, "dist"), { recursive: true, force: true });
+
+    const build = runAstrolabe("build", join(folder, "benchmark.json"), "--url", "owner.github.io/repository");
+
+    expect(build.status).toBe(2);
+    expect(build.stderr).toContain("--url takes the full address of the site");
+    expect(existsSync(join(folder, "dist"))).toBe(false);
+  });
 });
