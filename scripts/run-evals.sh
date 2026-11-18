@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Runs the skill's evaluations (evals/) with `claude plugin eval`.
+# Runs the skill's evaluations (evals/), or its triggering test (triggering/), with `claude plugin eval`.
 # Every run is a real model call billed to your Claude account or API key; nothing starts before you confirm.
 #
 # usage: scripts/run-evals.sh [--quick] [--case <glob>] [--runs <n>] [--model <model>] [--with-skill | --without-skill]
 #                             [--parallel <n>] [--max-cost-usd <usd>] [--keep-temp]
-#                             [--skills <folder>] [--output <folder>] [--yes]
+#                             [--skills <folder>] [--output <folder>] [--yes] [--triggering]
 #
 #   --quick           only the cases tagged "quick" (four short scenarios)
 #   --case <glob>     only the cases whose name matches
@@ -18,6 +18,8 @@
 #   --skills <folder> the skills to test, instead of skills/ (another version of the skill)
 #   --output <folder> where the report is written, instead of evals/results/<date>
 #   --yes             start without asking (for a script that has already asked)
+#   --triggering      the triggering test instead: short requests that should, or should not, load the skill;
+#                     with the skill only, since without it there is nothing to load
 #
 # claude plugin eval takes no environment variable from a case but EVAL_*. A case that needs others (to
 # make the agent compact its context early, for example) lists them in its operator.env, one NAME=value
@@ -38,6 +40,7 @@ quick_only=false
 skills=skills
 output=""
 confirmed=false
+cases_root=evals
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,10 +56,19 @@ while [ $# -gt 0 ]; do
     --skills) skills="$2"; shift ;;
     --output) output="$2"; shift ;;
     --yes) confirmed=true ;;
+    --triggering) cases_root=triggering ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
 done
+
+if [ "$cases_root" = triggering ]; then
+  if [ "$configuration" = without ]; then
+    echo "The triggering test checks whether the skill loads: it runs with the skill only." >&2
+    exit 2
+  fi
+  configuration=with
+fi
 
 if [ "$configuration" != without ] && [ ! -d "$skills" ]; then
   echo "There is no skill in $skills: only --without-skill can run." >&2
@@ -65,12 +77,12 @@ fi
 
 cases_together=()
 cases_apart=()
-for prompt in evals/*/prompt.md; do
+for prompt in "$cases_root"/*/prompt.md; do
   name=$(basename "$(dirname "$prompt")")
   # shellcheck disable=SC2053
   [[ $name == $case_pattern ]] || continue
   if $quick_only && ! grep -q '^tags: \[quick' "$prompt"; then continue; fi
-  if [ -f "evals/$name/operator.env" ]; then cases_apart+=("$name"); else cases_together+=("$name"); fi
+  if [ -f "$cases_root/$name/operator.env" ]; then cases_apart+=("$name"); else cases_together+=("$name"); fi
 done
 cases=$((${#cases_together[@]} + ${#cases_apart[@]}))
 [ "$cases" -gt 0 ] || { echo "No case matches these filters." >&2; exit 2; }
@@ -95,7 +107,10 @@ if ! $confirmed; then
   [ "$answer" = "y" ] || { echo "Nothing was run."; exit 0; }
 fi
 
-[ -n "$output" ] || output="$PWD/evals/results/$(date +%Y-%m-%dT%H-%M-%S)"
+if [ -z "$output" ]; then
+  output="$PWD/evals/results/$(date +%Y-%m-%dT%H-%M-%S)"
+  if [ "$cases_root" = triggering ]; then output="$output-triggering"; fi
+fi
 
 # claude plugin eval only evaluates a Claude Code plugin. The repository stays agent-neutral, so the
 # plugin is a temporary folder: a manifest, a copy of the skills and of the evaluation cases, and the
@@ -112,11 +127,11 @@ make_plugin() {
   shift
   mkdir -p "$plugin/.claude-plugin"
   printf '{ "name": "astrolabe", "version": "0.0.0-eval" }\n' > "$plugin/.claude-plugin/plugin.json"
-  rsync -a --exclude /results/ evals/ "$plugin/evals/"
+  rsync -a --exclude /results/ "$cases_root/" "$plugin/evals/"
   for folder in "$plugin"/evals/*/; do
     [[ " $* " == *" $(basename "$folder") "* ]] || rm -rf "$folder/prompt.md" "$folder/case.yaml" "$folder/graders"
   done
-  echo "$PWD" > "$plugin/evals/_shared/repository-path"
+  if [ -d "$plugin/evals/_shared" ]; then echo "$PWD" > "$plugin/evals/_shared/repository-path"; fi
   if [ "$configuration" != without ]; then cp -R "$skills" "$plugin/skills"; fi
 }
 
@@ -149,7 +164,7 @@ fi
 for name in ${cases_apart[@]+"${cases_apart[@]}"}; do
   make_plugin "$workspace/$name/astrolabe" "$name"
   operator_env=()
-  while IFS= read -r line; do [ -n "$line" ] && operator_env+=("$line"); done < "evals/$name/operator.env"
+  while IFS= read -r line; do [ -n "$line" ] && operator_env+=("$line"); done < "$cases_root/$name/operator.env"
   echo
   echo "$name runs on its own, with ${operator_env[*]}."
   run_suite "$workspace/$name/astrolabe" "$output/$name" "${operator_env[@]}"

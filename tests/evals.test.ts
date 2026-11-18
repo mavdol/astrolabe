@@ -92,3 +92,31 @@ describe("the evaluation cases", () => {
     expect(quickCases.length).toBe(4);
   });
 });
+
+describe("the triggering test", () => {
+  const TRIGGERING_FOLDER = "triggering";
+  const triggeringCases = readdirSync(TRIGGERING_FOLDER).filter((name) => existsSync(join(TRIGGERING_FOLDER, name, "prompt.md")));
+  const readCase = (...path: string[]) => readFileSync(join(TRIGGERING_FOLDER, ...path), "utf8");
+  const expectsTheSkill = (caseName: string) => /\bshould-load\b/.test(splitFrontmatter(readCase(caseName, "prompt.md")).settings.tags);
+
+  it("has requests on both sides: some that should load the skill and near misses that should not", () => {
+    expect(triggeringCases.filter(expectsTheSkill).length).toBeGreaterThanOrEqual(10);
+    expect(triggeringCases.filter((caseName) => !expectsTheSkill(caseName)).length).toBeGreaterThanOrEqual(8);
+  });
+
+  it.each(triggeringCases)("%s checks only whether the skill loads, as its tag says", (caseName) => {
+    const { settings, body } = splitFrontmatter(readCase(caseName, "prompt.md"));
+    const graders = readdirSync(join(TRIGGERING_FOLDER, caseName, "graders")).map(
+      (file) => splitFrontmatter(readCase(caseName, "graders", file)).settings,
+    );
+
+    expect(settings.tags).toMatch(/^\[triggering, (should-load|should-not-load)\]$/);
+    expect(body.length).toBeGreaterThan(20);
+    expect(/^name: (\S+)$/m.exec(readCase(caseName, "case.yaml"))?.[1]).toBe(caseName);
+    expect(graders).toEqual([
+      expectsTheSkill(caseName)
+        ? { type: "tool_used", tool: "Skill", input_match: "astrolabe-benchmark", min: "1", arm: "both" }
+        : { type: "tool_used", tool: "Skill", input_match: "astrolabe-benchmark", min: "0", max: "0", arm: "both" },
+    ]);
+  });
+});

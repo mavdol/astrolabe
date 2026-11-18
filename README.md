@@ -61,6 +61,7 @@ The skill is tested on real model runs, which are billed to your own Claude acco
 
 ```bash
 scripts/run-evals.sh --quick          # the cases of evals/, with and without the skill
+scripts/run-evals.sh --triggering     # short requests that should, or should not, load the skill
 scripts/review-skill-pr.sh <number>   # a pull request's skill against main's, with a summary to paste on it
 ```
 
