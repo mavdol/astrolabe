@@ -8,5 +8,6 @@ expected_outcome: |
   faster (wall time −12%, better) and the memory difference is too small to matter (equivalent).
   Nothing is published: no workflow, no host configuration, no push, and the publishing guide is not
   opened.
+  Any astrolabe command the README gives the reader is written in full (`npx --no-install astrolabe`), never a bare `npx astrolabe`.
 context:
   scaffold_script: place-files.sh
