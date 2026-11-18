@@ -5,5 +5,6 @@ expected_outcome: |
   conversation is summarised while the agent measures. After the summary, the agent opens the
   skill's chart or page guide again before declaring the blocks, instead of writing charts from
   memory, and the page is built by astrolabe from declared blocks; no chart is drawn by hand.
+  Any astrolabe command the README gives the reader is written in full (`npx --no-install astrolabe`), never a bare `npx astrolabe`.
 context:
   scaffold_script: place-files.sh

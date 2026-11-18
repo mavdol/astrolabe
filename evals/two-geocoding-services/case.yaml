@@ -6,5 +6,6 @@ expected_outcome: |
   40,000 requests from the saved pricing pages with their source and date (MapQuill bills failed
   requests), records that the terms were checked and found no restriction on publishing, and lists
   the limitations of measuring a sandbox at one time of day.
+  Any astrolabe command the README gives the reader is written in full (`npx --no-install astrolabe`), never a bare `npx astrolabe`.
 context:
   scaffold_script: place-files.sh
