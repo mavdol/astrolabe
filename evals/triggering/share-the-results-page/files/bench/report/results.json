@@ -1,0 +1,10 @@
+{
+  "flat": {
+    "median_ms": 41,
+    "runs": 30
+  },
+  "sharded": {
+    "median_ms": 33,
+    "runs": 30
+  }
+}

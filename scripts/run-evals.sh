@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the skill's evaluations (evals/), or its triggering test (triggering/), with `claude plugin eval`.
+# Runs the skill's evaluations (evals/), or its triggering test (evals/triggering/), with `claude plugin eval`.
 # Every run is a real model call billed to your Claude account or API key; nothing starts before you confirm.
 #
 # usage: scripts/run-evals.sh [--quick] [--case <glob>] [--runs <n>] [--model <model>] [--with-skill | --without-skill]
@@ -41,6 +41,7 @@ skills=skills
 output=""
 confirmed=false
 cases_root=evals
+triggering=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -56,13 +57,13 @@ while [ $# -gt 0 ]; do
     --skills) skills="$2"; shift ;;
     --output) output="$2"; shift ;;
     --yes) confirmed=true ;;
-    --triggering) cases_root=triggering ;;
+    --triggering) cases_root=evals/triggering; triggering=true ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
 done
 
-if [ "$cases_root" = triggering ]; then
+if $triggering; then
   if [ "$configuration" = without ]; then
     echo "The triggering test checks whether the skill loads: it runs with the skill only." >&2
     exit 2
@@ -109,7 +110,7 @@ fi
 
 if [ -z "$output" ]; then
   output="$PWD/evals/results/$(date +%Y-%m-%dT%H-%M-%S)"
-  if [ "$cases_root" = triggering ]; then output="$output-triggering"; fi
+  if $triggering; then output="$output-triggering"; fi
 fi
 
 # claude plugin eval only evaluates a Claude Code plugin. The repository stays agent-neutral, so the
@@ -121,13 +122,14 @@ trap 'rm -rf "$workspace"' EXIT
 if [ "$configuration" != both ]; then extra+=(--ablation none); fi
 
 # make_plugin <folder> <case>...: a plugin whose evals/ runs only the given cases. Every case folder is
-# copied, since scaffolds share files across cases; the others lose what makes them a case.
+# copied, since scaffolds share files across cases; the others lose what makes them a case. The runner
+# finds cases at any depth, so a round of evaluations leaves the triggering test out, and the other way round.
 make_plugin() {
   local plugin="$1" folder
   shift
   mkdir -p "$plugin/.claude-plugin"
   printf '{ "name": "astrolabe", "version": "0.0.0-eval" }\n' > "$plugin/.claude-plugin/plugin.json"
-  rsync -a --exclude /results/ "$cases_root/" "$plugin/evals/"
+  rsync -a --exclude /results/ --exclude /triggering/ "$cases_root/" "$plugin/evals/"
   for folder in "$plugin"/evals/*/; do
     [[ " $* " == *" $(basename "$folder") "* ]] || rm -rf "$folder/prompt.md" "$folder/case.yaml" "$folder/graders"
   done

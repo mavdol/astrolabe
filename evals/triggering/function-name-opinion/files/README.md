@@ -1,0 +1,3 @@
+# accounts
+
+The accounts service.
