@@ -1,6 +1,6 @@
 ---
 name: astrolabe-benchmark
-description: Design, run and report an honest benchmark or comparison with the astrolabe command. Scripts write raw data and `astrolabe compute` produces every number and verdict. Use this skill whenever the user wants to compare or benchmark anything (libraries, tools, commands, APIs, services, models, prompts, apps, configurations) or asks which option is faster, cheaper, lighter, more accurate or easier to use, including when nobody is available to test. Use it too whenever measured results go into a README or a report, as when the user pastes a tool's output or figures they already measured and wants a results section, asks for a winner, or asks to change a finished benchmark (drop failed runs, remove outliers, add runs, make a difference stand out, favour one candidate). Also for a benchmark's page, chart or README card, and to put that page online (GitHub Pages, Netlify, a docs site). Use it even when they never say "benchmark". Not for profiling one program on its own or for explaining a chart someone else made.
+description: Design, run and report an honest benchmark or comparison with the astrolabe command. Scripts write raw data and `astrolabe compute` produces every number and verdict. Use this skill whenever the user wants to compare or benchmark anything (libraries, tools, APIs, services, models, prompts, apps, configurations, recipes, designs), or asks which option is better, faster, cheaper, lighter, more accurate or easier to use, even with nobody to test. Use it too when the data is already gathered (scores, ratings, survey answers, a tool's pasted output, figures already measured) and the user wants the answer, a results section or a report, asks for a winner, or asks to change a finished benchmark (drop failed runs, remove outliers, add runs, make a difference stand out, favour one candidate). Also for a benchmark's page, chart or README card, and to put it online (GitHub Pages, Netlify, a docs site). Use it even when they never say "benchmark". Not for profiling one program or explaining someone else's chart.
 compatibility: Needs Node.js 22 or later and the astrolabe-bench npm package, which provides the astrolabe command.
 ---
 
@@ -76,7 +76,7 @@ Check that it is there before anything else:
 npx --no-install astrolabe --version
 ```
 
-If that fails, the project does not have it: add the package `astrolabe-bench` to the project's development dependencies (ask first if installing is not yours to decide), then run the check again. Do not run a bare `npx astrolabe`: on npm that name belongs to an unrelated package. In the rest of this skill `astrolabe` stands for `npx --no-install astrolabe`.
+If that fails, the project does not have it: add the package `astrolabe-bench` to the project's development dependencies (ask first if installing is not yours to decide), then run the check again. Do not run a bare `npx astrolabe`: on npm that name belongs to an unrelated package. In the rest of this skill `astrolabe` stands for `npx --no-install astrolabe`. Write it in full in anything a reader will run (a README, a write-up, `artifacts.command`): `npx --no-install astrolabe build`, never `npx astrolabe build`. A CI workflow pins the version instead (deploy.md).
 
 | Command | Use |
 | --- | --- |
@@ -158,6 +158,7 @@ Write the script that measures (in `scripts/`), and have it write the raw file i
 
 Other fields are kept as they are (token counts, sizes). A measure scored right or wrong is written 1 or 0.
 
+- When the observations already exist (a spreadsheet of scores, a survey export, a log the user kept), the user's file is the measurement. Write the plan first, describing in `workload` how the data was gathered (who, blind or not, in what order, how many times) and saying in `limitations` that the plan was written after the data existed. Then leave the file as it is, write a script that converts it into the raw file, and go on to step 5. Declare what happened, not what should have: if a rule then refuses the plan (a tasting that was not blind, say), tell the user why rather than change a field to pass.
 - Prefer an established tool to your own timing loop, and convert its export: hyperfine for commands, Inspect for model evaluations (measurement/time.md and measurement/quality.md give the commands).
 - Alternate or shuffle the candidates between runs. Running all of A and then all of B measures the drift of the machine.
 - Run a short pilot first (a few runs), then `astrolabe compute`: it shows whether the script works, how noisy the measure is and whether failures occur. Then do the full run; the script overwrites the raw file, so pilot rows never mix with the real ones.
@@ -199,9 +200,9 @@ Each `validate` error names the block, the rule and what to use instead: fix the
 
 `dist/benchmark.md` is the full report: every value with its interval, n and failures, every comparison with its verdict, the method, the environment and the limitations. The write-up the user asked for (a README section, a report file) is built from it:
 
-1. The question, and the answer in one or two sentences that use the computed verdicts as they are.
+1. The question, and the answer in one or two sentences that use the computed verdicts as they are, each with its effect, its interval when there is one, and the absolute values (presentation.md). "Faster" alone is not an answer, and the card saying it does not count.
 2. The card snippet that `build` printed, when the write-up is a README.
-3. The report itself from its results to its end, copied by a command and never retyped: for example `sed -n '/^## Results/,$p' benchmarks/<id>/dist/benchmark.md >> README.md`. A reader then sees, without following a link, the runs, the intervals and the failures, and what you declared about each candidate: the terms you read with where and when, the prices with their source and date, every variant tried, the judge, whether the items are private.
+3. The report itself from its results to its end, copied by a command and never retyped: for example `sed -n '/^## Results/,$p' benchmarks/<id>/dist/benchmark.md >> README.md`. The same holds when the write-up is a file of its own such as RESULTS.md: a summary in your own words does not replace the copy. A reader then sees, without following a link, the runs, the intervals and the failures, and what you declared about each candidate: the terms you read with where and when, the prices with their source and date, every variant tried, the judge, whether the items are private.
 4. Who ran the benchmark and any interest in a candidate; where the plan, the scripts and the raw data are, and the command that reruns it.
 
 ## Step 8: the final reply
