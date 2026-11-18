@@ -29,7 +29,7 @@ const gradersOf = (caseName: string) =>
 
 describe("the evaluation cases", () => {
   it("are all there", () => {
-    expect(caseNames.length).toBe(18);
+    expect(caseNames.length).toBe(22);
   });
 
   it.each(caseNames)("%s has a request, its run settings and the files it starts from", (caseName) => {
@@ -61,6 +61,20 @@ describe("the evaluation cases", () => {
         expect(() => new RegExp(unquoted(pattern), settings.flags), `${caseName}/${file}`).not.toThrow();
       }
     }
+  });
+
+  it("give the variables a case needs from the operator's shell as one NAME=value per line", () => {
+    const malformed = caseNames
+      .filter((caseName) => existsSync(join(EVALS_FOLDER, caseName, "operator.env")))
+      .flatMap((caseName) =>
+        read(caseName, "operator.env")
+          .trimEnd()
+          .split("\n")
+          .map((line) => `${caseName}: ${line}`),
+      )
+      .filter((entry) => !/: [A-Z][A-Z0-9_]*=\S+$/.test(entry));
+
+    expect(malformed).toEqual([]);
   });
 
   it("keep a short set for quick checks", () => {
