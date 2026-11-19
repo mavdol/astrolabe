@@ -1,4 +1,4 @@
-<div align="left">
+<div align="center">
 <h1> <code>Astrolabe</code></h1>
 
 <b>An open benchmark format. Agents measure, the tool computes, anyone can verify.</b>
@@ -6,6 +6,12 @@
 [![npm](https://img.shields.io/npm/v/astrolabe-bench)](https://www.npmjs.com/package/astrolabe-bench)
 [![CI](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml/badge.svg)](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+ <p>
+    <a href="#getting-started">Getting started</a> ·
+    <a href="#open-format">Open Format</a> ·
+    <a href=#contributing">Contributing</a>
+  </p>
 
 </div>
 
