@@ -1,7 +1,7 @@
 <div align="center">
 <h1> <code>Astrolabe</code></h1>
 
-<b>An agent-native framework to run and showcase benchmarks.</b>
+<b>An open benchmark format. Agents measure, the tool computes, anyone can verify.</b>
 
 [![npm](https://img.shields.io/npm/v/astrolabe-bench)](https://www.npmjs.com/package/astrolabe-bench)
 [![CI](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml/badge.svg)](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml)
@@ -15,7 +15,7 @@ The framework combines a skill and a command-line tool. The skill brings togethe
 
 <table>
   <tr>
-    <td valign="top" width="60%" rowspan="2">
+    <td valign="top" width="63%" rowspan="2">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="assets/readme/site-light.png">
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
