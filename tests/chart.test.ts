@@ -127,6 +127,14 @@ describe("a chart of values", () => {
     expect(chart.textLines).toContain("0  200  400  600  800  1000");
   });
 
+  it("prints at most three significant figures beside a bar, and keeps every supported digit in its table", () => {
+    const runtimes = loadBenchmark("js-runtimes");
+    const chart = draw(runtimes, chartBlock({ chart: "bar", metric: "peak_rss", title: "Peak memory", sort: "declared" }));
+
+    expect(chart.textLines).toContain("Node.js  213");
+    expect(chart.table.rows[0]).toEqual(["Node.js", "212.88", "212.81 to 212.92 (95%)", "30"]);
+  });
+
   it("refuses a bar chart of negative values", () => {
     const negative = structuredClone(parsers);
 

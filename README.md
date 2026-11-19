@@ -13,7 +13,6 @@ Astrolabe lets your agent run benchmarks and showcase the results. Ask how your 
 
 The framework combines a skill and a command-line tool. The skill brings together best practices for measurement, statistics and presentation, so the agent has a clear process to follow. Its command-line tool, `astrolabe`, computes every number from the raw data and renders the outputs. Since the agent writes code and declarations but never numbers, every claim can be checked.
 
-
 <table>
   <tr>
     <td valign="top" width="60%" rowspan="2">
@@ -35,7 +34,7 @@ The framework combines a skill and a command-line tool. The skill brings togethe
   </tr>
   <tr>
     <td valign="top" width="40%">
-      <img alt="A chart image: the run time of Node.js 24 and 26 against Node.js 22, script by script" src="assets/readme/chart-run-time.png">
+      <img alt="A chart image: the peak memory of four scripts under Node.js 22, 24 and 26, as bars with their intervals" src="assets/readme/chart-peak-memory.png">
       <br><sub><b>Chart images</b> · PNG or SVG, for posts and slides</sub>
     </td>
   </tr>
