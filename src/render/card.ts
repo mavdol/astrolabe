@@ -102,12 +102,20 @@ export function pairOf(lookup: Lookup, comparison: Comparison): string {
   return `${lookup.candidateName.get(comparison.candidate)} against ${lookup.candidateName.get(comparison.vs)}`;
 }
 
+/** No structure, or the one node at its top: several top nodes, such as scripts side by side, are each a part. */
+export function isTheWholeBenchmark(lookup: Lookup, node: string | undefined): boolean {
+  if (node === undefined) return true;
+
+  const topNodes = lookup.tree.nodesInDeclaredOrder.filter((id) => id !== undefined && lookup.tree.parentOf.get(id) === undefined);
+
+  return topNodes.length === 1 && topNodes[0] === node;
+}
+
 /** The metric, and the group it is measured on unless that group is the whole benchmark. */
 export function measuredOf(lookup: Lookup, comparison: Comparison): string {
   const metric = lookup.metricById.get(comparison.metric)!;
-  const isRootNode = comparison.node === undefined || lookup.tree.parentOf.get(comparison.node) === undefined;
 
-  return isRootNode ? metric.label : `${metric.label}, ${lookup.nodeLabel.get(comparison.node!)}`;
+  return isTheWholeBenchmark(lookup, comparison.node) ? metric.label : `${metric.label}, ${lookup.nodeLabel.get(comparison.node!)}`;
 }
 
 /** When every headline compares the same two candidates, they are named once above the question. */

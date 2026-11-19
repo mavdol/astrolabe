@@ -721,8 +721,8 @@
   {
     "id": "T13",
     "level": "should",
-    "text": "Compare the run time, memory, CPU or energy of a suite script by script: do not let one figure pool scripts or tasks of different sizes, since its median is a run of whichever falls in the middle.",
-    "pitfall": "A suite figure that belongs to no script and hides one getting slower behind another getting faster",
+    "text": "Compare the run time, memory, CPU or energy of a suite script by script. One figure for scripts of different sizes either pools their runs, so its median belongs to none of them, or averages them, so the longest decide the change: either way a slower script can hide behind faster ones.",
+    "pitfall": "A suite figure that hides one script getting slower behind others getting faster",
     "proved_by": "analysis.primary[]",
     "explained_in": "measurement/time.md"
   },

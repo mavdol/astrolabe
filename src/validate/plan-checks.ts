@@ -286,8 +286,9 @@ export function checkPlan(results: Results): Issue[] {
   }
 
   /**
-   * Run times of scripts of different lengths pooled under one parent give a median that is a run of whichever
-   * script falls in the middle, and one script getting slower can hide behind another getting faster.
+   * One figure for scripts of different lengths misleads either way: pooled, its median is a run of whichever
+   * script falls in the middle; averaged, the longest scripts decide the change. A short script getting slower
+   * hides behind longer ones getting faster.
    */
   function checkMachineMeasuresComparedPerChild() {
     const tree = nodeTreeOf(results);
@@ -303,6 +304,10 @@ export function checkPlan(results: Results): Issue[] {
             primary.metric === metric.id ? [{ node: primary.node, path: `analysis.primary[${index}]` }] : [],
           )
         : topNodes.map((node) => ({ node, path: `metrics[${metricIndex}]` }));
+      const howTheParentCombines =
+        metric.aggregation?.groups === "macro"
+          ? "averages its children's values: when they differ in size, the largest decide the change, and a smaller one getting worse barely shows"
+          : `pools the runs of its children: when they differ in size, the ${metric.statistic} of the pool belongs to none of them, and one getting worse can hide behind another getting better`;
 
       for (const { node, path } of primaries) {
         if (childCount(node) < 2) continue;
@@ -310,7 +315,7 @@ export function checkPlan(results: Results): Issue[] {
         warning(
           "T13",
           path,
-          `"${metric.id}" is compared on "${node}", which pools the runs of its ${childCount(node)} children: when they differ in size, that figure belongs to none of them and can hide one getting worse behind another getting better. Compare each child instead, in analysis.primary`,
+          `"${metric.id}" is compared on "${node}", which ${howTheParentCombines}. Compare each of its ${childCount(node)} children instead, in analysis.primary`,
         );
       }
     });
