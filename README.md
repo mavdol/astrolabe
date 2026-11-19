@@ -19,7 +19,7 @@ A skill teaches the agent the method, and the `astrolabe` command computes every
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="assets/readme/site-light.png">
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
-        <img alt="The page of a benchmark of Node.js 22, 24 and 26 on four scripts: the question, the answer and three headline results" src="assets/readme/site-light.png">
+        <img alt="The page of a benchmark of two models for a support assistant: headline results, a chart by category and accuracy against cost" src="assets/readme/site-light.png">
       </picture>
       <br><b>Site</b> · <sub>a page to publish, with every chart, table and filter</sub>
     </td>
