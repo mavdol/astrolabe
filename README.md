@@ -19,24 +19,22 @@ A skill teaches the agent the method, and the `astrolabe` command computes every
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="assets/readme/site-light.png">
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
-        <img alt="The page of a benchmark: headline results, a chart by category and accuracy against cost" src="assets/readme/site-light.png">
+        <img alt="The page of a benchmark of Node.js 22, 24 and 26 on four scripts: the question, the answer and three headline results" src="assets/readme/site-light.png">
       </picture>
       <br><b>Site</b> · <sub>a page to publish, with every chart, table and filter</sub>
     </td>
     <td valign="top" width="40%">
-      <a href="examples/support-assistant-eval/dist/benchmark.md">
-        <picture>
-          <source media="(prefers-color-scheme: light)" srcset="examples/support-assistant-eval/dist/exports/readme-card-light.svg">
-          <source media="(prefers-color-scheme: dark)" srcset="examples/support-assistant-eval/dist/exports/readme-card-dark.svg">
-          <img alt="A README card: the headline results, linked to the full report" src="examples/support-assistant-eval/dist/exports/readme-card-light.png">
-        </picture>
-      </a>
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/card-light.svg">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/card-dark.svg">
+        <img alt="A README card: three headline results with their verdicts and intervals" src="assets/readme/card-light.png">
+      </picture>
       <br><b>README</b> · <sub>a card linked to a full Markdown report</sub>
     </td>
   </tr>
   <tr>
     <td valign="top" width="40%">
-      <img alt="A chart image: accuracy against cost per item, one mark per model" src="examples/support-assistant-eval/dist/exports/social-light.png">
+      <img alt="A chart image: the run time of Node.js 24 and 26 against Node.js 22, script by script" src="assets/readme/chart-run-time.png">
       <br><b>Chart images</b> · <sub>PNG or SVG, for posts and slides</sub>
     </td>
   </tr>

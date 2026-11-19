@@ -157,12 +157,21 @@ describe("the site", () => {
     expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
   });
 
-  it("answers the question at the top with every primary comparison, named by the group it is measured on", () => {
-    expect(support.html).toContain(
-      '<p class="answer">Model A against Model B: accuracy +6.4 points, likely better; accuracy, Reasoning −1.5 points, inconclusive; accuracy, Coding +14 points, better; cost per item +265%, worse.</p>',
-    );
-    expect(support.html).toContain(
-      '<meta name="description" content="Model A against Model B: accuracy +6.4 points, likely better; accuracy, Reasoning −1.5 points, inconclusive; accuracy, Coding +14 points, better; cost per item +265%, worse.">',
+  it("answers the question at the top with the comparisons the page leads with, and counts the others by verdict", () => {
+    const answer =
+      "Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse. 2 more primary comparisons: 1 better, 1 inconclusive.";
+
+    expect(support.html).toContain(`<p class="answer">${answer}</p>`);
+    expect(support.html).toContain(`<meta name="description" content="${answer}">`);
+  });
+
+  it("names the first primary comparisons when no headline leads the page", () => {
+    const benchmark = loadBenchmark("support-assistant-eval");
+
+    benchmark.blocks = benchmark.blocks?.filter((block) => block.type !== "headline");
+
+    expect(answerOf(benchmark)).toBe(
+      "Model A against Model B: accuracy +6.4 points, likely better; accuracy, Reasoning −1.5 points, inconclusive; accuracy, Coding +14 points, better. 1 more primary comparison: 1 worse.",
     );
   });
 
