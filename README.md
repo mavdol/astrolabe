@@ -10,15 +10,13 @@
 
 <!-- screenshot -->
 
-Astrolabe lets your agent run benchmarks that people can trust. Ask it which library is faster, which prompt answers better or which tool your team should pick, and it designs a fair comparison, measures it, and publishes the results as a page, a README card and charts.
+Astrolabe lets your agent run benchmarks you can trust. Ask which library is faster or which prompt works better, and your agent measures it fairly, then publishes the results as a page, a README card and charts.
 
-It comes as a skill, which teaches the agent the method, and a command line, `astrolabe`, which computes every number from the raw data the agent's scripts collected. The agent never writes a result itself, so anyone can trace each claim back to the script and the measurement behind it.
+A skill teaches the agent the method, and the `astrolabe` command computes every number from the raw data. Nothing is typed by hand, so every claim can be checked.
 
 ## ◌ Skill & Install
 
-`skills/astrolabe-benchmark/` is a folder of Markdown files in the [Agent Skills](https://agentskills.io) format. Your agent loads it when you ask to compare or benchmark something, or for a report on results you already have. It adds `astrolabe-bench` to your project's development dependencies when it is missing, after asking you.
-
-Install it in one of these ways, then ask your agent for a benchmark or a comparison.
+Your agent loads the skill when you ask it to compare or benchmark something, or to report on results you already have. If your project doesn't have the `astrolabe` command yet, the skill adds it, after asking you. It needs Node.js 22 or later.
 
 **Claude Code plugin**
 
@@ -26,23 +24,27 @@ Install it in one of these ways, then ask your agent for a benchmark or a compar
 claude plugin install astrolabe --marketplace mavdol/astrolabe
 ```
 
-Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`. Update it with `claude plugin update astrolabe@astrolabe`.
+Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`.
 
-**npx skills**, for any agent that reads Agent Skills
+**Any agent that reads Agent Skills**
 
 ```bash
 npx skills add mavdol/astrolabe
 ```
 
-**Manually**
+or
 
 ```bash
 npm install --save-dev astrolabe-bench
-npx --no-install astrolabe init                         # copies the skill into .agents/skills/
-npx --no-install astrolabe init --dir <skills folder>   # or into your agent's own folder, such as .claude/skills
+npx --no-install astrolabe init   # copies the skill into .agents/skills/, or --dir <your agent's skills folder>
 ```
 
-Run `init` again after upgrading the package. Needs Node.js 22 or later.
+**Manually**
+
+Copy [`skills/astrolabe-benchmark/`](skills/astrolabe-benchmark) into your agent's skills folder, such as `.agents/skills/` or `.claude/skills/`.
+
+> [!TIP]
+> Use Claude Sonnet or a stronger model. Smaller models such as Haiku load the skill less reliably and skip steps.
 
 ## Contributing
 
@@ -56,7 +58,7 @@ pnpm gen:schema         # after changing src/schema/
 pnpm gen:example-data   # rewrite the synthetic raw files of examples/
 ```
 
-The skill is tested on real model runs with `claude plugin eval` :
+The skill is tested on real model runs with `claude plugin eval`:
 
 ```bash
 scripts/run-evals.sh --quick          # four short cases, with and without the skill
@@ -65,16 +67,9 @@ scripts/review-skill-pr.sh <number>   # a pull request's skill against main's
 ```
 
 > [!IMPORTANT]
-> They are billed to your own Claude account, and the script asks before
+> They are billed to your own Claude account, and the script asks before starting.
 
 Change the evaluations and their graders in a pull request of their own, not with a change to the skill, so each is measured against the other.
-
-## Limitations
-
-- Tested on Claude Sonnet, which loaded the skill on all 20 requests of the triggering test. Claude Haiku loaded it in 55 of 66 evaluation runs, misses everyday wordings such as "which should we pick?", and skips steps more often: use Sonnet or a stronger model. Opus and agents other than Claude Code are not measured yet.
-- The evaluations run on simulated projects, with stub libraries and invented logs that a model can sometimes recognise.
-- claude.ai and Cowork load skills, but the skill needs a shell with Node.js to run `astrolabe`. That is not checked yet.
-- Version 0.x: the format of `benchmark.json` may still change between minor versions.
 
 ## License
 
