@@ -41,9 +41,9 @@ It combines a skill and a command-line tool. The skill brings together best prac
   <tr>
     <td valign="top" width="40%">
       <picture>
-        <source media="(prefers-color-scheme: light)" srcset="assets/readme/chart-time-on-task-light.png">
-        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/chart-time-on-task-dark.png">
-        <img alt="A chart image: time on task for two note-taking apps, task by task, as bars with their intervals" src="assets/readme/chart-time-on-task-light.png">
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/chart-time-on-task-dark.png">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/chart-time-on-task-light.png">
+        <img alt="A chart image: time on task for two note-taking apps, task by task, as bars with their intervals" src="assets/readme/chart-time-on-task-dark.png">
       </picture>
       <br><sub><b>Chart images</b> · PNG or SVG, for posts and slides</sub>
     </td>
