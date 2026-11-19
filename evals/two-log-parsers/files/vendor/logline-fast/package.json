@@ -1,0 +1,8 @@
+{
+  "name": "logline-fast",
+  "version": "1.0.4",
+  "description": "Reads log lines into the same objects as logline, faster on long logs.",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT"
+}

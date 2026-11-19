@@ -20,8 +20,11 @@ Three kinds of metric: `run_time` (how long one job takes), `latency` (how long 
 | Summary | Median for run times; percentiles for latency: p50, p95 and, with enough requests, p99 | `metrics[].statistic` |
 | Order | Interleaved, alternated or shuffled | `runs.order` |
 | Failures | Left out of the time, counted beside it | `"failures_count_as": "excluded"`, plus a success metric |
+| Several scripts or tasks | One primary comparison per script the decision rests on; `"aggregation": { "groups": "macro" }` so that the parent row reads as one pass through the scripts | `analysis.primary`, `metrics[].aggregation` |
 
 `validate` asks for `runs.warmup` and `runs.state` on every time metric, and for `environment.hardware`, `os` and `software` when the measurement runs on your own machine.
+
+A suite of scripts of different lengths has no single run time. Its parent node combines them in one of two ways, and both mislead: with `"aggregation": { "groups": "micro" }`, the default, it pools the runs of every script, so its median is a run of whichever script falls in the middle; with `"macro"`, it averages the scripts' medians, so the longest scripts decide the change. Either way a short script getting slower hides behind longer ones getting faster. Name each script the decision rests on in `analysis.primary`; without `analysis.primary` the parent is the primary comparison, so declare it whenever there is a structure. Each script, metric and candidate adds a primary comparison, and each one widens the intervals of all of them: keep to what the decision needs. Set `macro` so that the parent row of the tables reads as one pass through every script, a fair overview only when the scripts run equally often. The same holds for memory, CPU and energy.
 
 ## Run time of a command, with hyperfine
 
@@ -79,3 +82,4 @@ A micro-benchmark of one function says little about the application around it: t
 | T10 | Should | Do not present micro-benchmarks as overall performance; add a realistic end-to-end workload. | Kernel results sold as application results | — |
 | T11 | Should | Keep timer overhead under 5% of the measured interval and timer resolution at least 10 times finer (Hoefler & Belli); time single events when the timer allows, since batching loses percentiles and per-event CIs, and remove harness overhead. | Timer and harness noise in the result | — |
 | T12 | Should | Prefer established tools that handle warm-up, repetition and outlier detection (e.g. hyperfine for commands, wrk2 for HTTP load). | Hand-rolled timing mistakes | environment.tools[] |
+| T13 | Should | Compare the run time, memory, CPU or energy of a suite script by script. One figure for scripts of different sizes either pools their runs, so its median belongs to none of them, or averages them, so the longest decide the change: either way a slower script can hide behind faster ones. | A suite figure that hides one script getting slower behind others getting faster | analysis.primary[] |
