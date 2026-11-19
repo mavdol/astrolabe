@@ -10,7 +10,7 @@
  <p>
     <a href="#getting-started">Getting started</a> ·
     <a href="#open-format">Open Format</a> ·
-    <a href=#contributing">Contributing</a>
+    <a href="#contributing">Contributing</a>
   </p>
 
 </div>
