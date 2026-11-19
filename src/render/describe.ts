@@ -141,6 +141,19 @@ export function valueDecimals(metric: Metric, value: Value): Decimals | null {
   return supportedByRange ?? decimalsWithoutUncertainty(value.value);
 }
 
+const INTERVAL_METHOD_NAMES: Record<string, string> = {
+  wilson: "Wilson score",
+  t: "Student's t",
+  "t, scaled to the total": "Student's t, scaled to the total",
+};
+
+/** The interval methods of some values, as a reader names them, each once and kept apart: some contain a comma. */
+export function intervalMethodsOf(values: { ci?: [number, number]; method?: string }[]): string[] {
+  const methods = values.filter((value) => value.ci && value.method).map((value) => INTERVAL_METHOD_NAMES[value.method!] ?? value.method!);
+
+  return [...new Set(methods)];
+}
+
 export function verdictLabel(comparison: Comparison): string {
   return comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
 }

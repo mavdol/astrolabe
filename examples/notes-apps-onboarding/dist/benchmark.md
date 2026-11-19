@@ -12,7 +12,7 @@ Benchmark `notes-apps-onboarding`, version 1.0.0. Baseline: Notes A.
 
 ### Task success
 
-Share of participants completing the task unaided within 5 minutes. The share, in %; higher is better. Intervals: 95%, by bootstrap, resampling items and wilson. Failed attempts count as zero.
+Share of participants completing the task unaided within 5 minutes. The share, in %; higher is better. Intervals: 95%, by bootstrap, resampling items, or by Wilson score. Failed attempts count as zero.
 
 | Node | Candidate | Share (%) | 95% interval | n | Failures |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -27,7 +27,7 @@ Share of participants completing the task unaided within 5 minutes. The share, i
 
 ### Time on task
 
-Time per task, successful attempts only. The median, in s; lower is better. Intervals: 95%, by bootstrap, resampling items and order statistics. Failed attempts are left out: values cover successful attempts only.
+Time per task, successful attempts only. The median, in s; lower is better. Intervals: 95%, by bootstrap, resampling items, or by order statistics. Failed attempts are left out: values cover successful attempts only.
 
 | Node | Candidate | Median (s) | 95% interval | n | Failures |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -42,7 +42,7 @@ Time per task, successful attempts only. The median, in s; lower is better. Inte
 
 ### SUS score
 
-System Usability Scale, 0 to 100, filled in after the three tasks. The mean, in points; higher is better. Intervals: 95%, by t.
+System Usability Scale, 0 to 100, filled in after the three tasks. The mean, in points; higher is better. Intervals: 95%, by Student's t.
 
 | Node | Candidate | Mean (points) | 95% interval | n | Failures |
 | --- | --- | ---: | ---: | ---: | ---: |

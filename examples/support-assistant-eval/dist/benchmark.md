@@ -14,7 +14,7 @@ Benchmark `support-assistant-eval`, version 1.2.0. Baseline: Model B.
 
 ### Accuracy
 
-Share of items answered correctly, each item averaged over its 5 repeats. The share, in %; higher is better. Intervals: 95%, by bootstrap, resampling items and t. Failed attempts count as zero.
+Share of items answered correctly, each item averaged over its 5 repeats. The share, in %; higher is better. Intervals: 95%, by bootstrap, resampling items, or by Student's t. Failed attempts count as zero.
 
 | Node | Candidate | Share (%) | 95% interval | n | Failures |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -33,7 +33,7 @@ Share of items answered correctly, each item averaged over its 5 repeats. The sh
 
 ### Cost per item
 
-API cost per item, computed by the eval script from token counts and the list price. The mean, in USD; lower is better. Intervals: 95%, by bootstrap, resampling items and t. Failed attempts are left out: values cover successful attempts only.
+API cost per item, computed by the eval script from token counts and the list price. The mean, in USD; lower is better. Intervals: 95%, by bootstrap, resampling items, or by Student's t. Failed attempts are left out: values cover successful attempts only.
 
 | Node | Candidate | Mean (USD) | 95% interval | n | Failures |
 | --- | --- | ---: | ---: | ---: | ---: |

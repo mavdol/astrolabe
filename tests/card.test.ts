@@ -30,20 +30,20 @@ describe("the README card", () => {
       "Wall time · lower is better",
       "\u221210%",
       "LIKELY BETTER",
-      "better \u2192",
-      "+10%  0  \u221210%",
+      "\u2190 better",
+      "\u221210%  0  +10%",
       "Interval \u221212 to \u22129%",
       "Median, n = 30 each",
       "Successful attempts only",
       "Peak memory · lower is better",
       "+1.1%",
       "EQUIVALENT",
-      "better \u2192",
-      "+20%  0  \u221220%",
+      "\u2190 better",
+      "\u221220%  0  +20%",
       "Interval +1.0 to +1.2%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Effects against Node.js, with their 95% intervals, adjusted for 2 comparisons. Shaded band: too small to matter.",
+      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons. Shaded band: too small to matter.",
       expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
@@ -132,7 +132,20 @@ describe("reading a card at a glance", () => {
     const horizontalRules = parsersCard.svg.match(/H[\d.]+" stroke="#e5e5e5"/g);
 
     expect(horizontalRules, "one unbroken baseline per strip, plus the rule above the footer").toHaveLength(3);
-    expect(parsersCard.textLines).toContain("+10%  0  \u221210%");
+    expect(parsersCard.textLines).toContain("\u221210%  0  +10%");
+  });
+
+  it("draws each strip in the effect's own sign, as the charts do, with an arrow to the better side", () => {
+    const [band] = [...parsersCard.svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="[\d.]+" fill="#[0-9a-f]+"\/>/g)];
+    const zeroX = Number(band[1]) + Number(band[2]) / 2;
+    const [firstDotX] = [...parsersCard.svg.matchAll(/<circle cx="([\d.]+)"/g)].map((match) => Number(match[1]));
+    const usability = loadBenchmark("notes-apps-onboarding");
+    const arrows = renderCard(usability, cardContentOf(usability), "light", context).textLines.filter((line) =>
+      ["better \u2192", "\u2190 better"].includes(line),
+    );
+
+    expect(firstDotX, "a 50% shorter time sits left of zero").toBeLessThan(zeroX);
+    expect(arrows, "a success rate, a time, a satisfaction score").toEqual(["better \u2192", "\u2190 better", "better \u2192"]);
   });
 
   it("leaves out a block title that only restates the metric and the effect", () => {
