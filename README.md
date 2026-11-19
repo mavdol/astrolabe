@@ -34,7 +34,11 @@ The framework combines a skill and a command-line tool. The skill brings togethe
   </tr>
   <tr>
     <td valign="top" width="40%">
-      <img alt="A chart image: the peak memory of four scripts under Node.js 22, 24 and 26, as bars with their intervals" src="assets/readme/chart-peak-memory.png">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/chart-time-on-task-light.png">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/chart-time-on-task-dark.png">
+        <img alt="A chart image: time on task for two note-taking apps, task by task, as bars with their intervals" src="assets/readme/chart-time-on-task-light.png">
+      </picture>
       <br><sub><b>Chart images</b> · PNG or SVG, for posts and slides</sub>
     </td>
   </tr>
