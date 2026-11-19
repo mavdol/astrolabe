@@ -1,70 +1,76 @@
-# ✪ Astrolabe
+# Astrolabe
 
-Benchmarks authored by agents, verifiable by humans.
+An agent-native framework to run and showcase benchmarks.
 
-The agent writes a plan and the measuring scripts, never numbers. The scripts write raw data, one JSON line per observation. `astrolabe compute` turns the raw data into every value, interval, comparison and verdict, and `astrolabe validate` computes them again to check that nothing was edited by hand.
+[![npm](https://img.shields.io/npm/v/astrolabe-bench)](https://www.npmjs.com/package/astrolabe-bench)
+[![CI](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml/badge.svg)](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Status: early development. The schema, `validate`, `compute`, the hyperfine and Inspect importers, the Markdown output, the README card, the chart images, the site and the measurement part of the skill exist; the presentation and publishing parts of the skill do not yet.
+<!-- screenshot -->
+
+Astrolabe lets your agent run benchmarks that people can trust. Ask it which library is faster, which prompt answers better or which tool your team should pick, and it designs a fair comparison, measures it, and publishes the results as a page, a README card and charts.
+
+It comes as a skill, which teaches the agent the method, and a command line, `astrolabe`, which computes every number from the raw data the agent's scripts collected. The agent never writes a result itself, so anyone can trace each claim back to the script and the measurement behind it.
 
 ## The skill
 
-`skills/astrolabe-benchmark/` teaches an agent the method: frame the decision, plan, measure with scripts, compute, write up. It is a plain folder of Markdown files that follows the Agent Skills format and reads nothing else from this repository. `SKILL.md` is the entry point.
+`skills/astrolabe-benchmark/` is a folder of Markdown files in the [Agent Skills](https://agentskills.io) format. Your agent loads it when you ask to compare or benchmark something, or for a report on results you already have. It adds `astrolabe-bench` to your project's development dependencies when it is missing, after asking you.
+
+Install it in one of these ways, then ask your agent for a benchmark or a comparison.
+
+**Claude Code plugin**
+
+```bash
+claude plugin install astrolabe --marketplace mavdol/astrolabe
+```
+
+Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`. Update it with `claude plugin update astrolabe@astrolabe`.
+
+**npx skills**, for any agent that reads Agent Skills
+
+```bash
+npx skills add mavdol/astrolabe
+```
+
+**Manually**
 
 ```bash
 npm install --save-dev astrolabe-bench
-npx astrolabe init                        # copies the skill into .agents/skills/astrolabe-benchmark
-npx astrolabe init --dir <skills folder>  # for an agent that reads its own skills folder
+npx --no-install astrolabe init                         # copies the skill into .agents/skills/
+npx --no-install astrolabe init --dir <skills folder>   # or into your agent's own folder, such as .claude/skills
 ```
 
-Run `init` again after upgrading the package: it updates the copy, and keeps one you changed unless you pass `--force`.
+Run `init` again after upgrading the package. Needs Node.js 22 or later.
 
-## Commands
-
-```bash
-astrolabe validate [file]   # check the plan; after compute, recompute everything and compare
-astrolabe compute [file]    # write values, intervals, failures, comparisons and verdicts into results
-astrolabe import hyperfine <export.json...> --raw <id>   # convert hyperfine --export-json files into a raw file
-astrolabe import inspect <log...> --raw <id>             # convert Inspect logs (.eval or .json) into a raw file
-astrolabe build [file]      # validate, then write the site in dist/site/, dist/benchmark.md, and in dist/exports/ the README card (SVG light and dark, PNG for the GitHub app) and the chart images the file declares
-astrolabe preview [file]    # build the site, serve it on this computer, and build it again when a file changes
-astrolabe init              # copy the skill into the project, under .agents/skills/
-astrolabe explain <rule>    # print one rule: instruction, pitfall, level, field
-astrolabe schema            # print the JSON Schema of benchmark.json
-```
-
-Without a file argument, the command looks for `benchmark.json` in the current folder, then under `benchmarks/`.
-
-## Examples
-
-`examples/` holds four benchmarks with invented data: a run-time comparison, two external services, a usability study and an LLM suite. Each folder has its `benchmark.json`, the raw files under `data/` and the built outputs in `dist/`: `benchmark.md` and the README card. The tests compare them with what `build` writes.
-
-`examples/js-runtimes/` is a real benchmark of Node.js and Deno, measured with hyperfine: run `./bench.sh` (it needs hyperfine, Node.js and Deno), then `astrolabe compute` and `astrolabe validate` on its `benchmark.json`.
-
-```bash
-pnpm astrolabe validate examples/json-cli-parse/benchmark.json
-```
-
-## Development
+## Contributing
 
 ```bash
 pnpm install
-pnpm test                 # statistics against scipy reference values, compute, validate
+pnpm test
 pnpm typecheck
+pnpm lint
 pnpm build
-pnpm gen:example-data     # rewrite the synthetic raw files of the examples
-pnpm gen:schema           # rewrite the JSON Schema in the skill folder, after changing src/schema/
+pnpm gen:schema         # after changing src/schema/
+pnpm gen:example-data   # rewrite the synthetic raw files of examples/
 ```
 
-Requires Node 22 or later.
-
-The skill is tested on real model runs, which are billed to your own Claude account and ask before they start:
+The skill is tested on real model runs with `claude plugin eval`. They are billed to your own Claude account, and the script asks before starting:
 
 ```bash
-scripts/run-evals.sh --quick          # the cases of evals/, with and without the skill
-scripts/run-evals.sh --triggering     # short requests that should, or should not, load the skill
-scripts/review-skill-pr.sh <number>   # a pull request's skill against main's, with a summary to paste on it
+scripts/run-evals.sh --quick          # four short cases, with and without the skill
+scripts/run-evals.sh --triggering     # requests that should, or should not, load the skill
+scripts/review-skill-pr.sh <number>   # a pull request's skill against main's
 ```
 
-## Licence
+Change the evaluations and their graders in a pull request of their own, not with a change to the skill, so each is measured against the other.
 
-The code is under the MIT licence (`LICENSE`).
+## Limitations
+
+- Tested on Claude Sonnet, which loaded the skill on all 20 requests of the triggering test. Claude Haiku loaded it in 55 of 66 evaluation runs, misses everyday wordings such as "which should we pick?", and skips steps more often: use Sonnet or a stronger model. Opus and agents other than Claude Code are not measured yet.
+- The evaluations run on simulated projects, with stub libraries and invented logs that a model can sometimes recognise.
+- claude.ai and Cowork load skills, but the skill needs a shell with Node.js to run `astrolabe`. That is not checked yet.
+- Version 0.x: the format of `benchmark.json` may still change between minor versions.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
