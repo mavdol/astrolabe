@@ -20,8 +20,11 @@ Three kinds of metric: `run_time` (how long one job takes), `latency` (how long 
 | Summary | Median for run times; percentiles for latency: p50, p95 and, with enough requests, p99 | `metrics[].statistic` |
 | Order | Interleaved, alternated or shuffled | `runs.order` |
 | Failures | Left out of the time, counted beside it | `"failures_count_as": "excluded"`, plus a success metric |
+| Several scripts or tasks | One primary comparison per script; the parent row only as an overview | `analysis.primary` |
 
 `validate` asks for `runs.warmup` and `runs.state` on every time metric, and for `environment.hardware`, `os` and `software` when the measurement runs on your own machine.
+
+A suite of scripts of different lengths has no single run time. Its parent node pools the runs of every script, so its median is a run of whichever script falls in the middle, and one script getting slower can hide behind another getting faster. Name each script in `analysis.primary`, and read the parent only as an overview. Without `analysis.primary`, the parent is the primary comparison, so declare it whenever there is a structure. The same holds for memory, CPU and energy.
 
 ## Run time of a command, with hyperfine
 
@@ -79,3 +82,4 @@ A micro-benchmark of one function says little about the application around it: t
 | T10 | Should | Do not present micro-benchmarks as overall performance; add a realistic end-to-end workload. | Kernel results sold as application results | — |
 | T11 | Should | Keep timer overhead under 5% of the measured interval and timer resolution at least 10 times finer (Hoefler & Belli); time single events when the timer allows, since batching loses percentiles and per-event CIs, and remove harness overhead. | Timer and harness noise in the result | — |
 | T12 | Should | Prefer established tools that handle warm-up, repetition and outlier detection (e.g. hyperfine for commands, wrk2 for HTTP load). | Hand-rolled timing mistakes | environment.tools[] |
+| T13 | Should | Compare the run time, memory, CPU or energy of a suite script by script: do not let one figure pool scripts or tasks of different sizes, since its median is a run of whichever falls in the middle. | A suite figure that belongs to no script and hides one getting slower behind another getting faster | analysis.primary[] |

@@ -34,7 +34,7 @@ Ease of use is measured on participants. Reading documentation, a product tour o
 ```
 
 - **Rows** come from the session records (a form export, a log), one per participant, task and measure, with the participant as `item` and the task as `node`. When each participant tries a single product, give participants different ids across products (`a01`, `b01`), so they are not taken for the same person.
-- **Time on task** counts successful attempts only (`"failures_count_as": "excluded"`), is labelled so, and always sits next to the success rate: a product whose users give up early looks fast. A participant who gives up is a row with `value: null` and `"status": "gave_up"`.
+- **Time on task** counts successful attempts only (`"failures_count_as": "excluded"`), is labelled so, and always sits next to the success rate: a product whose users give up early looks fast. A participant who gives up is a row with `value: null` and `"status": "gave_up"`. When the tasks differ a lot in length, compare time on task task by task in `analysis.primary`: pooled over the tasks, its median belongs to whichever task falls in the middle (T13 in measurement/time.md).
 
 ## Features
 

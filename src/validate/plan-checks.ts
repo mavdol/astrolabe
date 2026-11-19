@@ -1,6 +1,7 @@
 import { minObservations } from "../compute/stats.js";
 import { ALPHA, declaredInputs } from "../compute/compute.js";
 import { PARTICIPANTS_TO_RANK } from "../compute/verdict.js";
+import { nodeTreeOf } from "../compute/structure.js";
 import type { Issue } from "../rules/registry.js";
 import type { Metric, Results } from "../schema/benchmark.js";
 
@@ -44,6 +45,7 @@ export function checkPlan(results: Results): Issue[] {
   checkJudge();
   checkEnvironmentAndRuns();
   checkAnalysis();
+  checkMachineMeasuresComparedPerChild();
   checkDeclaredValues();
   checkPlannedRunsGiveAnInterval();
 
@@ -281,6 +283,37 @@ export function checkPlan(results: Results): Issue[] {
     for (const metricId of results.analysis?.outliers?.metrics ?? []) {
       if (!metricIds.includes(metricId)) error("S6", "analysis.outliers.metrics", `"${metricId}" is not the id of a metric`);
     }
+  }
+
+  /**
+   * Run times of scripts of different lengths pooled under one parent give a median that is a run of whichever
+   * script falls in the middle, and one script getting slower can hide behind another getting faster.
+   */
+  function checkMachineMeasuresComparedPerChild() {
+    const tree = nodeTreeOf(results);
+    const childCount = (node: string | undefined) => (node === undefined ? 0 : (tree.childrenOf.get(node)?.length ?? 0));
+    const topNodes = nodeIds.filter((node) => tree.parentOf.get(node) === undefined);
+
+    results.metrics.forEach((metric, metricIndex) => {
+      if (!KINDS_MEASURED_ON_AUTHOR_MACHINES.has(metric.kind) || !metric.from) return;
+
+      const declared = results.analysis?.primary;
+      const primaries = declared
+        ? declared.flatMap((primary, index) =>
+            primary.metric === metric.id ? [{ node: primary.node, path: `analysis.primary[${index}]` }] : [],
+          )
+        : topNodes.map((node) => ({ node, path: `metrics[${metricIndex}]` }));
+
+      for (const { node, path } of primaries) {
+        if (childCount(node) < 2) continue;
+
+        warning(
+          "T13",
+          path,
+          `"${metric.id}" is compared on "${node}", which pools the runs of its ${childCount(node)} children: when they differ in size, that figure belongs to none of them and can hide one getting worse behind another getting better. Compare each child instead, in analysis.primary`,
+        );
+      }
+    });
   }
 
   function checkDeclaredValues() {

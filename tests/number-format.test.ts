@@ -56,5 +56,7 @@ describe("number text", () => {
     expect(formatInterval([-12.03, -9.15], 0, { signed: true })).toBe("−12 to −9");
     expect(formatLevel(0.9875)).toBe("98.75");
     expect(formatLevel(0.95)).toBe("95");
+    expect(formatLevel(1 - 0.05 / 6)).toBe("99.17");
+    expect(formatLevel(1 - 0.05 / 3)).toBe("98.33");
   });
 });

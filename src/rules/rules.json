@@ -719,6 +719,14 @@
     "explained_in": "measurement/time.md"
   },
   {
+    "id": "T13",
+    "level": "should",
+    "text": "Compare the run time, memory, CPU or energy of a suite script by script: do not let one figure pool scripts or tasks of different sizes, since its median is a run of whichever falls in the middle.",
+    "pitfall": "A suite figure that belongs to no script and hides one getting slower behind another getting faster",
+    "proved_by": "analysis.primary[]",
+    "explained_in": "measurement/time.md"
+  },
+  {
     "id": "U1",
     "level": "must",
     "text": "Define representative tasks with explicit success criteria before testing, and state who the users are (novice or expert) and the context.",

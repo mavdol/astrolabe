@@ -338,6 +338,50 @@ describe("plan checks", () => {
       expect(warningsFor(5, "mean", 1)).toBe(0);
     });
   });
+  it("asks to compare run time or memory script by script, not on a parent that pools scripts of different sizes", () => {
+    const scripts = {
+      levels: ["suite", "script"],
+      nodes: [
+        { id: "suite", level: "suite", label: "All scripts" },
+        { id: "start-up", level: "script", parent: "suite", label: "A short script" },
+        { id: "parse", level: "script", parent: "suite", label: "A long script" },
+      ],
+    };
+    const runTime = {
+      id: "wall_time",
+      label: "Wall time",
+      unit: "s",
+      direction: "lower",
+      kind: "run_time",
+      statistic: "median",
+      compare_as: "relative",
+      minimum_meaningful: 10,
+    };
+    const poolingWarnings = (plan: unknown) =>
+      planIssues(plan)
+        .filter((issue) => issue.rule === "T13")
+        .map((issue) => issue.path);
+
+    expect(poolingWarnings(planOf({ structure: scripts, metrics: [runTime] }))).toEqual(["results.metrics[0]"]);
+    expect(
+      poolingWarnings(planOf({ structure: scripts, metrics: [runTime], analysis: { primary: [{ metric: "wall_time", node: "suite" }] } })),
+    ).toEqual(["results.analysis.primary[0]"]);
+    expect(
+      poolingWarnings(
+        planOf({
+          structure: scripts,
+          metrics: [runTime],
+          analysis: {
+            primary: [
+              { metric: "wall_time", node: "start-up" },
+              { metric: "wall_time", node: "parse" },
+            ],
+          },
+        }),
+      ),
+    ).toEqual([]);
+    expect(poolingWarnings(planOf({ structure: scripts, analysis: { primary: [{ metric: "score", node: "suite" }] } }))).toEqual([]);
+  });
 });
 
 describe("usability studies with few participants", () => {
