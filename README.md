@@ -40,7 +40,7 @@ A skill teaches the agent the method, and the `astrolabe` command computes every
   </tr>
 </table>
 
-## ◌ Getting started
+## Getting started
 
 Install the skill, then ask your agent something like _"Which of these two CSV libraries is faster on our files?"_. It loads the skill when you ask to compare or benchmark something, or to report on results you already have. If your project doesn't have the `astrolabe` command yet, the skill adds it, after asking you. It needs Node.js 22 or later.
 
