@@ -76,6 +76,10 @@ Copy [`skills/astrolabe-benchmark/`](skills/astrolabe-benchmark) into your agent
 > [!TIP]
 > Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Claude Haiku, load the skill less reliably and may skip steps.
 
+## Open format
+
+Each benchmark is a single `benchmark.json`, holding the plan, the results computed from the raw data and the page to render, described by a [JSON Schema](skills/astrolabe-benchmark/benchmark.schema.json) and shown in a [complete example](skills/astrolabe-benchmark/example.benchmark.json).
+
 ## Contributing
 
 Contributions are welcome: bug reports, fixes to the skill or the command, new examples. For a larger change, open an issue first so we can agree on the approach.
