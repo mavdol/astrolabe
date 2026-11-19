@@ -11,7 +11,7 @@
 
 Astrolabe lets your agent run benchmarks you can trust. Ask which library is faster or which prompt works better, and your agent measures it fairly, then publishes the results as a page, a README card and charts.
 
-A skill teaches the agent the method, and the `astrolabe` command computes every number from the raw data. Nothing is typed by hand, so every claim can be checked.
+A skill teaches the agent the method, and the `astrolabe` command computes every number from the raw data and renders the results. Nothing is typed by hand, so every claim can be checked.
 
 <table>
   <tr>
@@ -42,9 +42,9 @@ A skill teaches the agent the method, and the `astrolabe` command computes every
   </tr>
 </table>
 
-## ◌ The Skill
+## ◌ Getting started
 
-Your agent loads the skill when you ask it to compare or benchmark something, or to report on results you already have. If your project doesn't have the `astrolabe` command yet, the skill adds it, after asking you. It needs Node.js 22 or later.
+Install the skill, then ask your agent something like _"Is Bun faster than Node.js for our test suite?"_. It loads the skill when you ask to compare or benchmark something, or to report on results you already have. If your project doesn't have the `astrolabe` command yet, the skill adds it, after asking you. It needs Node.js 22 or later.
 
 **Claude Code plugin**
 
@@ -54,7 +54,7 @@ claude plugin install astrolabe --marketplace mavdol/astrolabe
 
 Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`.
 
-**Any agent that reads Agent Skills**
+**Any agent that reads [Agent Skills](https://agentskills.io)**
 
 ```bash
 npx skills add mavdol/astrolabe
@@ -72,9 +72,13 @@ npx --no-install astrolabe init   # copies the skill into .agents/skills/, or --
 Copy [`skills/astrolabe-benchmark/`](skills/astrolabe-benchmark) into your agent's skills folder, such as `.agents/skills/` or `.claude/skills/`.
 
 > [!TIP]
-> Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Haiku, load the skill less reliably and skip steps.
+> Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Haiku, load the skill less reliably and may skip steps.
 
 ## Contributing
+
+Contributions are welcome: bug reports, fixes to the skill or the command, new examples. For a larger change, open an issue first so we can agree on the approach.
+
+### Development
 
 ```bash
 pnpm install
@@ -85,6 +89,8 @@ pnpm build
 pnpm gen:schema         # after changing src/schema/
 pnpm gen:example-data   # rewrite the synthetic raw files of examples/
 ```
+
+### Evaluations
 
 The skill is tested on real model runs with `claude plugin eval`:
 
