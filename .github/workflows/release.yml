@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, such as 0.2.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      TAG: v${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Released from main, under a new version
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::run this workflow on main, not $GITHUB_REF"
+            exit 1
+          fi
+          if git rev-parse --quiet --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists"
+            exit 1
+          fi
+          echo "PREVIOUS_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)" >> "$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: npm with trusted publishing
+        run: npm install --global npm@11
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set the version
+        run: pnpm set-version "$VERSION"
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: The package holds the command, the skill and the plugin manifest
+        run: |
+          npm pack --dry-run --json > pack.json
+          for file in dist/cli/index.js skills/astrolabe-benchmark/SKILL.md .claude-plugin/plugin.json; do
+            node -e 'const [pack] = require("./pack.json"); process.exit(pack.files.some((entry) => entry.path === process.argv[1]) ? 0 : 1)' "$file" \
+              || { echo "::error::$file is missing from the package"; exit 1; }
+          done
+          rm pack.json
+
+      - name: Commit the release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --all --message "Release $VERSION"
+          git tag "$TAG"
+
+      - name: Publish to npm
+        run: |
+          case "$VERSION" in
+            *-*) npm publish --access public --tag next ;;
+            *) npm publish --access public ;;
+          esac
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Push the tag
+        run: git push origin "refs/tags/$TAG"
+
+      - name: Draft the GitHub release
+        run: gh release create "$TAG" --draft --verify-tag --title "$TAG" --generate-notes ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"}
+        env:
+          GH_TOKEN: ${{ github.token }}

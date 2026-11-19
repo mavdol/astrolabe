@@ -1,8 +1,13 @@
 {
   "name": "astrolabe-bench",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Benchmarks authored by agents, verifiable by humans: schema, validate and compute.",
   "license": "MIT",
+  "homepage": "https://github.com/mavdol/astrolabe",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mavdol/astrolabe.git"
+  },
   "type": "module",
   "bin": {
     "astrolabe": "dist/cli/index.js"
@@ -12,6 +17,7 @@
   "files": [
     "dist",
     "skills",
+    ".claude-plugin/plugin.json",
     "assets/fonts",
     "assets/site"
   ],
@@ -28,6 +34,7 @@
     "format:check": "prettier --check .",
     "astrolabe": "tsx src/cli/index.ts",
     "gen:schema": "tsx scripts/gen-schema.ts",
+    "set-version": "tsx scripts/set-version.ts",
     "gen:example-data": "tsx scripts/make-example-data.ts"
   },
   "dependencies": {

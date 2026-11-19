@@ -3,7 +3,7 @@ import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, wri
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { installSkill, PACKAGED_SKILL_FOLDER, SKILL_NAME } from "../src/init/install-skill.js";
+import { CLAUDE_CODE_PLUGIN, installSkill, PACKAGED_SKILL_FOLDER, SKILL_NAME } from "../src/init/install-skill.js";
 
 const emptyFolder = () => mkdtempSync(join(tmpdir(), "astrolabe-init-"));
 const packagedFiles = readdirSync(PACKAGED_SKILL_FOLDER, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile());
@@ -72,6 +72,7 @@ describe("astrolabe init", () => {
     expect(init.status).toBe(0);
     expect(init.stdout).toContain(`in ${join(".agents", "skills", SKILL_NAME)}`);
     expect(init.stdout).toContain("astrolabe-bench");
+    expect(init.stdout).toContain(`claude plugin install ${CLAUDE_CODE_PLUGIN.name} --marketplace ${CLAUDE_CODE_PLUGIN.marketplace}`);
     expect(existsSync(join(project, ".agents", "skills", SKILL_NAME, "SKILL.md"))).toBe(true);
   });
 

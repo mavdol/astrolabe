@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 
 export const SKILL_NAME = "astrolabe-benchmark";
 
+/** The Claude Code plugin that holds the skill, and the GitHub repository that serves as its marketplace. */
+export const CLAUDE_CODE_PLUGIN = { name: "astrolabe", marketplace: "mavdol/astrolabe" };
+
 /** Where agents that follow the Agent Skills format look for the skills of a project. */
 export const SHARED_SKILLS_FOLDER = join(".agents", "skills");
 
