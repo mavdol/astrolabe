@@ -1,5 +1,5 @@
 <div align="center">
-<h1> ҉Astrolabe</h1>
+<h1> <code>Astrolabe</code></h1>
 
 <b>An agent-native framework to run and showcase benchmarks.</b>
 
@@ -42,7 +42,7 @@ A skill teaches the agent the method, and the `astrolabe` command computes every
   </tr>
 </table>
 
-## ◌ Skill & Install
+## ◌ The Skill
 
 Your agent loads the skill when you ask it to compare or benchmark something, or to report on results you already have. If your project doesn't have the `astrolabe` command yet, the skill adds it, after asking you. It needs Node.js 22 or later.
 
