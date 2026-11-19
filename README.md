@@ -8,7 +8,15 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 </div>
 
-<!-- screenshot -->
+<p align="center">
+<a href="examples/js-runtimes/dist/benchmark.md">
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="examples/js-runtimes/dist/exports/readme-card-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="examples/js-runtimes/dist/exports/readme-card-dark.svg">
+  <img alt="Deno against Node.js: wall time (lower is better) −10%, likely better; peak memory (lower is better) +1.1%, equivalent." src="examples/js-runtimes/dist/exports/readme-card-light.png" width="720">
+</picture>
+</a>
+</p>
 
 Astrolabe lets your agent run benchmarks you can trust. Ask which library is faster or which prompt works better, and your agent measures it fairly, then publishes the results as a page, a README card and charts.
 
@@ -44,7 +52,7 @@ npx --no-install astrolabe init   # copies the skill into .agents/skills/, or --
 Copy [`skills/astrolabe-benchmark/`](skills/astrolabe-benchmark) into your agent's skills folder, such as `.agents/skills/` or `.claude/skills/`.
 
 > [!TIP]
-> Use Claude Sonnet or a stronger model. Smaller models such as Haiku load the skill less reliably and skip steps.
+> Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Haiku, load the skill less reliably and skip steps.
 
 ## Contributing
 
@@ -67,7 +75,7 @@ scripts/review-skill-pr.sh <number>   # a pull request's skill against main's
 ```
 
 > [!IMPORTANT]
-> They are billed to your own Claude account, and the script asks before starting.
+> Each run is a real model call, paid by your own Claude account or API key. The script shows a cost ceiling and starts only once you confirm.
 
 Change the evaluations and their graders in a pull request of their own, not with a change to the skill, so each is measured against the other.
 
