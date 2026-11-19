@@ -1,10 +1,12 @@
-# Astrolabe
+<div align="center">
+<h1> ҉Astrolabe</h1>
 
-An agent-native framework to run and showcase benchmarks.
+<b>An agent-native framework to run and showcase benchmarks.</b>
 
 [![npm](https://img.shields.io/npm/v/astrolabe-bench)](https://www.npmjs.com/package/astrolabe-bench)
 [![CI](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml/badge.svg)](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+</div>
 
 <!-- screenshot -->
 
@@ -12,7 +14,7 @@ Astrolabe lets your agent run benchmarks that people can trust. Ask it which lib
 
 It comes as a skill, which teaches the agent the method, and a command line, `astrolabe`, which computes every number from the raw data the agent's scripts collected. The agent never writes a result itself, so anyone can trace each claim back to the script and the measurement behind it.
 
-## The skill
+## ◌ Skill & Install
 
 `skills/astrolabe-benchmark/` is a folder of Markdown files in the [Agent Skills](https://agentskills.io) format. Your agent loads it when you ask to compare or benchmark something, or for a report on results you already have. It adds `astrolabe-bench` to your project's development dependencies when it is missing, after asking you.
 
@@ -54,13 +56,16 @@ pnpm gen:schema         # after changing src/schema/
 pnpm gen:example-data   # rewrite the synthetic raw files of examples/
 ```
 
-The skill is tested on real model runs with `claude plugin eval`. They are billed to your own Claude account, and the script asks before starting:
+The skill is tested on real model runs with `claude plugin eval` :
 
 ```bash
 scripts/run-evals.sh --quick          # four short cases, with and without the skill
 scripts/run-evals.sh --triggering     # requests that should, or should not, load the skill
 scripts/review-skill-pr.sh <number>   # a pull request's skill against main's
 ```
+
+> [!IMPORTANT]
+> They are billed to your own Claude account, and the script asks before
 
 Change the evaluations and their graders in a pull request of their own, not with a change to the skill, so each is measured against the other.
 
