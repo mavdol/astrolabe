@@ -1,6 +1,7 @@
 import { minObservations } from "../compute/stats.js";
 import { ALPHA, declaredInputs } from "../compute/compute.js";
 import { PARTICIPANTS_TO_RANK } from "../compute/verdict.js";
+import { nodeTreeOf } from "../compute/structure.js";
 import type { Issue } from "../rules/registry.js";
 import type { Metric, Results } from "../schema/benchmark.js";
 
@@ -44,6 +45,7 @@ export function checkPlan(results: Results): Issue[] {
   checkJudge();
   checkEnvironmentAndRuns();
   checkAnalysis();
+  checkMachineMeasuresComparedPerChild();
   checkDeclaredValues();
   checkPlannedRunsGiveAnInterval();
 
@@ -281,6 +283,42 @@ export function checkPlan(results: Results): Issue[] {
     for (const metricId of results.analysis?.outliers?.metrics ?? []) {
       if (!metricIds.includes(metricId)) error("S6", "analysis.outliers.metrics", `"${metricId}" is not the id of a metric`);
     }
+  }
+
+  /**
+   * One figure for scripts of different lengths misleads either way: pooled, its median is a run of whichever
+   * script falls in the middle; averaged, the longest scripts decide the change. A short script getting slower
+   * hides behind longer ones getting faster.
+   */
+  function checkMachineMeasuresComparedPerChild() {
+    const tree = nodeTreeOf(results);
+    const childCount = (node: string | undefined) => (node === undefined ? 0 : (tree.childrenOf.get(node)?.length ?? 0));
+    const topNodes = nodeIds.filter((node) => tree.parentOf.get(node) === undefined);
+
+    results.metrics.forEach((metric, metricIndex) => {
+      if (!KINDS_MEASURED_ON_AUTHOR_MACHINES.has(metric.kind) || !metric.from) return;
+
+      const declared = results.analysis?.primary;
+      const primaries = declared
+        ? declared.flatMap((primary, index) =>
+            primary.metric === metric.id ? [{ node: primary.node, path: `analysis.primary[${index}]` }] : [],
+          )
+        : topNodes.map((node) => ({ node, path: `metrics[${metricIndex}]` }));
+      const howTheParentCombines =
+        metric.aggregation?.groups === "macro"
+          ? "averages its children's values: when they differ in size, the largest decide the change, and a smaller one getting worse barely shows"
+          : `pools the runs of its children: when they differ in size, the ${metric.statistic} of the pool belongs to none of them, and one getting worse can hide behind another getting better`;
+
+      for (const { node, path } of primaries) {
+        if (childCount(node) < 2) continue;
+
+        warning(
+          "T13",
+          path,
+          `"${metric.id}" is compared on "${node}", which ${howTheParentCombines}. Compare each of its ${childCount(node)} children instead, in analysis.primary`,
+        );
+      }
+    });
   }
 
   function checkDeclaredValues() {

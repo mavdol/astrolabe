@@ -70,5 +70,5 @@ export function formatInterval(interval: readonly [number, number], decimals: De
 
 /** 95 for 0.95, 98.75 for 0.9875. */
 export function formatLevel(level: number): string {
-  return trimmed(level * 100);
+  return String(Number((level * 100).toFixed(2)));
 }

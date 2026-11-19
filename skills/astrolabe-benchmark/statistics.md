@@ -65,7 +65,7 @@ With many candidates, metrics and sub-groups, some "better" verdicts appear by c
 "analysis": { "primary": [{ "metric": "accuracy", "node": "suite" }, { "metric": "cost_per_item", "node": "suite" }] }
 ```
 
-- Without `analysis.primary`, every metric is primary, at the highest node where it has values. With a `structure`, each entry names its node.
+- Without `analysis.primary`, every metric is primary, at the highest node where it has values. With a `structure`, each entry names its node. For run time, memory, CPU or energy over scripts of different sizes, name each script, not their parent (measurement/time.md).
 - Each entry is compared for every candidate against the baseline, so 2 entries and 4 candidates make 6 primary comparisons. Their intervals are widened together so that they hold jointly (95% becomes 97.5% for two, 98.75% for four): each added one costs precision. Keep them few.
 - Every other comparison is computed too and labelled exploratory. An exploratory result can be shown and can suggest what to test next; it never carries a headline, a recommendation or the word "winner".
 - When the data already exists (logs someone hands you), choose the primary comparisons before looking at the breakdown, and say in `limitations` that they were chosen after the measurement.

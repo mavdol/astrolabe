@@ -1,0 +1,8 @@
+{
+  "name": "logline",
+  "version": "2.3.1",
+  "description": "Reads log lines into objects.",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT"
+}

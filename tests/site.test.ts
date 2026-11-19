@@ -3,12 +3,16 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { compute } from "../src/compute/compute.js";
 import { loadRaw } from "../src/compute/files.js";
 import { servePreview } from "../src/preview/serve.js";
 import { buildOutputs } from "../src/render/build.js";
+import { cardAltText, cardContentOf } from "../src/render/card.js";
 import { pageRowsOf } from "../src/render/site/page.js";
-import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
+import { answerOf } from "../src/render/site/write-site.js";
+import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import { THEME } from "../src/themes/astrolabe.js";
+import { planOf, rawFileOf } from "./helpers.js";
 import { decodePng } from "./png.js";
 
 const context = { generatorVersion: "0.2.0", buildDate: "2026-11-17" };
@@ -153,12 +157,57 @@ describe("the site", () => {
     expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
   });
 
-  it("answers the question at the top with the primary comparisons and their verdicts", () => {
+  it("answers the question at the top with every primary comparison, named by the group it is measured on", () => {
     expect(support.html).toContain(
-      '<p class="answer">Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse.</p>',
+      '<p class="answer">Model A against Model B: accuracy +6.4 points, likely better; accuracy, Reasoning −1.5 points, inconclusive; accuracy, Coding +14 points, better; cost per item +265%, worse.</p>',
     );
     expect(support.html).toContain(
-      '<meta name="description" content="Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse.">',
+      '<meta name="description" content="Model A against Model B: accuracy +6.4 points, likely better; accuracy, Reasoning −1.5 points, inconclusive; accuracy, Coding +14 points, better; cost per item +265%, worse.">',
+    );
+  });
+
+  it("names the script of each claim when scripts sit side by side at the top of the structure", () => {
+    const plan = planOf({
+      structure: {
+        levels: ["script"],
+        nodes: [
+          { id: "start-up", level: "script", label: "Start-up script" },
+          { id: "parse", level: "script", label: "Parsing script" },
+        ],
+      },
+      metrics: [
+        {
+          id: "wall_time",
+          label: "Wall time",
+          unit: "s",
+          direction: "lower",
+          kind: "run_time",
+          statistic: "median",
+          compare_as: "relative",
+          minimum_meaningful: 10,
+          failures_count_as: "excluded",
+          from: { raw: "data", measure: "wall_time" },
+        },
+      ],
+      levels: [{ level: "process", field: "run", planned: 12 }],
+    });
+    const typicalTime = { "start-up": { base: 0.025, new: 0.03 }, parse: { base: 0.25, new: 0.2 } } as const;
+    const rows = (["start-up", "parse"] as const).flatMap((node) =>
+      (["base", "new"] as const).flatMap((candidate) =>
+        Array.from({ length: 12 }, (_, index) => ({
+          candidate,
+          node,
+          measure: "wall_time",
+          value: typicalTime[node][candidate] * (1 + (index - 6) / 1000),
+          run: index + 1,
+        })),
+      ),
+    );
+    const scripts = { schema_version: SCHEMA_VERSION, results: compute(plan, { data: rawFileOf(rows) }) } as Benchmark;
+
+    expect(answerOf(scripts)).toBe("new against base: wall time, Start-up script +20%, worse; wall time, Parsing script −20%, better.");
+    expect(cardAltText(scripts, cardContentOf(scripts))).toBe(
+      "new against base: wall time, Start-up script (lower is better) +20%, worse; wall time, Parsing script (lower is better) −20%, better.",
     );
   });
 

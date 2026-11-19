@@ -4,7 +4,7 @@ import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark } from "../../schema/benchmark.js";
 import { THEME } from "../../themes/astrolabe.js";
 import type { Comparison } from "../../schema/benchmark.js";
-import { cardAltText, cardContentOf, pairOf, renderCard } from "../card.js";
+import { cardAltText, cardContentOf, measuredOf, pairOf, renderCard } from "../card.js";
 import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
@@ -66,13 +66,12 @@ function previewImageOf(benchmark: Benchmark, context: BuildContext, rawFiles: R
 }
 
 /**
- * The answer in one sentence, from the primary comparisons on the whole benchmark: the claims a
- * reader came for, with their effect and verdict. Comparisons on a group are left to the charts.
+ * The answer in one sentence, from every primary comparison: the claims a reader came for, each with
+ * the group it is measured on, its effect and its verdict.
  */
 export function answerOf(benchmark: Benchmark): string {
   const lookup = lookupOf(benchmark.results);
-  const isOnTheWhole = (comparison: Comparison) => comparison.node === undefined || lookup.tree.parentOf.get(comparison.node) === undefined;
-  const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary" && isOnTheWhole(comparison));
+  const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
   const byPair = new Map<string, Comparison[]>();
 
   for (const comparison of claims) byPair.set(pairOf(lookup, comparison), [...(byPair.get(pairOf(lookup, comparison)) ?? []), comparison]);
@@ -82,7 +81,7 @@ export function answerOf(benchmark: Benchmark): string {
       const phrases = comparisons.map((comparison) => {
         const metric = lookup.metricById.get(comparison.metric)!;
 
-        return `${lowerFirstLetterOfWord(metric.label)} ${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}`;
+        return `${lowerFirstLetterOfWord(measuredOf(lookup, comparison))} ${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}`;
       });
 
       return `${pair}: ${phrases.join("; ")}.`;
