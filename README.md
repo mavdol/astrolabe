@@ -1,70 +1,116 @@
-# ✪ Astrolabe
+<div align="center">
+<h1> <code>Astrolabe</code></h1>
 
-Benchmarks authored by agents, verifiable by humans.
+<b>An open benchmark format. Agents measure, the tool computes, anyone can verify.</b>
 
-The agent writes a plan and the measuring scripts, never numbers. The scripts write raw data, one JSON line per observation. `astrolabe compute` turns the raw data into every value, interval, comparison and verdict, and `astrolabe validate` computes them again to check that nothing was edited by hand.
+[![npm](https://img.shields.io/npm/v/astrolabe-bench)](https://www.npmjs.com/package/astrolabe-bench)
+[![CI](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml/badge.svg)](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Status: early development. The schema, `validate`, `compute`, the hyperfine and Inspect importers, the Markdown output, the README card, the chart images, the site and the measurement part of the skill exist; the presentation and publishing parts of the skill do not yet.
+</div>
 
-## The skill
+Astrolabe lets your agent run benchmarks and showcase the results. Ask how your options compare for your use case, including whether one is actually better. Your agent designs the comparison, measures the differences, then turns the results into a page, a card for your README and charts.
 
-`skills/astrolabe-benchmark/` teaches an agent the method: frame the decision, plan, measure with scripts, compute, write up. It is a plain folder of Markdown files that follows the Agent Skills format and reads nothing else from this repository. `SKILL.md` is the entry point.
+It combines a skill and a command-line tool. The skill brings together best practices for measurement, statistics and presentation, so the agent has a clear process to follow. The `astrolabe` command computes every number from the raw data and renders the outputs. Since the agent writes code and declarations but never numbers, every claim can be checked.
+
+<table>
+  <tr>
+    <td valign="top" width="63%" rowspan="2">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/site-light.png">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
+        <img alt="The page of a benchmark of two models for a support assistant: headline results, a chart by category and accuracy against cost" src="assets/readme/site-light.png">
+      </picture>
+      <br><sub><b>Site</b> · a page to publish, with every chart, table and filter</sub>
+    </td>
+    <td valign="top" width="40%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/card-light.png">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/card-dark.png">
+        <img alt="A README card: three headline results with their verdicts and intervals" src="assets/readme/card-light.png">
+      </picture>
+      <br><sub><b>README</b> · a card linked to a full Markdown report</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="40%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/chart-time-on-task-light.png">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/chart-time-on-task-dark.png">
+        <img alt="A chart image: time on task for two note-taking apps, task by task, as bars with their intervals" src="assets/readme/chart-time-on-task-light.png">
+      </picture>
+      <br><sub><b>Chart images</b> · PNG or SVG, for posts and slides</sub>
+    </td>
+  </tr>
+</table>
+
+## Getting started
+
+Install the skill, then ask your agent to compare options, benchmark a change, or report on results you already have. The agent loads the skill automatically for these requests. If your project doesn't have the `astrolabe` command yet, the agent adds it after asking you. The command requires Node.js 22 or later.
+
+**Claude Code plugin**
+
+```bash
+claude plugin install astrolabe --marketplace mavdol/astrolabe
+```
+
+> Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`.
+
+**Any agent that implements the [Agent Skills specification](https://agentskills.io)**
+
+```bash
+npx skills add mavdol/astrolabe
+```
+
+Or install the package and run `init` yourself:
 
 ```bash
 npm install --save-dev astrolabe-bench
-npx astrolabe init                        # copies the skill into .agents/skills/astrolabe-benchmark
-npx astrolabe init --dir <skills folder>  # for an agent that reads its own skills folder
+npx --no-install astrolabe init   # copies the skill into .agents/skills/, or --dir <your agent's skills folder>
 ```
 
-Run `init` again after upgrading the package: it updates the copy, and keeps one you changed unless you pass `--force`.
+**Manually**
 
-## Commands
+Copy [`skills/astrolabe-benchmark/`](skills/astrolabe-benchmark) into your agent's skills folder, such as `.agents/skills/` or `.claude/skills/`.
 
-```bash
-astrolabe validate [file]   # check the plan; after compute, recompute everything and compare
-astrolabe compute [file]    # write values, intervals, failures, comparisons and verdicts into results
-astrolabe import hyperfine <export.json...> --raw <id>   # convert hyperfine --export-json files into a raw file
-astrolabe import inspect <log...> --raw <id>             # convert Inspect logs (.eval or .json) into a raw file
-astrolabe build [file]      # validate, then write the site in dist/site/, dist/benchmark.md, and in dist/exports/ the README card (SVG light and dark, PNG for the GitHub app) and the chart images the file declares
-astrolabe preview [file]    # build the site, serve it on this computer, and build it again when a file changes
-astrolabe init              # copy the skill into the project, under .agents/skills/
-astrolabe explain <rule>    # print one rule: instruction, pitfall, level, field
-astrolabe schema            # print the JSON Schema of benchmark.json
-```
+> [!TIP]
+> Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Claude Haiku, load the skill less reliably and may skip steps.
 
-Without a file argument, the command looks for `benchmark.json` in the current folder, then under `benchmarks/`.
+## Open format
 
-## Examples
+Each benchmark is a single `benchmark.json`, holding the plan, the results computed from the raw data and the page to render, described by a [JSON Schema](skills/astrolabe-benchmark/benchmark.schema.json) and shown in a [complete example](skills/astrolabe-benchmark/example.benchmark.json).
 
-`examples/` holds four benchmarks with invented data: a run-time comparison, two external services, a usability study and an LLM suite. Each folder has its `benchmark.json`, the raw files under `data/` and the built outputs in `dist/`: `benchmark.md` and the README card. The tests compare them with what `build` writes.
+## Contributing
 
-`examples/js-runtimes/` is a real benchmark of Node.js and Deno, measured with hyperfine: run `./bench.sh` (it needs hyperfine, Node.js and Deno), then `astrolabe compute` and `astrolabe validate` on its `benchmark.json`.
+Contributions are welcome: bug reports, fixes to the skill or the command, new examples. For a larger change, open an issue first so we can agree on the approach.
 
-```bash
-pnpm astrolabe validate examples/json-cli-parse/benchmark.json
-```
-
-## Development
+### Development
 
 ```bash
 pnpm install
-pnpm test                 # statistics against scipy reference values, compute, validate
+pnpm test
 pnpm typecheck
+pnpm lint
 pnpm build
-pnpm gen:example-data     # rewrite the synthetic raw files of the examples
-pnpm gen:schema           # rewrite the JSON Schema in the skill folder, after changing src/schema/
+pnpm gen:schema         # after changing src/schema/
+pnpm gen:example-data   # rewrite the synthetic raw files of examples/
 ```
 
-Requires Node 22 or later.
+### Evaluations
 
-The skill is tested on real model runs, which are billed to your own Claude account and ask before they start:
+The skill is tested on real model runs with `claude plugin eval`:
 
 ```bash
-scripts/run-evals.sh --quick          # the cases of evals/, with and without the skill
-scripts/run-evals.sh --triggering     # short requests that should, or should not, load the skill
-scripts/review-skill-pr.sh <number>   # a pull request's skill against main's, with a summary to paste on it
+scripts/run-evals.sh --quick          # four short cases, with and without the skill
+scripts/run-evals.sh --triggering     # requests that should, or should not, load the skill
+scripts/review-skill-pr.sh <number>   # a pull request's skill against main's
 ```
 
-## Licence
+> [!IMPORTANT]
+> Each run is a real model call, paid by your own Claude account or API key. The script shows a cost ceiling and starts only once you confirm.
 
-The code is under the MIT licence (`LICENSE`).
+Change the evaluations and their graders in a pull request of their own, not with a change to the skill, so each is measured against the other.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

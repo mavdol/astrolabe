@@ -1,0 +1,17 @@
+{
+  "name": "astrolabe",
+  "owner": {
+    "name": "astrolabe"
+  },
+  "description": "The astrolabe benchmark framework for Claude Code.",
+  "plugins": [
+    {
+      "name": "astrolabe",
+      "source": {
+        "source": "npm",
+        "package": "astrolabe-bench"
+      },
+      "description": "Design, run and report honest benchmarks and comparisons: scripts write the raw data, and the astrolabe command (npm package astrolabe-bench) computes every number and verdict."
+    }
+  ]
+}

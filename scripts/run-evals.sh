@@ -113,10 +113,11 @@ if [ -z "$output" ]; then
   if $triggering; then output="$output-triggering"; fi
 fi
 
-# claude plugin eval only evaluates a Claude Code plugin. The repository stays agent-neutral, so the
-# plugin is a temporary folder: a manifest, a copy of the skills and of the evaluation cases, and the
-# path of this repository, where the cases install the astrolabe command from. A run with a single
-# configuration loads the plugin once (--ablation none): with the skill copied in, or without it.
+# claude plugin eval evaluates a Claude Code plugin. The repository is one, but it would run every case,
+# always with this skill: each call gets a temporary plugin instead, with the repository's manifest, the
+# cases chosen, the skills under test (or none), and the path of this repository, where the cases install
+# the astrolabe command from. A run with a single configuration loads the plugin once (--ablation none):
+# with the skill copied in, or without it.
 workspace="$(mktemp -d)"
 trap 'rm -rf "$workspace"' EXIT
 if [ "$configuration" != both ]; then extra+=(--ablation none); fi
@@ -128,7 +129,7 @@ make_plugin() {
   local plugin="$1" folder
   shift
   mkdir -p "$plugin/.claude-plugin"
-  printf '{ "name": "astrolabe", "version": "0.0.0-eval" }\n' > "$plugin/.claude-plugin/plugin.json"
+  cp .claude-plugin/plugin.json "$plugin/.claude-plugin/plugin.json"
   rsync -a --exclude /results/ --exclude /triggering/ "$cases_root/" "$plugin/evals/"
   for folder in "$plugin"/evals/*/; do
     [[ " $* " == *" $(basename "$folder") "* ]] || rm -rf "$folder/prompt.md" "$folder/case.yaml" "$folder/graders"

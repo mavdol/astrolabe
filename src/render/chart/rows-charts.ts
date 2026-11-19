@@ -5,6 +5,7 @@ import {
   effectAndInterval,
   effectUnit,
   finestDecimals,
+  labelDecimals,
   lowerFirstLetterOfWord,
   STATISTIC_WORD,
   valueDecimals,
@@ -93,6 +94,7 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
 
   const series = seriesOf(inputs);
   const decimals = finestDecimals(values.map((value) => valueDecimals(metric, value)));
+  const labelDigits = finestDecimals(values.map((value) => labelDecimals(metric, value)));
   const axis = valueAxisOf(
     inputs,
     metric,
@@ -108,7 +110,7 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
       series: series.get(value.candidate)!,
       value: value.value,
       interval: value.ci,
-      valueText: formatNumber(value.value, decimals),
+      valueText: formatNumber(value.value, labelDigits),
       note: value.source === "declared" ? "declared" : undefined,
     })),
   }));
@@ -248,6 +250,7 @@ export function distributionContent(inputs: ChartInputs): ChartContent {
   const series = seriesOf(inputs);
   const values = groups.flatMap((group) => group.values);
   const decimals = finestDecimals(values.map((value) => valueDecimals(metric, value)));
+  const labelDigits = finestDecimals(values.map((value) => labelDecimals(metric, value)));
   const observed = groups.map((group) => observationsOf(block, metric, group.node, lookup, inputs.rawFiles));
   const sortedOf = (groupIndex: number, candidate: string) =>
     [...(observed[groupIndex].get(candidate)?.values ?? [])].sort((first, second) => first - second);
@@ -290,7 +293,7 @@ export function distributionContent(inputs: ChartInputs): ChartContent {
         interval: value.ci,
         points: outside,
         box,
-        valueText: formatNumber(value.value, decimals),
+        valueText: formatNumber(value.value, labelDigits),
       };
     }),
   }));
@@ -376,6 +379,7 @@ export function stackedContent(inputs: ChartInputs): ChartContent {
   const shown = candidateOrder(block, metric, lookup, totals).filter((candidate) => candidates.includes(candidate));
   const partColours = new Map(parts.map((part, index) => [part, colours.series[index]]));
   const decimals = finestDecimals(totals.map((value) => valueDecimals(metric, value)));
+  const labelDigits = finestDecimals(totals.map((value) => labelDecimals(metric, value)));
   const series = seriesOf(inputs);
   const rows: PlotRow[] = shown.map((candidate) => {
     const total = valueOf(candidate, wholeNode)!;
@@ -402,7 +406,7 @@ export function stackedContent(inputs: ChartInputs): ChartContent {
       value: total.value,
       interval: total.ci,
       segments: partValues.map((value, index) => ({ value, colour: partColours.get(parts[index])! })),
-      valueText: formatNumber(total.value, decimals),
+      valueText: formatNumber(total.value, labelDigits),
     };
   });
   const axis = valueAxisOf(

@@ -5,7 +5,7 @@ import { parseArgs } from "node:util";
 import { compute, ComputeError } from "../compute/compute.js";
 import { findBenchmark, formatBenchmark, loadRaw, resultsHash, resultsKeepingPlanAsWritten } from "../compute/files.js";
 import type { RawRow } from "../compute/raw-data.js";
-import { installSkill, SHARED_SKILLS_FOLDER } from "../init/install-skill.js";
+import { CLAUDE_CODE_PLUGIN, installSkill, SHARED_SKILLS_FOLDER } from "../init/install-skill.js";
 import { importHyperfine } from "../import/hyperfine.js";
 import { importInspect, readInspectLog } from "../import/inspect.js";
 import { ImportError, rawFileContent } from "../import/raw-file.js";
@@ -19,6 +19,8 @@ import { servePreview } from "../preview/serve.js";
 import { validate } from "../validate/validate.js";
 
 const packageVersion: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
+
+const CLAUDE_CODE_INSTALL = `claude plugin install ${CLAUDE_CODE_PLUGIN.name} --marketplace ${CLAUDE_CODE_PLUGIN.marketplace}`;
 
 const HELP = `astrolabe ${packageVersion}: benchmarks authored by agents, verifiable by humans
 
@@ -56,6 +58,8 @@ Usage
                               skills: .agents/skills/astrolabe-benchmark. With --dir,
                               into another skills folder, for an agent that reads its
                               own. A copy that was changed is kept unless --force.
+                              In Claude Code, the plugin holds the same skill:
+                              ${CLAUDE_CODE_INSTALL}
   astrolabe explain <rule>    Print one rule: instruction, pitfall, level, field.
   astrolabe schema            Print the JSON Schema of benchmark.json.
 
@@ -438,7 +442,7 @@ function runInit(skillsFolderOption: string | undefined, replaceChangedFiles: bo
       : `\nAgents that follow the Agent Skills format read ${SHARED_SKILLS_FOLDER}. If yours reads its own folder: astrolabe init --dir <that folder>.`;
 
     console.log(
-      `${whereAgentsLook}\nThe skill runs the astrolabe command from this project: keep astrolabe-bench in its development dependencies.\nThen ask your agent for a benchmark or a comparison.`,
+      `${whereAgentsLook}\nIn Claude Code, the plugin gives the skill to all your projects instead: ${CLAUDE_CODE_INSTALL}\nThe skill runs the astrolabe command from this project: keep astrolabe-bench in its development dependencies.\nThen ask your agent for a benchmark or a comparison.`,
     );
   }
 

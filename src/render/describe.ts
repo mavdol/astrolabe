@@ -141,6 +141,16 @@ export function valueDecimals(metric: Metric, value: Value): Decimals | null {
   return supportedByRange ?? decimalsWithoutUncertainty(value.value);
 }
 
+/**
+ * The digits of a value printed beside its mark, where the interval is drawn rather than written: three significant
+ * figures at most, so a tight interval does not print 284.555 MiB. Tables keep every digit the interval supports.
+ */
+export function labelDecimals(metric: Metric, value: Value): Decimals | null {
+  const supported = valueDecimals(metric, value);
+
+  return supported === null || isPercentage(metric) ? supported : Math.min(supported, decimalsWithoutUncertainty(value.value));
+}
+
 const INTERVAL_METHOD_NAMES: Record<string, string> = {
   wilson: "Wilson score",
   t: "Student's t",
