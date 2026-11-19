@@ -2,7 +2,7 @@ import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark, Comparison, Metric } from "../../schema/benchmark.js";
 import type { ChartBlock } from "../../schema/presentation.js";
 import { seriesStylesOf, type Mode, type SeriesStyle } from "../../themes/astrolabe.js";
-import { restsOnUnblindedJudges, STATISTIC_WORD, type Lookup } from "../describe.js";
+import { intervalMethodsOf, restsOnUnblindedJudges, STATISTIC_WORD, type Lookup } from "../describe.js";
 import { formatLevel } from "../number-format.js";
 import { ChartError, type FilterState } from "./chart-data.js";
 import type { Plot } from "./plot.js";
@@ -57,10 +57,10 @@ export function levelsOf(entries: { ci?: [number, number]; ci_level?: number }[]
 
 export function intervalSentence(values: { ci?: [number, number]; ci_level?: number; method?: string }[], name = "Lines"): string {
   const levels = levelsOf(values);
-  const methods = [...new Set(values.filter((value) => value.ci && value.method).map((value) => value.method!))];
+  const methods = intervalMethodsOf(values);
 
   return levels
-    ? `${name}: ${levels} confidence intervals${methods.length > 0 ? ` (${methods.join(", ")})` : ""}.`
+    ? `${name}: ${levels} confidence intervals${methods.length > 0 ? ` (${methods.join("; ")})` : ""}.`
     : "No interval: too few observations, or declared values.";
 }
 

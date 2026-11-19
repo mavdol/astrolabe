@@ -12,7 +12,7 @@ import {
   type Lookup,
 } from "./describe.js";
 import { THEME, type Colours, type Mode } from "../themes/astrolabe.js";
-import { formatLevel, formatNumber } from "./number-format.js";
+import { formatNumber } from "./number-format.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "./svg-text.js";
 
 export type CardMode = Mode;
@@ -295,37 +295,39 @@ function warningIcon(x: number, top: number, colour: string): string {
   ].join("");
 }
 
-/** A small arrow pointing right, drawn as a path because the bundled font has no arrows. */
-function rightArrow(x: number, centreY: number, colour: string): string {
-  return `<path d="M${x} ${centreY}H${x + 9}M${x + 5.5} ${centreY - 3.5}L${x + 9} ${centreY}L${x + 5.5} ${centreY + 3.5}" fill="none" stroke="${colour}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+/** A small arrow from x, drawn as a path because the bundled font has no arrows. */
+function sideArrow(x: number, centreY: number, pointsRight: boolean, colour: string): string {
+  const [tail, tip, barb] = pointsRight ? [x, x + 9, x + 5.5] : [x + 9, x, x + 3.5];
+
+  return `<path d="M${tail} ${centreY}H${tip}M${barb} ${centreY - 3.5}L${tip} ${centreY}L${barb} ${centreY + 3.5}" fill="none" stroke="${colour}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
 /** Share of the strip's range left empty on each side, so the caps and the dot never touch its ends. */
 const STRIP_PADDING = 0.08;
 
 /**
- * The strip is drawn in gain: better is always on the right, whatever the
- * direction of the metric. The axis is linear and never cut: it always holds
- * zero, the whole band and the whole interval, so a large effect looks large.
+ * The strip is drawn in the effect's own sign, lower values on the left, as on
+ * the charts: the arrow above it says which side is better. The axis is linear
+ * and never cut: it always holds zero, the whole band and the whole interval,
+ * so a large effect looks large.
  */
-function stripScale(gainInterval: [number, number], minimum: number, x: number, width: number): (gain: number) => number {
-  const lowest = Math.min(-minimum, gainInterval[0]);
-  const highest = Math.max(minimum, gainInterval[1]);
+function stripScale(interval: [number, number], minimum: number, x: number, width: number): (effect: number) => number {
+  const lowest = Math.min(-minimum, interval[0]);
+  const highest = Math.max(minimum, interval[1]);
   const padding = (highest - lowest) * STRIP_PADDING;
   const domainLow = lowest - padding;
   const domainHigh = highest + padding;
 
-  return (gain) => x + ((gain - domainLow) / (domainHigh - domainLow)) * width;
+  return (effect) => x + ((effect - domainLow) / (domainHigh - domainLow)) * width;
 }
 
-/** The value of the band's edge on the better side, in the metric's own sign: −10% for a time, +3 points for a score. */
-function thresholdLabels(metric: Metric): { better: string; worse: string } {
+/** The values of the band's edges: −10% and +10% for a time, −3 and +3 points for a score. */
+function bandEdgeLabels(metric: Metric): { lower: string; upper: string } {
   const unit = metric.compare_as === "relative" ? "%" : "";
-  const betterValue = metric.direction === "higher" ? metric.minimum_meaningful : -metric.minimum_meaningful;
 
   return {
-    better: `${formatNumber(betterValue, null, { signed: true })}${unit}`,
-    worse: `${formatNumber(-betterValue, null, { signed: true })}${unit}`,
+    lower: `${formatNumber(-metric.minimum_meaningful, null, { signed: true })}${unit}`,
+    upper: `${formatNumber(metric.minimum_meaningful, null, { signed: true })}${unit}`,
   };
 }
 
@@ -340,17 +342,12 @@ interface StripDrawing {
  * verdict is what it is. Each strip has its own scale.
  */
 function effectStrip(metric: Metric, comparison: Comparison, x: number, y: number, width: number, colours: Colours): StripDrawing {
-  const toGain = (effect: number) => (metric.direction === "higher" ? effect : -effect);
   const minimum = metric.minimum_meaningful;
   const measuredInterval = comparison.source === "declared" ? undefined : comparison.ci;
-  const gainEffect = toGain(comparison.effect);
-  const gainInterval: [number, number] = measuredInterval
-    ? [
-        Math.min(toGain(measuredInterval[0]), toGain(measuredInterval[1])),
-        Math.max(toGain(measuredInterval[0]), toGain(measuredInterval[1])),
-      ]
-    : [gainEffect, gainEffect];
-  const positionOf = stripScale(gainInterval, minimum, x, width);
+  const interval: [number, number] = measuredInterval
+    ? [Math.min(...measuredInterval), Math.max(...measuredInterval)]
+    : [comparison.effect, comparison.effect];
+  const positionOf = stripScale(interval, minimum, x, width);
   const middle = y + STRIP_HEIGHT / 2;
   const left = positionOf(-minimum);
   const right = positionOf(minimum);
@@ -366,8 +363,8 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
   marks.push(`<path d="M${round(zero)} ${y - 2}V${y + STRIP_HEIGHT + 2}" stroke="${colours.secondary}" stroke-width="1"/>`);
 
   if (measuredInterval) {
-    const start = positionOf(gainInterval[0]);
-    const end = positionOf(gainInterval[1]);
+    const start = positionOf(interval[0]);
+    const end = positionOf(interval[1]);
 
     marks.push(
       `<path d="M${round(start)} ${middle}H${round(end)}M${round(start)} ${middle - 5}V${middle + 5}M${round(end)} ${middle - 5}V${middle + 5}" stroke="${colours.ink}" stroke-width="2.5" stroke-linecap="round"/>`,
@@ -375,17 +372,17 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
   }
 
   marks.push(
-    `<circle cx="${round(positionOf(gainEffect))}" cy="${middle}" r="4.5" fill="${colours.ink}" stroke="${colours.background}" stroke-width="1.5"/>`,
+    `<circle cx="${round(positionOf(comparison.effect))}" cy="${middle}" r="4.5" fill="${colours.ink}" stroke="${colours.background}" stroke-width="1.5"/>`,
   );
 
-  const thresholds = thresholdLabels(metric);
+  const edges = bandEdgeLabels(metric);
 
   return {
     marks: marks.join(""),
     scaleLabels: [
       { text: "0", centreX: zero },
-      { text: thresholds.better, centreX: right },
-      { text: thresholds.worse, centreX: left },
+      { text: edges.lower, centreX: left },
+      { text: edges.upper, centreX: right },
     ],
   };
 }
@@ -518,15 +515,20 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     const betterBaseline = stripTop - 6;
     const betterWidth = text.measure("better", STYLE.scale);
     const arrowWidth = 13;
+    const betterIsRight = metric.direction === "higher";
+    const arrowCentreY = betterBaseline - (STYLE.scale.size * CAP_HEIGHT_RATIO) / 2;
     const occupied: [number, number][] = [];
     const drawnScaleLabels: { text: string; start: number }[] = [];
 
     marks.push(strip.marks);
     marks.push(
-      text.draw("better", x + columnWidth - arrowWidth - betterWidth, betterBaseline, { ...STYLE.scale, fill: colours.secondary }),
+      text.draw("better", betterIsRight ? x + columnWidth - arrowWidth - betterWidth : x + arrowWidth, betterBaseline, {
+        ...STYLE.scale,
+        fill: colours.secondary,
+      }),
     );
-    marks.push(rightArrow(x + columnWidth - arrowWidth + 4, betterBaseline - (STYLE.scale.size * CAP_HEIGHT_RATIO) / 2, colours.secondary));
-    textLines.push("better →");
+    marks.push(sideArrow(betterIsRight ? x + columnWidth - arrowWidth + 4 : x, arrowCentreY, betterIsRight, colours.secondary));
+    textLines.push(betterIsRight ? "better →" : "← better");
 
     for (const label of strip.scaleLabels) {
       const labelWidth = text.measure(label.text, STYLE.scale);
@@ -576,7 +578,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const intervalNoun = isSingle ? "interval" : "intervals";
   const intervalPhrase =
     sharedLevel && everyHeadlineAdjusted
-      ? `${possessive} ${formatLevel(1 - results.computed.alpha)}% ${intervalNoun}, adjusted for ${primaryCount} comparisons`
+      ? `${possessive} ${sharedLevel} ${intervalNoun}, adjusted for ${primaryCount} comparisons`
       : sharedLevel
         ? `${possessive} ${sharedLevel} ${intervalNoun}`
         : `${possessive} ${intervalNoun}`;
