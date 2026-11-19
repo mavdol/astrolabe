@@ -7,6 +7,12 @@
 [![CI](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml/badge.svg)](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+ <p>
+    <a href="#getting-started">Getting started</a> ·
+    <a href="#open-format">Open Format</a> ·
+    <a href="#contributing">Contributing</a>
+  </p>
+
 </div>
 
 Astrolabe lets your agent run benchmarks and showcase the results. Ask how your options compare for your use case, including whether one is actually better. Your agent designs the comparison, measures the differences, then turns the results into a page, a card for your README and charts.
@@ -15,7 +21,7 @@ It combines a skill and a command-line tool. The skill brings together best prac
 
 <table>
   <tr>
-    <td valign="top" width="63%" rowspan="2">
+    <td valign="top" width="60%" rowspan="2">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="assets/readme/site-light.png">
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
@@ -35,9 +41,9 @@ It combines a skill and a command-line tool. The skill brings together best prac
   <tr>
     <td valign="top" width="40%">
       <picture>
-        <source media="(prefers-color-scheme: light)" srcset="assets/readme/chart-time-on-task-light.png">
-        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/chart-time-on-task-dark.png">
-        <img alt="A chart image: time on task for two note-taking apps, task by task, as bars with their intervals" src="assets/readme/chart-time-on-task-light.png">
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/chart-time-on-task-dark.png">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/chart-time-on-task-light.png">
+        <img alt="A chart image: time on task for two note-taking apps, task by task, as bars with their intervals" src="assets/readme/chart-time-on-task-dark.png">
       </picture>
       <br><sub><b>Chart images</b> · PNG or SVG, for posts and slides</sub>
     </td>
