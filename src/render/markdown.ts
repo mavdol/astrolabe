@@ -1,6 +1,15 @@
 import { descendantsOf } from "../compute/structure.js";
 import type { Benchmark, Metric, Value } from "../schema/benchmark.js";
-import { finestDecimals, valueDecimals, provenanceParts, STATISTIC_WORD, lookupOf, type BuildContext, type Lookup } from "./describe.js";
+import {
+  finestDecimals,
+  intervalMethodsOf,
+  valueDecimals,
+  provenanceParts,
+  STATISTIC_WORD,
+  lookupOf,
+  type BuildContext,
+  type Lookup,
+} from "./describe.js";
 import {
   candidateEntries,
   COMPARISON_HEADER,
@@ -38,8 +47,8 @@ function nodeCell(lookup: Lookup, node: string | undefined): string {
 function howToRead(lookup: Lookup, metric: Metric, values: Value[]): string {
   const direction = metric.direction === "lower" ? "lower is better" : "higher is better";
   const statistic = STATISTIC_WORD[metric.statistic].toLowerCase();
-  const methods = [...new Set(values.filter((value) => value.ci && value.method).map((value) => value.method!))];
-  const intervalSentence = methods.length > 0 ? ` Intervals: 95%, by ${methods.join(" and ")}.` : "";
+  const methods = intervalMethodsOf(values);
+  const intervalSentence = methods.length > 0 ? ` Intervals: 95%, by ${methods.join(", or by ")}.` : "";
   const hasRange = values.some((value) => value.percentiles?.min !== undefined);
   const rangeSentence = hasRange ? " Min and max: the lowest and the highest observation." : "";
   const declared = metric.from ? "" : " Declared by the author, not computed from raw data.";

@@ -24,7 +24,7 @@ Same measurement, 95th percentile of the merged samples. The 95th percentile, in
 
 ### Match rate
 
-Share of addresses located within 50 m of our surveyed position. The share, in %; higher is better. Intervals: 95%, by t. Failed attempts count as zero.
+Share of addresses located within 50 m of our surveyed position. The share, in %; higher is better. Intervals: 95%, by Student's t. Failed attempts count as zero.
 
 | Candidate | Share (%) | 95% interval | n | Failures |
 | --- | ---: | ---: | ---: | ---: |
