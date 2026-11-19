@@ -9,9 +9,10 @@
 
 </div>
 
-Astrolabe lets your agent run benchmarks you can trust. Ask which library is faster or which prompt works better, and your agent measures it fairly, then publishes the results as a page, a README card and charts.
+Astrolabe lets your agent run benchmarks and showcase the results. Ask how your options compare for your use case, including whether one is actually better. Your agent designs the comparison, measures the differences, then turns the results into a page, a card for your README and charts.
 
-A skill teaches the agent the method, and the `astrolabe` command computes every number from the raw data and renders the results. Nothing is typed by hand, so every claim can be checked.
+The framework combines a skill and a command-line tool. The skill brings together best practices for measurement, statistics and presentation, so the agent has a clear process to follow. Its command-line tool, `astrolabe`, computes every number from the raw data and renders the outputs. Since the agent writes code and declarations but never numbers, every claim can be checked.
+
 
 <table>
   <tr>
@@ -21,7 +22,7 @@ A skill teaches the agent the method, and the `astrolabe` command computes every
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
         <img alt="The page of a benchmark of two models for a support assistant: headline results, a chart by category and accuracy against cost" src="assets/readme/site-light.png">
       </picture>
-      <br><b>Site</b> · <sub>a page to publish, with every chart, table and filter</sub>
+      <br><sub><b>Site</b> · a page to publish, with every chart, table and filter</sub>
     </td>
     <td valign="top" width="40%">
       <picture>
@@ -29,20 +30,20 @@ A skill teaches the agent the method, and the `astrolabe` command computes every
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/card-dark.svg">
         <img alt="A README card: three headline results with their verdicts and intervals" src="assets/readme/card-light.png">
       </picture>
-      <br><b>README</b> · <sub>a card linked to a full Markdown report</sub>
+      <br><sub><b>README</b> · a card linked to a full Markdown report</sub>
     </td>
   </tr>
   <tr>
     <td valign="top" width="40%">
       <img alt="A chart image: the run time of Node.js 24 and 26 against Node.js 22, script by script" src="assets/readme/chart-run-time.png">
-      <br><b>Chart images</b> · <sub>PNG or SVG, for posts and slides</sub>
+      <br><sub><b>Chart images</b> · PNG or SVG, for posts and slides</sub>
     </td>
   </tr>
 </table>
 
 ## Getting started
 
-Install the skill, then ask your agent something like _"Which of these two CSV libraries is faster on our files?"_. It loads the skill when you ask to compare or benchmark something, or to report on results you already have. If your project doesn't have the `astrolabe` command yet, the skill adds it, after asking you. It needs Node.js 22 or later.
+Install the skill, then ask your agent to compare options, benchmark a change, or report on results you already have. The agent loads the skill automatically for these requests. If your project doesn't have the `astrolabe` command yet, the agent adds it after asking you. The command requires Node.js 22 or later.
 
 **Claude Code plugin**
 
@@ -50,15 +51,15 @@ Install the skill, then ask your agent something like _"Which of these two CSV l
 claude plugin install astrolabe --marketplace mavdol/astrolabe
 ```
 
-Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`.
+> Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`.
 
-**Any agent that reads [Agent Skills](https://agentskills.io)**
+**Any agent that implements the [Agent Skills specification](https://agentskills.io)**
 
 ```bash
 npx skills add mavdol/astrolabe
 ```
 
-or
+Or install the package and run `init` yourself:
 
 ```bash
 npm install --save-dev astrolabe-bench
@@ -70,7 +71,7 @@ npx --no-install astrolabe init   # copies the skill into .agents/skills/, or --
 Copy [`skills/astrolabe-benchmark/`](skills/astrolabe-benchmark) into your agent's skills folder, such as `.agents/skills/` or `.claude/skills/`.
 
 > [!TIP]
-> Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Haiku, load the skill less reliably and may skip steps.
+> Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Claude Haiku, load the skill less reliably and may skip steps.
 
 ## Contributing
 
