@@ -25,8 +25,8 @@ It combines a skill and a command-line tool. The skill brings together best prac
     </td>
     <td valign="top" width="40%">
       <picture>
-        <source media="(prefers-color-scheme: light)" srcset="assets/readme/card-light.svg">
-        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/card-dark.svg">
+        <source media="(prefers-color-scheme: light)" srcset="assets/readme/card-light.png">
+        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/card-dark.png">
         <img alt="A README card: three headline results with their verdicts and intervals" src="assets/readme/card-light.png">
       </picture>
       <br><sub><b>README</b> · a card linked to a full Markdown report</sub>
