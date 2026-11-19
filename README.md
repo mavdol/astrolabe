@@ -6,17 +6,8 @@
 [![npm](https://img.shields.io/npm/v/astrolabe-bench)](https://www.npmjs.com/package/astrolabe-bench)
 [![CI](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml/badge.svg)](https://github.com/mavdol/astrolabe/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-</div>
 
-<p align="center">
-<a href="examples/js-runtimes/dist/benchmark.md">
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="examples/js-runtimes/dist/exports/readme-card-light.svg">
-  <source media="(prefers-color-scheme: dark)" srcset="examples/js-runtimes/dist/exports/readme-card-dark.svg">
-  <img alt="Deno against Node.js: wall time (lower is better) −10%, likely better; peak memory (lower is better) +1.1%, equivalent." src="examples/js-runtimes/dist/exports/readme-card-light.png" width="720">
-</picture>
-</a>
-</p>
+</div>
 
 Astrolabe lets your agent run benchmarks you can trust. Ask which library is faster or which prompt works better, and your agent measures it fairly, then publishes the results as a page, a README card and charts.
 
