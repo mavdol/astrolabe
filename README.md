@@ -1,4 +1,4 @@
-<div align="center">
+<div align="left">
 <h1> <code>Astrolabe</code></h1>
 
 <b>An open benchmark format. Agents measure, the tool computes, anyone can verify.</b>
@@ -15,7 +15,7 @@ It combines a skill and a command-line tool. The skill brings together best prac
 
 <table>
   <tr>
-    <td valign="top" width="63%" rowspan="2">
+    <td valign="top" width="60%" rowspan="2">
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="assets/readme/site-light.png">
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
