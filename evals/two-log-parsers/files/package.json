@@ -1,0 +1,13 @@
+{
+  "name": "ops-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check-release": "node scripts/check-release.mjs",
+    "incident-scan": "node scripts/incident-scan.mjs",
+    "daily-report": "node scripts/daily-report.mjs"
+  },
+  "devDependencies": {
+    "astrolabe-bench": "0.1.0"
+  }
+}

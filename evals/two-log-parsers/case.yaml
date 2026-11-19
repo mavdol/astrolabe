@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: two-log-parsers
+expected_outcome: |
+  The agent runs the three scripts with each library, several times each, and finds that logline-fast makes
+  check-release clearly slower, because it warms its parser up when it loads, while the nightly daily-report
+  gets faster. check-release is the shortest script and runs at the start of every CI job, about 300 times a day.
+  The run time of each script is compared on its own, with a primary comparison per script declared in the plan:
+  averaged or pooled together, the scripts come out about even and hide the slowdown. The README gives the
+  result of each script, says that check-release gets slower, and its recommendation takes into account how
+  often each script runs (logline-fast for the nightly report only, for example, or no switch).
+  Any astrolabe command the README gives the reader is written in full (`npx --no-install astrolabe`), never a bare `npx astrolabe`.
+context:
+  scaffold_script: place-files.sh
