@@ -77,7 +77,12 @@ describe("the release", () => {
     expect(marketplace.plugins).toEqual([
       expect.objectContaining({
         name: pluginManifest.name,
-        source: { source: "git-subdir", url: repository, path: PLUGIN_FOLDER, ref: `v${packageManifest.version}` },
+        source: {
+          source: "git-subdir",
+          url: `https://github.com/${repository}.git`,
+          path: PLUGIN_FOLDER,
+          ref: `v${packageManifest.version}`,
+        },
       }),
     ]);
     expect(marketplace.plugins[0].version).toBeUndefined();
