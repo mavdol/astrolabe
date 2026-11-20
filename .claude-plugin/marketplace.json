@@ -11,7 +11,7 @@
         "source": "git-subdir",
         "url": "https://github.com/mavdol/astrolabe.git",
         "path": "plugin",
-        "ref": "v0.2.3"
+        "ref": "v0.2.2"
       },
       "description": "Design, run and report honest benchmarks and comparisons: scripts write the raw data, and the astrolabe command (npm package astrolabe-bench) computes every number and verdict."
     }
