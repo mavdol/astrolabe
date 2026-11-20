@@ -76,7 +76,7 @@ Check that it is there before anything else:
 npx --no-install astrolabe --version
 ```
 
-This skill is written for astrolabe 0.2.2 or later. If the check fails, the project does not have it: add the package `astrolabe-bench` to the project's development dependencies (ask first if installing is not yours to decide), then run the check again. If it prints an older version, that copy may refuse what this skill writes: update `astrolabe-bench` the same way, asking first likewise. Do not run a bare `npx astrolabe`: on npm that name belongs to an unrelated package. In the rest of this skill `astrolabe` stands for `npx --no-install astrolabe`. Write it in full in anything a reader will run (a README, a write-up, `artifacts.command`): `npx --no-install astrolabe build`, never `npx astrolabe build`. A CI workflow pins the version instead (deploy.md).
+This skill is written for astrolabe 0.2.2 or later. If the check fails, the project does not have it: add the package `astrolabe-bench` to the project's development dependencies (ask first if installing is not yours to decide), then run the check again. If it prints an older version, that copy may refuse what this skill writes: update `astrolabe-bench` the same way, asking first likewise. Always keep `--no-install`: without it, npx downloads and runs whatever package holds the name `astrolabe` on npm, an unrelated one. In the rest of this skill `astrolabe` stands for `npx --no-install astrolabe`. Write it in full, `--no-install` included, in anything a reader will run (a README, a write-up, `artifacts.command`): `npx --no-install astrolabe build`. In CI, install the project's dependencies first (deploy.md).
 
 | Command | Use |
 | --- | --- |
