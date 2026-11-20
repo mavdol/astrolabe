@@ -9,7 +9,7 @@
       "name": "astrolabe",
       "source": {
         "source": "git-subdir",
-        "url": "mavdol/astrolabe",
+        "url": "https://github.com/mavdol/astrolabe.git",
         "path": "plugin",
         "ref": "v0.2.2"
       },
