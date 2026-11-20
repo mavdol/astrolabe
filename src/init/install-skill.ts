@@ -11,7 +11,7 @@ export const CLAUDE_CODE_PLUGIN = { name: "astrolabe", marketplace: "mavdol/astr
 export const SHARED_SKILLS_FOLDER = join(".agents", "skills");
 
 /** The skill shipped with this package: two folders up from this file, in the sources and in the built package alike. */
-export const PACKAGED_SKILL_FOLDER = fileURLToPath(new URL(`../../skills/${SKILL_NAME}`, import.meta.url));
+export const PACKAGED_SKILL_FOLDER = fileURLToPath(new URL(`../../plugin/skills/${SKILL_NAME}`, import.meta.url));
 
 export interface SkillInstallation {
   folder: string;

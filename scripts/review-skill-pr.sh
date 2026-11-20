@@ -2,7 +2,7 @@
 # Reviews a pull request that changes the skill: runs the evaluations with the PR's skill and with main's,
 # and writes a comparison to paste on the PR.
 #
-# Only the PR's skills/ folder is used. The tool, the tests, the cases and the graders are main's, so no
+# Only the PR's plugin/skills/ folder is used. The tool, the tests, the cases and the graders are main's, so no
 # code from the PR runs on your computer: the skill is text that the sandboxed agent reads.
 # Every run is a real model call billed to your Claude account or API key; nothing starts before you confirm.
 #
@@ -47,20 +47,20 @@ git fetch --quiet origin "pull/$pull_request/head"
 pr_commit=$(git rev-parse FETCH_HEAD)
 
 changed_files=$(git diff --name-only "$main_commit...$pr_commit")
-changed_in_skill=$(echo "$changed_files" | grep -c '^skills/' || true)
+changed_in_skill=$(echo "$changed_files" | grep -c '^plugin/skills/' || true)
 changed_in_evals=$(echo "$changed_files" | grep -c '^evals/' || true)
-changed_elsewhere=$(echo "$changed_files" | grep -c -v -e '^skills/' -e '^evals/' -e '^$' || true)
+changed_elsewhere=$(echo "$changed_files" | grep -c -v -e '^plugin/skills/' -e '^evals/' -e '^$' || true)
 
 if [ "$changed_in_skill" -eq 0 ]; then
-  echo "PR #$pull_request does not change skills/: there is nothing to evaluate."
+  echo "PR #$pull_request does not change plugin/skills/: there is nothing to evaluate."
   exit 0
 fi
 
-echo "PR #$pull_request changes $changed_in_skill files in skills/:"
+echo "PR #$pull_request changes $changed_in_skill files in plugin/skills/:"
 echo
-git --no-pager diff --stat "$main_commit...$pr_commit" -- skills
+git --no-pager diff --stat "$main_commit...$pr_commit" -- plugin/skills
 echo
-echo "Read the changes before any run: git diff $main_commit...$pr_commit -- skills"
+echo "Read the changes before any run: git diff $main_commit...$pr_commit -- plugin/skills"
 
 if [ "$changed_in_evals" -gt 0 ]; then
   echo
@@ -70,7 +70,7 @@ fi
 
 if [ "$changed_elsewhere" -gt 0 ]; then
   echo
-  echo "Note: it also changes $changed_elsewhere files outside skills/ and evals/. They are not used here: the evaluation"
+  echo "Note: it also changes $changed_elsewhere files outside plugin/skills/ and evals/. They are not used here: the evaluation"
   echo "runs main's tool. If the skill depends on those changes, merge them first or review this PR by hand."
 fi
 
@@ -85,9 +85,9 @@ remove_workspace() {
 trap remove_workspace EXIT
 
 git worktree add --quiet --detach "$main_with_pr_skill" "$main_commit"
-git -C "$main_with_pr_skill" restore --source "$pr_commit" --worktree -- skills
+git -C "$main_with_pr_skill" restore --source "$pr_commit" --worktree -- plugin/skills
 mkdir -p "$main_skill"
-git archive "$main_commit" skills | tar -x -C "$main_skill"
+git archive "$main_commit" plugin/skills | tar -x -C "$main_skill"
 
 echo
 echo "Free checks: main's tests with the PR's skill..."
@@ -140,12 +140,12 @@ run_evals() {
 if [ "$sides" -eq 2 ]; then
   echo
   echo "Main's skill:"
-  run_evals "$main_skill/skills" "$main_results"
+  run_evals "$main_skill/plugin/skills" "$main_results"
 fi
 
 echo
 echo "The PR's skill:"
-run_evals skills "$pr_results"
+run_evals plugin/skills "$pr_results"
 
 summary="$pr_results/summary.md"
 (cd "$main_with_pr_skill" && pnpm --silent tsx scripts/compare-eval-results.ts \

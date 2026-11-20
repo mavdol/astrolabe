@@ -1,12 +1,8 @@
 name: Release
 
+# Releases the version on main: bump it first in a pull request with pnpm set-version <version>.
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release, such as 0.2.0"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -18,11 +14,8 @@ concurrency:
 
 jobs:
   release:
-    name: Release ${{ inputs.version }}
+    name: Release
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ inputs.version }}
-      TAG: v${{ inputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,12 +23,16 @@ jobs:
 
       - name: Released from main, under a new version
         run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          TAG="v$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
           if [ "$GITHUB_REF" != refs/heads/main ]; then
             echo "::error::run this workflow on main, not $GITHUB_REF"
             exit 1
           fi
           if git rev-parse --quiet --verify "refs/tags/$TAG" >/dev/null; then
-            echo "::error::$TAG already exists"
+            echo "::error::$TAG already exists: bump the version in a pull request first, with pnpm set-version <version>"
             exit 1
           fi
           echo "PREVIOUS_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)" >> "$GITHUB_ENV"
@@ -53,9 +50,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Set the version
-        run: pnpm set-version "$VERSION"
-
       - name: Typecheck
         run: pnpm typecheck
 
@@ -71,21 +65,17 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: The package holds the command, the skill and the plugin manifest
+      - name: The package holds the command and the skill
         run: |
           npm pack --dry-run --json > pack.json
-          for file in dist/cli/index.js skills/astrolabe-benchmark/SKILL.md .claude-plugin/plugin.json; do
+          for file in dist/cli/index.js plugin/skills/astrolabe-benchmark/SKILL.md; do
             node -e 'const [pack] = require("./pack.json"); process.exit(pack.files.some((entry) => entry.path === process.argv[1]) ? 0 : 1)' "$file" \
               || { echo "::error::$file is missing from the package"; exit 1; }
           done
           rm pack.json
 
-      - name: Commit the release
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --all --message "Release $VERSION"
-          git tag "$TAG"
+      - name: Tag the release
+        run: git tag "$TAG"
 
       - name: Publish to npm
         run: |
@@ -103,11 +93,3 @@ jobs:
         run: gh release create "$TAG" --draft --verify-tag --title "$TAG" --generate-notes ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"}
         env:
           GH_TOKEN: ${{ github.token }}
-
-      - name: Bring main to the released version
-        if: ${{ !contains(inputs.version, '-') }}
-        run: |
-          git push origin "HEAD:refs/heads/main" || {
-            echo "::error::main moved during the release, so it still holds the previous version. $TAG, npm and the draft release are done: merge $TAG into main and push."
-            exit 1
-          }

@@ -7,7 +7,7 @@ import { allRules, rule } from "../src/rules/registry.js";
 import { benchmarkSchema, resultsSchema } from "../src/schema/benchmark.js";
 import { validate } from "../src/validate/validate.js";
 
-const SKILL_FOLDER = "skills/astrolabe-benchmark";
+const SKILL_FOLDER = "plugin/skills/astrolabe-benchmark";
 const ENTRY_FILE = "SKILL.md";
 
 const filesUnder = (folder: string): string[] =>

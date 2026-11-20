@@ -32,7 +32,7 @@ Look before asking: `.github/workflows/`, `.gitlab-ci.yml`, `netlify.toml`, `ver
 
 A repository has one Pages site: if it already has one, this is case 3. Never replace an existing site; the benchmark goes in a sub-folder of it, at `<site>/benchmarks/<id>/`. Relative links make the sub-folder work as it is.
 
-In every case the build runs on the host or in CI from the committed `benchmark.json` and raw files, so `dist/site/` stays out of git (add it to `.gitignore`) and the page never goes stale. Pin the version: `npx astrolabe-bench@<version>`, the version `astrolabe --version` prints, so a rebuild gives the same page until someone chooses to upgrade.
+In every case the build runs on the host or in CI from the committed `benchmark.json` and raw files, so `dist/site/` stays out of git (add it to `.gitignore`) and the page never goes stale. The version is the one the project's lockfile pins, the one `astrolabe --version` prints: install the project's dependencies, then run `npx --no-install astrolabe`, so a rebuild gives the same page until someone chooses to upgrade.
 
 ## Case 1: Pages of a code host
 
@@ -59,7 +59,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: npx astrolabe-bench@<version> build benchmarks/<id>/benchmark.json --format site --url https://<owner>.github.io/<repository>/
+      - run: npm ci
+      - run: npx --no-install astrolabe build benchmarks/<id>/benchmark.json --format site --url https://<owner>.github.io/<repository>/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
@@ -83,7 +84,8 @@ GitLab: a job in `.gitlab-ci.yml` with the `pages` keyword:
 benchmark-site:
   image: node:22
   script:
-    - npx astrolabe-bench@<version> build benchmarks/<id>/benchmark.json --format site
+    - npm ci
+    - npx --no-install astrolabe build benchmarks/<id>/benchmark.json --format site
   pages:
     publish: benchmarks/<id>/dist/site
 ```
@@ -92,7 +94,7 @@ Several benchmarks: build each, copy each `dist/site/` to `<id>/` of one folder,
 
 ## Case 2: a host that builds from the repository
 
-Build command: `npx astrolabe-bench@<version> build benchmarks/<id>/benchmark.json --format site --url <address>`. Output folder: `benchmarks/<id>/dist/site`. Node 22 or later.
+Build command: `npx --no-install astrolabe build benchmarks/<id>/benchmark.json --format site --url <address>`; the host installs the project's dependencies first, as it does for any build. Output folder: `benchmarks/<id>/dist/site`. Node 22 or later.
 
 | Host | Config file | Node version |
 | --- | --- | --- |
@@ -130,7 +132,7 @@ Add a step to that site's own build, before it runs: build the benchmark, then c
 | H3 | Must | Never replace a site that already exists. Publish in a sub-folder of it | This file; checked in the evaluations |
 | H4 | Must | Before the first publication, tell the user what becomes public: the page, `benchmark.json` and the raw data files. Check the raw data for secrets and personal data, and say so when the repository is private | `build` lists the files it copies; the check is yours |
 | H5 | Must | Nothing is published from a file that fails `validate` | `build` validates first and writes nothing on failure |
-| H6 | Should | In CI, pin the version of the command (`npx astrolabe-bench@<version>`) | This file |
+| H6 | Should | In CI, run the version the project pins: install the project's dependencies (`npm ci`, or the install step its other workflows use), then `npx --no-install astrolabe` | This file |
 | H7 | Should | After publication, open the address and check four things: the page loads with its styles, a filter changes the chart, an evidence link opens, and the hash shown on the page is the one `validate` prints | This file |
 | H8 | Should | Once the address is known, set `--url` in the build command and add the link to the README | `build` warns when `--url` is missing |
 | H9 | Should | Give the user the steps only they can do as a short numbered list, with the exact names of the settings | This file |

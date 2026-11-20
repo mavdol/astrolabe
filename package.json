@@ -1,6 +1,6 @@
 {
   "name": "astrolabe-bench",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Benchmarks authored by agents, verifiable by humans: schema, validate and compute.",
   "license": "MIT",
   "homepage": "https://github.com/mavdol/astrolabe",
@@ -16,8 +16,7 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "skills",
-    ".claude-plugin/plugin.json",
+    "plugin/skills",
     "assets/fonts",
     "assets/site"
   ],
