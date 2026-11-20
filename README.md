@@ -77,14 +77,14 @@ npx --no-install astrolabe init   # copies the skill into .agents/skills/, or --
 
 **Manually**
 
-Copy [`skills/astrolabe-benchmark/`](skills/astrolabe-benchmark) into your agent's skills folder, such as `.agents/skills/` or `.claude/skills/`.
+Copy [`plugin/skills/astrolabe-benchmark/`](plugin/skills/astrolabe-benchmark) into your agent's skills folder, such as `.agents/skills/` or `.claude/skills/`.
 
 > [!TIP]
 > Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Claude Haiku, load the skill less reliably and may skip steps.
 
 ## Open format
 
-Each benchmark is a single `benchmark.json`, holding the plan, the results computed from the raw data and the page to render, described by a [JSON Schema](skills/astrolabe-benchmark/benchmark.schema.json) and shown in a [complete example](skills/astrolabe-benchmark/example.benchmark.json).
+Each benchmark is a single `benchmark.json`, holding the plan, the results computed from the raw data and the page to render, described by a [JSON Schema](plugin/skills/astrolabe-benchmark/benchmark.schema.json) and shown in a [complete example](plugin/skills/astrolabe-benchmark/example.benchmark.json).
 
 ## Contributing
 

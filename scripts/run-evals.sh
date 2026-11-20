@@ -15,7 +15,7 @@
 #   --parallel <n>    runs at once, 1 to 8 (default 4); they share your account's rate limit
 #   --max-cost-usd    stop starting new runs past this estimated cost (default 25)
 #   --keep-temp       keep each run's workspace and trace, to see what the agent did
-#   --skills <folder> the skills to test, instead of skills/ (another version of the skill)
+#   --skills <folder> the skills to test, instead of plugin/skills/ (another version of the skill)
 #   --output <folder> where the report is written, instead of evals/results/<date>
 #   --yes             start without asking (for a script that has already asked)
 #   --triggering      the triggering test instead: short requests that should, or should not, load the skill;
@@ -37,7 +37,7 @@ filters=()
 extra=()
 case_pattern='*'
 quick_only=false
-skills=skills
+skills=plugin/skills
 output=""
 confirmed=false
 cases_root=evals
@@ -129,7 +129,7 @@ make_plugin() {
   local plugin="$1" folder
   shift
   mkdir -p "$plugin/.claude-plugin"
-  cp .claude-plugin/plugin.json "$plugin/.claude-plugin/plugin.json"
+  cp plugin/.claude-plugin/plugin.json "$plugin/.claude-plugin/plugin.json"
   rsync -a --exclude /results/ --exclude /triggering/ "$cases_root/" "$plugin/evals/"
   for folder in "$plugin"/evals/*/; do
     [[ " $* " == *" $(basename "$folder") "* ]] || rm -rf "$folder/prompt.md" "$folder/case.yaml" "$folder/graders"

@@ -317,7 +317,7 @@
   {
     "id": "H6",
     "level": "should",
-    "text": "In CI, pin the version of the command (`npx astrolabe-bench@<version>`)",
+    "text": "In CI, run the version the project pins: install the project's dependencies (`npm ci`, or the install step its other workflows use), then `npx --no-install astrolabe`",
     "explained_in": "deploy.md"
   },
   {

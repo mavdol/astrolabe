@@ -9,9 +9,10 @@ if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) {
 
 const placesThatNameTheVersion = [
   { file: "package.json", pattern: /("version": ")[^"]+(")/ },
-  { file: ".claude-plugin/plugin.json", pattern: /("version": ")[^"]+(")/ },
-  { file: "skills/astrolabe-benchmark/SKILL.md", pattern: /(^compatibility: .*version )\S+( or later)/m },
-  { file: "skills/astrolabe-benchmark/SKILL.md", pattern: /(This skill is written for astrolabe )\S+( or later\.)/ },
+  { file: "plugin/.claude-plugin/plugin.json", pattern: /("version": ")[^"]+(")/ },
+  { file: ".claude-plugin/marketplace.json", pattern: /("ref": "v)[^"]+(")/ },
+  { file: "plugin/skills/astrolabe-benchmark/SKILL.md", pattern: /(^compatibility: .*version )\S+( or later)/m },
+  { file: "plugin/skills/astrolabe-benchmark/SKILL.md", pattern: /(This skill is written for astrolabe )\S+( or later\.)/ },
 ];
 
 const texts = new Map<string, string>();

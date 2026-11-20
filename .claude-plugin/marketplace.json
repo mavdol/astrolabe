@@ -3,13 +3,15 @@
   "owner": {
     "name": "astrolabe"
   },
-  "description": "The astrolabe benchmark framework for Claude Code.",
+  "description": "Astrolabe for Claude Code: an open benchmark format, a skill and a command that computes every number.",
   "plugins": [
     {
       "name": "astrolabe",
       "source": {
-        "source": "npm",
-        "package": "astrolabe-bench"
+        "source": "git-subdir",
+        "url": "mavdol/astrolabe",
+        "path": "plugin",
+        "ref": "v0.2.2"
       },
       "description": "Design, run and report honest benchmarks and comparisons: scripts write the raw data, and the astrolabe command (npm package astrolabe-bench) computes every number and verdict."
     }
