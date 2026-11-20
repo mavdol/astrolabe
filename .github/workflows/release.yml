@@ -103,3 +103,11 @@ jobs:
         run: gh release create "$TAG" --draft --verify-tag --title "$TAG" --generate-notes ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"}
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Bring main to the released version
+        if: ${{ !contains(inputs.version, '-') }}
+        run: |
+          git push origin "HEAD:refs/heads/main" || {
+            echo "::error::main moved during the release, so it still holds the previous version. $TAG, npm and the draft release are done: merge $TAG into main and push."
+            exit 1
+          }
