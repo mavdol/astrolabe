@@ -110,6 +110,8 @@ function countUp(element, delay) {
 
   element.textContent = format(0);
   requestAnimationFrame(step);
+  // A browser that pauses frames, in a background tab for one, still ends on the figure as written.
+  window.setTimeout(() => (element.textContent = written), delay + 1500);
 }
 
 const ARRIVING = ".hero > *, .stat, .chapter-head > *, .chapter-body, .trust-body > .block";
