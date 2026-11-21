@@ -21,8 +21,10 @@ const rayLength = (index: number) => 150 + 90 * Math.abs(Math.sin(index * 1.7)) 
 
 function starburst(centreX: number, centreY: number, radius: number, strokeWidth: number, ink: string): string {
   const scale = radius / LONGEST_RAY;
-  const pointAt = (angle: number, distance: number) =>
-    `${rounded(centreX + Math.cos(angle) * distance * scale)} ${rounded(centreY + Math.sin(angle) * distance * scale)}`;
+  const pointAt = (angle: number, distance: number) => [
+    rounded(centreX + Math.cos(angle) * distance * scale),
+    rounded(centreY + Math.sin(angle) * distance * scale),
+  ];
   const rays = Array.from({ length: RAYS }, (_, index) => {
     const angle = (index / RAYS) * Math.PI * 2 - Math.PI / 2;
     const [endX, endY] = pointAt(angle, rayLength(index)).split(" ");
