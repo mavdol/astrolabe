@@ -73,6 +73,16 @@ describe("the colours of the default theme", () => {
     for (const grey of colours.series) expect(contrastRatio(grey, colours.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
   });
 
+  it.each(["light", "dark"] as const)("%s: the verdict colours read as text, and quiet text holds at large sizes", (mode) => {
+    const colours = THEME[mode];
+
+    expect(contrastRatio(colours.good, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.bad, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.inkOnFill, colours.good)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.inkOnFill, colours.bad)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.quiet, colours.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
+  });
+
   it("tells candidates apart by shape as well as by colour", () => {
     const styles = [...seriesStylesOf(["a", "b", "c", "d"], undefined, "light").values()];
 
@@ -145,8 +155,9 @@ describe("a chart of values", () => {
   it("marks which way is better, in words and with an arrow", () => {
     const chart = draw(parsers, memory);
 
-    expect(chart.textLines).toContain("← better");
-    expect(chart.textLines).toContain("Peak memory, median in MiB · lower is better");
+    expect(chart.textLines).toContain("← BETTER");
+    expect(chart.subtitle).toBe("Peak memory, median in MiB · lower is better");
+    expect(chart.textLines, "in capitals, as the page's labels").toContain("PEAK MEMORY, MEDIAN IN MIB · LOWER IS BETTER");
   });
 
   it("says how to read it: what a mark is, how many observations, the level and method of the intervals", () => {
@@ -171,7 +182,7 @@ describe("a chart of values", () => {
     const dots = draw(parsers, chartBlock({ chart: "dot-interval", ...logScaled }));
 
     expect(dots.textLines).toContain("1  2  5  10");
-    expect(dots.textLines).toContain("Wall time, median in s · lower is better · log scale");
+    expect(dots.subtitle).toBe("Wall time, median in s · lower is better · log scale");
     expect(dots.howToRead).toContain("The axis is on a log scale: Run times span orders of magnitude.");
     expect(() => draw(parsers, chartBlock({ chart: "bar", ...logScaled }))).toThrow(/a log scale has no zero, so it cannot carry bars/);
   });
@@ -194,7 +205,7 @@ describe("a chart broken down by node", () => {
   });
 
   it("resolves the templates of the author's reading", () => {
-    expect(draw(notes, tasks).textLines).toContain("Overall: inconclusive.");
+    expect(draw(notes, tasks).textLines.join(" ")).toContain("Overall: inconclusive.");
   });
 
   it("is narrowed by the filters it listens to", () => {
@@ -234,7 +245,7 @@ describe("a chart of effects", () => {
     const support = loadBenchmark("support-assistant-eval");
     const byCategory = draw(support, chartBlockOf(support, "chart-by-category"));
 
-    expect(byCategory.textLines).toContain("Accuracy: change of Model A against Model B, in points · higher is better");
+    expect(byCategory.subtitle).toBe("Accuracy: change of Model A against Model B, in points · higher is better");
     expect(byCategory.textLines).toContain("Reasoning  −1.5 points  inconclusive");
   });
 
@@ -268,10 +279,12 @@ describe("a chart as an image", () => {
   });
 
   it("carries its provenance only when it travels alone", () => {
-    const provenance = expect.stringMatching(/results [0-9a-f]{12} · 2026-11-17 · Built with Astrolabe$/);
+    const provenance = /results [0-9a-f]{12} · 2026-11-17 · Built with Astrolabe$/;
+    const standalone = draw(parsers, effects, { standalone: true }).textLines;
 
-    expect(draw(parsers, effects, { standalone: true }).textLines).toContainEqual(provenance);
-    expect(draw(parsers, effects).textLines).not.toContainEqual(provenance);
+    expect(standalone.join(" · ")).toMatch(provenance);
+    expect(standalone.at(-1), "broken between its parts, never inside one").toBe("Built with Astrolabe");
+    expect(draw(parsers, effects).textLines.join(" · ")).not.toMatch(provenance);
   });
 
   it("is as tall as its rows need, or exactly the height asked for", () => {
@@ -396,7 +409,7 @@ describe("the chart set", () => {
 
   it("draws the interval of every value that has one", () => {
     const notes = loadBenchmark("notes-apps-onboarding");
-    const chart = draw(notes, chartBlockOf(notes, "chart-tasks"));
+    const chart = draw(notes, chartBlockOf(notes, "chart-tasks"), { plotOnly: true });
     const intervalsAcross = chart.svg.match(/<path d="M[\d.]+ [\d.]+H[\d.]+M[\d.]+ [\d.]+V[\d.]+M[\d.]+ [\d.]+V[\d.]+"/g) ?? [];
 
     expect(chart.table.rows.filter((row) => row[3] !== "—")).toHaveLength(6);
@@ -465,7 +478,9 @@ describe("comparison rows", () => {
   });
 
   it("writes the effects of its title and reading as factors too", () => {
-    expect(draw(parsers, fastjson).textLines).toContain("Faster, at the cost of memory: wall time 1.98× faster, peak memory 2.88× more.");
+    expect(draw(parsers, fastjson).textLines.join(" ")).toContain(
+      "Faster, at the cost of memory: wall time 1.98× faster, peak memory 2.88× more.",
+    );
   });
 
   it("refuses a factor on a difference, on another chart type, and comparisons that do not exist", () => {
@@ -491,7 +506,13 @@ describe("a scatter chart", () => {
     const chart = draw(support, costAccuracy);
 
     expect(chart.textLines).toEqual(
-      expect.arrayContaining(["Model A", "Model B", "better", "Cost per item, mean in USD · lower is better"]),
+      expect.arrayContaining([
+        "Model A",
+        "Model B",
+        "BETTER",
+        "↑ ACCURACY, SHARE IN % · HIGHER IS BETTER",
+        "COST PER ITEM, MEAN IN USD · LOWER IS BETTER ←",
+      ]),
     );
     expect(chart.howToRead).toContain("The marked corner is better: lower cost per item and higher accuracy.");
     expect(chart.table.rows.map((row) => row[5])).toEqual(["no", "no"]);
@@ -504,7 +525,7 @@ describe("a scatter chart", () => {
     beaten.results.values!.find((value) => value.metric === "accuracy" && value.node === "suite" && value.candidate === "model_b")!.value =
       90;
 
-    const chart = draw(beaten, costAccuracy);
+    const chart = draw(beaten, costAccuracy, { plotOnly: true });
 
     expect(chart.table.rows.map((row) => row[5])).toEqual(["yes", "no"]);
     expect(chart.svg).not.toContain("stroke-dasharray");
@@ -523,7 +544,7 @@ describe("a line chart", () => {
     const chart = draw(support, chartBlock({ chart: "line", metric: "accuracy", breakdown: "task" }));
 
     expect(chart.textLines).toEqual(
-      expect.arrayContaining(["better ↑", "Math word problems  Policy questions  Bug fixes", "Model A  73  68  59", "Model B  71  73  45"]),
+      expect.arrayContaining(["BETTER ↑", "Math word problems  Policy questions  Bug fixes", "Model A  73  68  59", "Model B  71  73  45"]),
     );
     expect(chart.table.header).toEqual(["task", "Candidate", "Share (%)", "Interval", "n"]);
   });
@@ -547,13 +568,13 @@ describe("a shaded table", () => {
     expect(chart.table.rows[2]).toEqual(["Bug fixes", expect.stringMatching(/^59 \(\d+ to \d+\)$/), expect.stringMatching(/^45 \(/)]);
   });
 
-  it("shades with a single grey ramp, the figures readable on every shade", () => {
+  it("shades with a single neutral ramp, the figures readable on every shade", () => {
     for (const mode of ["light", "dark"] as const)
       for (let share = 0; share <= 1; share += 0.05) {
         const fill = cellFill(THEME[mode], share, LARGEST_SHADE[mode]);
-        const [red, green, blue] = [1, 3, 5].map((start) => fill.slice(start, start + 2));
+        const channels = [1, 3, 5].map((start) => parseInt(fill.slice(start, start + 2), 16));
 
-        expect(red === green && green === blue, fill).toBe(true);
+        expect(Math.max(...channels) - Math.min(...channels), `${fill} has no hue of its own`).toBeLessThanOrEqual(4);
         expect(contrastRatio(THEME[mode].ink, fill)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
       }
   });

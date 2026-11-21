@@ -4,7 +4,20 @@ import type { ChartBlock } from "../../schema/presentation.js";
 import { THEME, type Mode } from "../../themes/astrolabe.js";
 import { lookupOf, provenanceParts, resolveTemplates, type BuildContext, type Lookup } from "../describe.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "../svg-text.js";
-import { sentence, unionOf, type ChartContent, type ChartInputs, type DataTable } from "./chart-content.js";
+import { tickMark, TICK_MARK_WIDTH } from "../card.js";
+import {
+  asSentence,
+  capitalised,
+  keyMarkOf,
+  sentence,
+  unionOf,
+  type ChartContent,
+  type ChartInputs,
+  type DataTable,
+  type KeyMark,
+  type KeyPaint,
+  type ReadingPart,
+} from "./chart-content.js";
 import { ChartError, filterStatesOf, type FilterState } from "./chart-data.js";
 import { comparisonRowsContent } from "./comparison-rows.js";
 import { lineContent } from "./line.js";
@@ -49,23 +62,66 @@ export interface RenderedChart {
   description: string;
   /** How to read the chart: what is measured, its direction, the observations and the intervals. */
   howToRead: string;
+  /** The same, sentence by sentence, the sentences about a mark tagged with it, when the chart says it that way. */
+  howToReadParts?: ReadingPart[];
   /** The same data as a table, for readers who cannot use the shapes. */
   table: DataTable;
   textLines: string[];
   charactersWithoutGlyph: string[];
 }
 
+/** As on the site: what is measured and the small print in Geist Mono, the claim and its reading in Inter. */
 const STYLE = {
-  title: { weight: 600, size: 20, lineHeight: 26, tracking: -0.01 },
-  subtitle: { weight: 500, size: 13, lineHeight: 18 },
-  description: { weight: 400, size: 13, lineHeight: 19 },
-  foot: { weight: 400, size: 12, lineHeight: 17 },
+  title: { weight: 500, size: 22, lineHeight: 28, tracking: -0.02 },
+  tightTitle: { weight: 500, size: 20, lineHeight: 25, tracking: -0.02 },
+  subtitle: { weight: 400, size: 12, lineHeight: 16, tracking: 0.04, mono: true },
+  foot: { weight: 400, size: 12, lineHeight: 18, mono: true },
 } as const;
 
 const PADDING = 32;
 
+/** The space between the parts around the plot; an image of a set shape keeps it tighter, to leave the plot its room. */
+const SPACING = {
+  roomy: { underLabel: 14, underHeading: 24, beforeFooter: 20, underRule: 14, inFooter: 10 },
+  tight: { underLabel: 8, underHeading: 14, beforeFooter: 10, underRule: 6, inFooter: 6 },
+} as const;
+const KEY_MARK_WIDTH = 18;
+const KEY_MARK_HEIGHT = 12;
+const KEY_MARK_GAP = 10;
+const KEY_COLUMN_GAP = 28;
+const KEY_ROW_GAP = 8;
+
 export const PAGE_FONT_FAMILY = "Inter, system-ui, sans-serif";
-const CORNER_RADIUS = 12;
+
+interface KeyEntry {
+  mark: KeyMark;
+  lines: string[];
+  x: number;
+  y: number;
+}
+
+/** The key as on the site: each mark with its words, side by side while they fit, a long entry on its own row. */
+function keyLayoutOf(parts: ReadingPart[], text: SvgTextRenderer, width: number): { entries: KeyEntry[]; height: number } {
+  const entries: KeyEntry[] = [];
+  const textRoom = width - KEY_MARK_WIDTH - KEY_MARK_GAP;
+  let [x, y, rowHeight] = [0, 0, 0];
+
+  for (const part of parts) {
+    const words = capitalised(part.text);
+    const lines = text.wrap(words, STYLE.foot, textRoom);
+    const entryWidth = lines.length === 1 ? KEY_MARK_WIDTH + KEY_MARK_GAP + text.measure(words, STYLE.foot) : width;
+
+    if (x > 0 && x + entryWidth > width) {
+      [x, y, rowHeight] = [0, y + rowHeight + KEY_ROW_GAP, 0];
+    }
+
+    entries.push({ mark: part.mark!, lines, x, y });
+    x += entryWidth + KEY_COLUMN_GAP;
+    rowHeight = Math.max(rowHeight, lines.length * STYLE.foot.lineHeight);
+  }
+
+  return { entries, height: entries.length > 0 ? y + rowHeight : 0 };
+}
 
 /** The chart types whose main axis can be shared with another block: the others have two axes, or one per row. */
 const CHART_TYPES_WITH_ONE_VALUE_AXIS = new Set([
@@ -188,42 +244,66 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const title = resolveTemplates(block.title, lookup, block.effect_format);
   const reading = block.description ? resolveTemplates(block.description, lookup, block.effect_format) : "";
   const provenance = provenanceParts(benchmark, context);
-  const provenanceText = [
+  const provenanceItems = [
     provenance.source.replace(/^https?:\/\//, ""),
     `results ${provenance.hash}`,
     provenance.date,
     ...(provenance.continuousIntegration ? [`commit ${provenance.continuousIntegration.commit}`] : []),
     ...(provenance.attribution ? ["Built with Astrolabe"] : []),
-  ].join(" · ");
+  ];
+  const provenanceText = provenanceItems.join(" · ");
 
-  interface TextPart {
-    lines: string[];
-    style: TextStyle & { lineHeight: number };
-    fill: string;
-    gapAfter: number;
-  }
+  const decorated = !plotOnly;
+  const spacing = options.height === undefined ? SPACING.roomy : SPACING.tight;
+  const headingStyle = options.height === undefined ? STYLE.title : STYLE.tightTitle;
+  const labelLines = decorated
+    ? text.wrapParts(
+        content.subtitle.split(" · ").map((part) => part.toUpperCase()),
+        STYLE.subtitle,
+        innerWidth - TICK_MARK_WIDTH,
+      )
+    : [];
+  const claimed = (reading ? asSentence(title) : title).replace(/\s+/g, " ").trim();
+  const headingLines = decorated ? text.wrap(reading ? `${claimed} ${reading}` : claimed, headingStyle, innerWidth) : [];
+  const readingParts = (content.howToReadParts ?? []).filter((part) => part.text);
+  const keyed = readingParts.filter((part) => part.mark);
+  const provenanceLines = decorated && options.standalone ? text.wrapParts(provenanceItems, STYLE.foot, innerWidth) : [];
+  const footLines = (count: number) => count * STYLE.foot.lineHeight;
+  const headerHeight = decorated
+    ? labelLines.length * STYLE.subtitle.lineHeight +
+      spacing.underLabel +
+      headingLines.length * headingStyle.lineHeight +
+      spacing.underHeading
+    : 0;
+  const footerOf = (withKey: boolean) => {
+    const key = withKey ? keyLayoutOf(keyed, text, innerWidth) : undefined;
+    const saidText = key
+      ? readingParts
+          .filter((part) => !part.mark)
+          .map((part) => part.text)
+          .join(" ")
+      : content.howToRead;
+    const saidLines = text.wrap(saidText, STYLE.foot, innerWidth);
+    const height =
+      spacing.underRule +
+      (key?.height ?? 0) +
+      (key && saidLines.length > 0 ? spacing.inFooter : 0) +
+      footLines(saidLines.length) +
+      (provenanceLines.length > 0 ? spacing.inFooter + footLines(provenanceLines.length) : 0);
 
-  const wrapped = (words: string, style: TextStyle) => text.wrap(words, style, innerWidth);
-  const header: TextPart[] = plotOnly
-    ? []
-    : [
-        { lines: wrapped(title, STYLE.title), style: STYLE.title, fill: colours.ink, gapAfter: 4 },
-        { lines: wrapped(content.subtitle, STYLE.subtitle), style: STYLE.subtitle, fill: colours.secondary, gapAfter: reading ? 8 : 16 },
-        ...(reading ? [{ lines: wrapped(reading, STYLE.description), style: STYLE.description, fill: colours.ink, gapAfter: 16 }] : []),
-      ];
-  const footer: TextPart[] = plotOnly
-    ? []
-    : [
-        { lines: wrapped(content.howToRead, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 6 },
-        ...(options.standalone
-          ? [{ lines: wrapped(provenanceText, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 0 }]
-          : []),
-      ];
-  const heightOf = (parts: TextPart[]) =>
-    parts.reduce((height, part) => height + part.lines.length * part.style.lineHeight + part.gapAfter, 0);
-  const gapBeforeFooter = plotOnly ? 0 : 16;
-  const fixedHeight = 2 * padding + heightOf(header) + gapBeforeFooter + heightOf(footer);
+    return { key, saidLines, height };
+  };
   const plotHeights = content.plot.heightsAt(innerWidth, text);
+  const gapBeforeFooter = decorated ? spacing.beforeFooter : 0;
+  const fixedHeightWith = (footerHeight: number) => 2 * padding + headerHeight + gapBeforeFooter + footerHeight;
+  const keyedFooter = decorated && keyed.length > 0 ? footerOf(true) : undefined;
+  // An image of a set shape gives up the key for the same words in one paragraph when the key would leave the plot too little room.
+  const footer = decorated
+    ? keyedFooter && (options.height === undefined || options.height - fixedHeightWith(keyedFooter.height) >= plotHeights.smallest)
+      ? keyedFooter
+      : footerOf(false)
+    : undefined;
+  const fixedHeight = fixedHeightWith(footer?.height ?? 0);
   const room = options.height === undefined ? plotHeights.usual : options.height - fixedHeight;
 
   if (room < plotHeights.smallest)
@@ -234,37 +314,94 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
 
   const plotHeight = Math.min(room, plotHeights.largest);
   const height = options.height ?? Math.ceil(fixedHeight + plotHeight);
+  const drawLine = (line: string, x: number, top: number, style: TextStyle & { lineHeight: number }, fill: string) => {
+    textLines.push(line);
+    marks.push(text.draw(line, x, top + style.size * CAP_HEIGHT_RATIO + (style.lineHeight - style.size) / 2, { ...style, fill }));
+  };
+  let y = padding;
 
-  const drawParts = (parts: TextPart[], startY: number): number => {
-    let y = startY;
+  if (decorated) {
+    marks.push(tickMark(padding, y + STYLE.subtitle.lineHeight / 2, colours));
 
-    for (const part of parts) {
-      for (const line of part.lines) {
-        textLines.push(line);
-        marks.push(
-          text.draw(line, padding, y + part.style.size * CAP_HEIGHT_RATIO + (part.style.lineHeight - part.style.size) / 2, {
-            ...part.style,
-            fill: part.fill,
-          }),
-        );
-        y += part.style.lineHeight;
-      }
-
-      y += part.gapAfter;
+    for (const line of labelLines) {
+      drawLine(line, padding + TICK_MARK_WIDTH, y, STYLE.subtitle, colours.secondary);
+      y += STYLE.subtitle.lineHeight;
     }
 
-    return y;
-  };
+    y += spacing.underLabel;
 
-  const plotTop = drawParts(header, padding) + (room - plotHeight) / 2;
+    // The claim in ink and the reading after it in grey, as one paragraph, as the site's chapters write it.
+    let offset = 0;
+
+    for (const line of headingLines) {
+      const inkLength = Math.max(0, Math.min(line.length, claimed.length - offset));
+      const [ink, grey] = [line.slice(0, inkLength), line.slice(inkLength).trimStart()];
+      const baseline = y + headingStyle.size * CAP_HEIGHT_RATIO + (headingStyle.lineHeight - headingStyle.size) / 2;
+
+      textLines.push(line);
+
+      if (ink) marks.push(text.draw(ink, padding, baseline, { ...headingStyle, fill: colours.ink }));
+
+      if (grey)
+        marks.push(
+          text.draw(grey, padding + (ink ? text.measure(`${ink} `, headingStyle) : 0), baseline, {
+            ...headingStyle,
+            fill: colours.secondary,
+          }),
+        );
+
+      offset += line.length + 1;
+      y += headingStyle.lineHeight;
+    }
+
+    y += spacing.underHeading;
+  }
+
+  const plotTop = y + (room - plotHeight) / 2;
   const plot = content.plot.draw(text, colours, { x: padding, y: plotTop, width: innerWidth, height: plotHeight });
 
   marks.push(...plot.marks);
   textLines.push(...plot.textLines);
 
-  const footerTop = options.height === undefined ? plotTop + plotHeight + gapBeforeFooter : height - padding - heightOf(footer);
+  if (footer) {
+    const { key, saidLines } = footer;
+    const keyPaint: KeyPaint = (role) =>
+      ({
+        fill: `fill="${colours.ink}"`,
+        stroke: `fill="none" stroke="${colours.ink}" stroke-width="1.5"`,
+        dashed: `fill="none" stroke="${colours.secondary}" stroke-width="1.5" stroke-dasharray="3 3"`,
+        band: `fill="${colours.ruleStrong}"`,
+      })[role];
+    let footerY = options.height === undefined ? plotTop + plotHeight + gapBeforeFooter : height - padding - footer.height;
 
-  drawParts(footer, footerTop);
+    marks.push(`<path d="M${padding} ${footerY + 0.5}H${padding + innerWidth}" stroke="${colours.ruleStrong}" stroke-dasharray="3 3"/>`);
+    footerY += spacing.underRule;
+
+    for (const entry of key?.entries ?? []) {
+      const [x, top] = [padding + entry.x, footerY + entry.y];
+
+      marks.push(
+        `<g transform="translate(${x} ${top + (STYLE.foot.lineHeight - KEY_MARK_HEIGHT) / 2})">${keyMarkOf(entry.mark, keyPaint)}</g>`,
+      );
+      entry.lines.forEach((line, index) =>
+        drawLine(line, x + KEY_MARK_WIDTH + KEY_MARK_GAP, top + index * STYLE.foot.lineHeight, STYLE.foot, colours.secondary),
+      );
+    }
+
+    if (key) footerY += key.height + (saidLines.length > 0 ? spacing.inFooter : 0);
+
+    for (const line of saidLines) {
+      drawLine(line, padding, footerY, STYLE.foot, colours.secondary);
+      footerY += STYLE.foot.lineHeight;
+    }
+
+    if (provenanceLines.length > 0) footerY += spacing.inFooter;
+
+    for (const line of provenanceLines) {
+      drawLine(line, padding, footerY, STYLE.foot, colours.quiet);
+      footerY += STYLE.foot.lineHeight;
+    }
+  }
 
   const altText = `${sentence(title)} ${sentence(content.kind)}`;
   const valuesInWords = content.table.rows.map((row) => row.filter((cell) => cell !== "" && cell !== "—").join(", ")).join("; ");
@@ -274,7 +411,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const enlargement = options.enlargement ?? 1;
   const frame =
     options.standalone && !plotOnly
-      ? `<rect x="0.5" y="0.5" width="${options.width - 1}" height="${height - 1}" rx="${CORNER_RADIUS}" fill="${colours.background}" stroke="${colours.rule}"/>`
+      ? `<rect x="0.5" y="0.5" width="${options.width - 1}" height="${height - 1}" fill="${colours.background}" stroke="${colours.ruleStrong}"/>`
       : "";
   const opening = plotOnly
     ? [
@@ -299,6 +436,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
     altText,
     description,
     howToRead: content.howToRead,
+    howToReadParts: content.howToReadParts,
     table: content.table,
     textLines,
     charactersWithoutGlyph: text.charactersWithoutGlyph(),

@@ -7,6 +7,7 @@ import { cardContentOf, MAX_HEADLINES, renderCard, STYLE } from "../src/render/c
 import { exportPlanOf, pictureHtml } from "../src/render/exports.js";
 import { pngOf } from "../src/render/png.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
+import { seriesStylesOf, THEME } from "../src/themes/astrolabe.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -24,26 +25,26 @@ describe("the README card", () => {
 
   it("can be read alone: the question, effects, verdicts, intervals, how to read and the provenance", () => {
     expect(card.textLines).toEqual([
-      "Deno against Node.js",
+      "js-runtimes v1.0.0 · DENO AGAINST NODE.JS",
       "Which JavaScript runtime runs our short command-line scripts",
       "faster and with less memory: Node.js or Deno?",
-      "Wall time · lower is better",
+      "WALL TIME · LOWER IS BETTER",
       "\u221210%",
       "LIKELY BETTER",
-      "\u2190 better",
-      "\u221210%  0  +10%",
+      "Deno  0.241 s",
+      "Node.js  0.269 s",
       "Interval \u221212 to \u22129%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Peak memory · lower is better",
+      "PEAK MEMORY · LOWER IS BETTER",
       "+1.1%",
       "EQUIVALENT",
-      "\u2190 better",
-      "\u221220%  0  +20%",
+      "Deno  215 MiB",
+      "Node.js  213 MiB",
       "Interval +1.0 to +1.2%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons. Shaded band: too small to matter.",
+      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons.",
       expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
@@ -56,15 +57,37 @@ describe("the README card", () => {
     );
   });
 
-  it("fills the badge of a firm verdict and outlines a likely or inconclusive one", () => {
-    expect(card.svg).toContain('fill="none" stroke="#5c5c5c"');
-    expect(card.svg).toMatch(/<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="22" rx="11" fill="#0a0a0a"\/>/);
+  it("draws each verdict as the site does: its word after a dot, in a hairline frame of the verdict's colour", () => {
+    expect(card.svg).toContain(`rx="6" fill="none" stroke="${THEME.light.good}" stroke-opacity="0.4"`);
+    expect(card.svg, "a verdict that is neither better nor worse stays grey").toContain(
+      `rx="6" fill="none" stroke="${THEME.light.ruleStrong}"`,
+    );
+    expect(card.svg, "no filled badge").not.toMatch(/height="2[0-9]" rx="\d" fill="#/);
   });
 
-  it("draws each effect as a dot, its interval as a capped line and the smallest difference that matters as a band", () => {
-    expect(card.svg.match(/<circle /g)).toHaveLength(2);
-    expect(card.svg.match(/stroke-dasharray="2 2"/g)).toHaveLength(2);
-    expect(card.svg.match(/stroke-width="2.5" stroke-linecap="round"/g)).toHaveLength(2);
+  it("draws a change in percent as the two values it compares, from zero, each in its candidate's colour", () => {
+    const series = seriesStylesOf(["node", "deno"], runtimes.style, "light");
+    const bars = [...card.svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="12" rx="2" fill="(#[0-9a-f]+)"\/>/g)];
+
+    expect(bars.map((bar) => bar[3])).toEqual([
+      series.get("deno")!.colour,
+      series.get("node")!.colour,
+      series.get("deno")!.colour,
+      series.get("node")!.colour,
+    ]);
+    expect(new Set(bars.slice(0, 2).map((bar) => bar[1])).size, "both bars start at the same zero").toBe(1);
+    expect(Number(bars[0][2]), "Deno's shorter time is the shorter bar").toBeLessThan(Number(bars[1][2]));
+  });
+
+  it("draws a difference as a dot, its interval as a capped line and the smallest difference that matters as a band", () => {
+    const suite = loadBenchmark("support-assistant-eval");
+    const svg = renderCard(suite, cardContentOf(suite), "light", context).svg;
+
+    expect(svg.match(/<circle [^>]*r="5"/g)).toHaveLength(3);
+    expect(
+      svg.match(new RegExp(`<rect x="[\\d.]+" y="[\\d.]+" width="[\\d.]+" height="28" fill="${THEME.light.band}"/>`, "g")),
+    ).toHaveLength(3);
+    expect(svg.match(/stroke-width="2.5" stroke-linecap="round"/g)).toHaveLength(3);
   });
 
   it("changes only its colours between light and dark", () => {
@@ -72,7 +95,7 @@ describe("the README card", () => {
 
     expect(dark.textLines).toEqual(card.textLines);
     expect(dark.svg).not.toBe(card.svg);
-    expect(dark.svg).toContain('fill="#0a0a0a"');
+    expect(dark.svg).toContain(`fill="${THEME.dark.background}"`);
   });
 
   it("draws no text below 12 px", () => {
@@ -109,7 +132,7 @@ describe("what a card shows", () => {
     const lines = renderCard(parsers, content, "light", context).textLines;
 
     expect(content.headlines.map((headline) => headline.comparison.id)).toEqual(["wall_time__fastjson", "peak_rss__fastjson"]);
-    expect(lines).toContain("Wall time · lower is better");
+    expect(lines).toContain("WALL TIME · LOWER IS BETTER");
     expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline blocks/);
   });
 });
@@ -117,35 +140,28 @@ describe("what a card shows", () => {
 describe("reading a card at a glance", () => {
   const parsers = loadBenchmark("json-cli-parse");
   const parsersCard = renderCard(parsers, cardContentOf(parsers, ["headline-time", "headline-memory"]), "light", context);
+  const suite = loadBenchmark("support-assistant-eval");
+  const suiteCard = renderCard(suite, cardContentOf(suite), "light", context);
 
-  it("shows the direction of a verdict inside its badge: a check for better, a cross for worse", () => {
-    const icons = [...parsersCard.svg.matchAll(/<path d="([^"]+)" fill="none" stroke="#ffffff" stroke-width="1.8"/g)].map(
-      (match) => match[1],
-    );
-
-    expect(icons).toHaveLength(2);
-    expect(icons[0].split(/[ML]/).filter(Boolean)).toHaveLength(3);
-    expect(icons[1].match(/M/g)).toHaveLength(2);
+  it("names the benchmark and its version first, as the site does, then what it compares", () => {
+    expect(suiteCard.textLines[0]).toBe("support-assistant-eval v1.2.0 · MODEL A AGAINST MODEL B");
+    expect(suiteCard.svg).not.toMatch(/ rx="1[0-9]"/);
   });
 
   it("never cuts the axis, even when the interval lies far beyond the band", () => {
-    const horizontalRules = parsersCard.svg.match(/H[\d.]+" stroke="#e5e5e5"/g);
+    const baselines = suiteCard.svg.match(new RegExp(`H[\\d.]+" stroke="${THEME.light.ruleStrong}"`, "g"));
 
-    expect(horizontalRules, "one unbroken baseline per strip, plus the rule above the footer").toHaveLength(3);
-    expect(parsersCard.textLines).toContain("\u221210%  0  +10%");
+    expect(baselines, "one unbroken baseline per strip").toHaveLength(3);
+    expect(suiteCard.textLines.filter((line) => line === "\u22123  0  +3")).toHaveLength(3);
   });
 
-  it("draws each strip in the effect's own sign, as the charts do, with an arrow to the better side", () => {
-    const [band] = [...parsersCard.svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="[\d.]+" fill="#[0-9a-f]+"\/>/g)];
-    const zeroX = Number(band[1]) + Number(band[2]) / 2;
-    const [firstDotX] = [...parsersCard.svg.matchAll(/<circle cx="([\d.]+)"/g)].map((match) => Number(match[1]));
-    const usability = loadBenchmark("notes-apps-onboarding");
-    const arrows = renderCard(usability, cardContentOf(usability), "light", context).textLines.filter((line) =>
-      ["better \u2192", "\u2190 better"].includes(line),
-    );
+  it("draws each strip in the effect's own sign, as the charts do", () => {
+    const bands = [...suiteCard.svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="28" fill="#[0-9a-f]+"\/>/g)];
+    const dots = [...suiteCard.svg.matchAll(/<circle cx="([\d.]+)" cy="[\d.]+" r="5"/g)].map((match) => Number(match[1]));
+    const zeroOf = (band: RegExpMatchArray) => Number(band[1]) + Number(band[2]) / 2;
 
-    expect(firstDotX, "a 50% shorter time sits left of zero").toBeLessThan(zeroX);
-    expect(arrows, "a success rate, a time, a satisfaction score").toEqual(["better \u2192", "\u2190 better", "better \u2192"]);
+    expect(dots[0], "+6.4 points sits right of zero").toBeGreaterThan(zeroOf(bands[0]));
+    expect(dots[1], "\u22121.5 points sits left of zero").toBeLessThan(zeroOf(bands[1]));
   });
 
   it("leaves out a block title that only restates the metric and the effect", () => {
@@ -165,9 +181,9 @@ describe("reading a card at a glance", () => {
     const suite = loadBenchmark("support-assistant-eval");
     const lines = renderCard(suite, cardContentOf(suite), "light", context).textLines;
 
-    expect(lines).toContain("Accuracy · higher is better");
-    expect(lines.join(" ")).toContain("Accuracy, Coding");
-    expect(lines.join(" ")).not.toContain("Support assistant eval");
+    expect(lines).toContain("ACCURACY · HIGHER IS BETTER");
+    expect(lines.join(" ")).toContain("ACCURACY, CODING");
+    expect(lines.join(" ").toUpperCase()).not.toContain("SUPPORT ASSISTANT EVAL");
   });
 
   it("puts the warning about failures in ink with an icon", () => {
@@ -178,7 +194,7 @@ describe("reading a card at a glance", () => {
     const card = renderCard(usability, cardContentOf(usability), "light", context);
 
     expect(card.textLines.join(" ")).toContain("The candidates did not fail equally often");
-    expect(card.svg).toContain('stroke="#0a0a0a" stroke-width="1.4" stroke-linejoin="round"');
+    expect(card.svg).toContain(`stroke="${THEME.light.ink}" stroke-width="1.4" stroke-linejoin="round"`);
   });
 });
 
@@ -213,7 +229,7 @@ describe("exports", () => {
     const svgHeight = Number(/height="(\d+)"/.exec(svg)![1]);
 
     expect([png.width, png.height]).toEqual([2 * svgWidth, 2 * svgHeight]);
-    expect(png.pixels.subarray(0, 4)).toEqual(Buffer.from([0, 0, 0, 0]));
+    expect(png.pixels[3], "square corners, as on the site: the frame reaches the corner").toBe(255);
     expect(shareOfDifferentPixels(png, decodePng(pngOf(svg)))).toBe(0);
   });
 

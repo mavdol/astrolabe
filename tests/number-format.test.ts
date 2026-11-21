@@ -59,4 +59,10 @@ describe("number text", () => {
     expect(formatLevel(1 - 0.05 / 6)).toBe("99.17");
     expect(formatLevel(1 - 0.05 / 3)).toBe("98.33");
   });
+
+  it("never prints two different ends of an interval as the same number", () => {
+    expect(formatInterval([32.129, 32.3346], 0, { signed: true })).toBe("+32.1 to +32.3");
+    expect(formatInterval([32.129, 32.3346], -1)).toBe("32.1 to 32.3");
+    expect(formatInterval([5, 5], 0)).toBe("5 to 5");
+  });
 });

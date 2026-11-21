@@ -8,19 +8,22 @@ import {
   comparisonsOn,
   directionWords,
   caveatSentences,
-  intervalSentence,
+  howToReadOf,
+  intervalPart,
   sentence,
   seriesOf,
   statisticWord,
   type ChartContent,
   type ChartInputs,
+  type ReadingPart,
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
 import {
   arrow,
   intervalAcross,
   intervalUpwards,
-  marker,
+  poppingMarker,
+  BETTER,
   PLOT_STYLE,
   round,
   taggedWith,
@@ -89,14 +92,18 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
   const xScale = linearScale(plot.xExtent, [plotLeft, plotRight], plotRight - plotLeft < 260 ? 3 : 5);
   const yScale = linearScale(plot.yExtent, [plotBottom, plotTop], yTargetTicks);
 
-  marks.push(text.draw(text.fit(plot.yTitle, PLOT_STYLE.note, area.width), area.x, area.y + capHeight(12) + 4, tickStyle));
-  textLines.push(plot.yTitle);
+  const captionStyle = { ...PLOT_STYLE.caption, fill: colours.secondary };
+  const yTitle = text.fit(`${plot.betterUpwards ? "↑" : "↓"} ${plot.yTitle}`.toUpperCase(), PLOT_STYLE.caption, area.width);
+  const xTitle = text.fit(`${plot.xTitle} ${plot.betterOnTheLeft ? "←" : "→"}`.toUpperCase(), PLOT_STYLE.caption, area.width);
+
+  marks.push(text.draw(yTitle, area.x, area.y + capHeight(12) + 4, captionStyle));
+  textLines.push(yTitle);
 
   for (const tick of yScale.ticks) {
     const tickY = yScale.position(tick);
 
     marks.push(
-      `<path d="M${round(plotLeft)} ${round(tickY)}H${round(plotRight)}" stroke="${tick === 0 ? colours.ink : colours.rule}" stroke-width="1"/>`,
+      `<path d="M${round(plotLeft)} ${round(tickY)}H${round(plotRight)}" stroke="${tick === yScale.ticks[0] ? colours.ruleStrong : colours.rule}" stroke-width="1"/>`,
     );
     marks.push(text.draw(yTickText(tick), plotLeft - 8, tickY + capHeight(12) / 2, { ...tickStyle, anchor: "end" }));
   }
@@ -106,9 +113,6 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
     const label = formatNumber(tick, xScale.tickDecimals);
     const labelWidth = text.measure(label, PLOT_STYLE.tick);
 
-    marks.push(
-      `<path d="M${round(tickX)} ${round(plotTop)}V${round(plotBottom)}" stroke="${tick === 0 ? colours.ink : colours.rule}" stroke-width="1"/>`,
-    );
     marks.push(
       text.draw(
         label,
@@ -123,13 +127,16 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
   textLines.push(xScale.ticks.map((tick) => formatNumber(tick, xScale.tickDecimals)).join("  "));
   marks.push(
     text.draw(
-      text.fit(plot.xTitle, PLOT_STYLE.note, area.width),
-      area.x,
+      xTitle,
+      Math.max(plotRight, area.x + text.measure(xTitle, PLOT_STYLE.caption)),
       area.y + area.height - X_TITLE_HEIGHT + capHeight(12) + 4,
-      tickStyle,
+      {
+        ...captionStyle,
+        anchor: "end",
+      },
     ),
   );
-  textLines.push(plot.xTitle);
+  textLines.push(xTitle);
 
   const corner: [number, number] = [plot.betterOnTheLeft ? plotLeft : plotRight, plot.betterUpwards ? plotTop : plotBottom];
   const inwards: [number, number] = [plot.betterOnTheLeft ? 1 : -1, plot.betterUpwards ? 1 : -1];
@@ -139,20 +146,22 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
 
   marks.push(arrow(tail, tip, colours.secondary));
   marks.push(
-    text.draw("better", tail[0] + inwards[0] * 4, wordBaseline, {
-      ...tickStyle,
+    text.draw(BETTER, tail[0] + inwards[0] * 4, wordBaseline, {
+      ...captionStyle,
       anchor: plot.betterOnTheLeft ? "start" : "end",
       halo: colours.background,
     }),
   );
-  textLines.push("better");
+  textLines.push(BETTER);
 
   if (plot.frontier.length >= 2) {
     const path = plot.frontier.map(
       (point, index) => `${index === 0 ? "M" : "L"}${round(xScale.position(point.x))} ${round(yScale.position(point.y))}`,
     );
 
-    marks.push(`<path d="${path.join("")}" stroke="${colours.secondary}" stroke-width="1.25" stroke-dasharray="4 3" fill="none"/>`);
+    marks.push(
+      `<path d="${path.join("")}" stroke="${colours.secondary}" stroke-width="1.25" stroke-dasharray="4 3" fill="none" data-draw=""/>`,
+    );
   }
 
   const positioned = plot.points.map((point) => ({ point, px: xScale.position(point.x), py: yScale.position(point.y) }));
@@ -176,7 +185,7 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
   }
 
   for (const { point, px, py } of positioned)
-    marks.push(taggedWith(marker(point.series.shape, px, py, point.series.colour, colours.background), point.candidate));
+    marks.push(taggedWith(poppingMarker(point.series.shape, px, py, point.series.colour, colours.background), point.candidate));
 
   const taken: Box[] = positioned.map(({ px, py }) => ({ left: px - 6, right: px + 6, top: py - 6, bottom: py + 6 }));
 
@@ -282,18 +291,23 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
   const yDecimals = finestDecimals(yValues.map((value) => valueDecimals(yMetric, value)));
   const titleOf = (metric: Metric) => `${metric.label}, ${statisticWord(metric)} in ${metric.unit} · ${directionWords(metric)}`;
   const towards = (metric: Metric) => `${metric.direction === "lower" ? "lower" : "higher"} ${lowerFirstLetterOfWord(metric.label)}`;
-  const howToRead = [
-    inputs.compact ? "" : `${sentence(xMetric.definition)} ${sentence(yMetric.definition)}`,
-    `Each mark: a candidate, placed by its ${lowerFirstLetterOfWord(xMetric.label)} across and its ${lowerFirstLetterOfWord(yMetric.label)} up.`,
-    intervalSentence([...xValues, ...yValues]),
-    frontier.length >= 2 ? "Dashed line: the candidates that no other candidate beats on both measures." : "",
-    `The marked corner is better: ${towards(xMetric)} and ${towards(yMetric)}.`,
-    startsAtZero ? "" : `The axes do not start at zero: ${sentence(block.scale!.reason!)}`,
-    caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup)),
-    caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const howToReadParts: ReadingPart[] = [
+    { text: inputs.compact ? "" : `${sentence(xMetric.definition)} ${sentence(yMetric.definition)}` },
+    {
+      mark: "dot",
+      markName: "Each mark",
+      text: `a candidate, placed by its ${lowerFirstLetterOfWord(xMetric.label)} across and its ${lowerFirstLetterOfWord(yMetric.label)} up.`,
+    },
+    intervalPart([...xValues, ...yValues]),
+    frontier.length >= 2
+      ? { mark: "frontier", markName: "Dashed line", text: "the candidates that no other candidate beats on both measures." }
+      : { text: "" },
+    { text: `The marked corner is better: ${towards(xMetric)} and ${towards(yMetric)}.` },
+    { text: startsAtZero ? "" : `The axes do not start at zero: ${sentence(block.scale!.reason!)}` },
+    { text: caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup)) },
+    { text: caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)) },
+  ];
+  const howToRead = howToReadOf(howToReadParts);
   const fixedHeight = FIXED_HEIGHT;
   const plot: ScatterPlot = {
     points,
@@ -321,6 +335,7 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
     },
     subtitle: `${yMetric.label} against ${lowerFirstLetterOfWord(xMetric.label)}, one mark per candidate`,
     howToRead,
+    howToReadParts,
     kind: `Scatter chart of ${lowerFirstLetterOfWord(yMetric.label)} against ${lowerFirstLetterOfWord(xMetric.label)}`,
     table: {
       header: [

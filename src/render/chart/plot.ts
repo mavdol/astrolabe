@@ -29,10 +29,31 @@ export interface Plot {
 export const PLOT_STYLE = {
   heading: { weight: 600, size: 13 },
   label: { weight: 500, size: 13 },
-  value: { weight: 600, size: 13, tabular: true },
-  note: { weight: 400, size: 12 },
-  tick: { weight: 400, size: 12, tabular: true },
+  value: { weight: 500, size: 13, tabular: true, mono: true },
+  note: { weight: 400, size: 11, mono: true },
+  tick: { weight: 400, size: 11, tabular: true, mono: true },
+  /**
+   * Axis titles and the word "better", in capitals as the page's labels; smaller than the ticks because capitals read larger.
+   * Every chart is shown at least 1.15 times its layout size, so these are still 12 px as read.
+   */
+  caption: { weight: 400, size: 10.5, mono: true, tracking: 0.04 },
 } as const;
+
+export const BETTER = "BETTER";
+
+/** The soft disc behind a marker, so the estimate reads first. */
+const HALO_RADIUS = 10;
+const HALO_OPACITY = 0.16;
+
+/**
+ * Marks a group the page grows into place from one position along the axis: from zero for an effect,
+ * from the estimate for an interval around a value. The drawing itself is final.
+ */
+export const growsFrom = (position: number, marks: string) => `<g data-grow-from="${round(position)}">${marks}</g>`;
+
+/** A marker with its halo, which the page brings in with a spring. */
+export const poppingMarker = (shape: MarkerShape, x: number, y: number, colour: string, halo: string, hollow = false) =>
+  `<g data-pop=""><circle cx="${round(x)}" cy="${round(y)}" r="${HALO_RADIUS}" fill="${colour}" fill-opacity="${HALO_OPACITY}"/>${hollow ? marker(shape, x, y, halo, colour) : marker(shape, x, y, colour, halo)}</g>`;
 
 export const MARKER_RADIUS = 5;
 export const INTERVAL_STROKE = 2;

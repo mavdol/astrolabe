@@ -17,6 +17,8 @@ import {
   comparisonsOn,
   directionWords,
   caveatSentences,
+  howToReadOf,
+  intervalPart,
   intervalSentence,
   levelsOf,
   rangeOf,
@@ -26,6 +28,7 @@ import {
   unionOf,
   valueAxisOf,
   type ChartContent,
+  type ReadingPart,
   type ChartInputs,
 } from "./chart-content.js";
 import {
@@ -115,15 +118,18 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
     })),
   }));
   const observations = values.filter((value) => value.n !== undefined).map((value) => value.n!);
-  const howToRead = [
-    inputs.compact ? "" : sentence(metric.definition),
-    `Each ${drawsBars ? "bar" : "dot"}: the ${statisticWord(metric)}${observations.length > 0 ? ` of ${rangeOf(observations)} observations` : ""}, in ${metric.unit}; ${directionWords(metric)}.`,
-    intervalSentence(values),
-    axis.note,
-    caveatSentences(lookup, metric, comparisonsOn(metric, lookup)),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const howToReadParts: ReadingPart[] = [
+    { text: inputs.compact ? "" : sentence(metric.definition) },
+    {
+      mark: drawsBars ? "bar" : "dot",
+      markName: `Each ${drawsBars ? "bar" : "dot"}`,
+      text: `the ${statisticWord(metric)}${observations.length > 0 ? ` of ${rangeOf(observations)} observations` : ""}, in ${metric.unit}; ${directionWords(metric)}.`,
+    },
+    intervalPart(values),
+    { text: axis.note ?? "" },
+    { text: caveatSentences(lookup, metric, comparisonsOn(metric, lookup)) },
+  ];
+  const howToRead = howToReadOf(howToReadParts);
 
   return {
     plot: rowsPlot({
@@ -136,6 +142,7 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
     }),
     subtitle: `${metric.label}, ${statisticWord(metric)} in ${metric.unit} · ${directionWords(metric)}${axis.logScale ? " · log scale" : ""}`,
     howToRead,
+    howToReadParts,
     kind: `${drawsBars ? "Bar chart" : "Dot chart with intervals"} of ${lowerFirstLetterOfWord(metric.label)}`,
     table: valueTable(inputs, groups, decimals),
     axisExtent: axis.extent,
@@ -163,11 +170,17 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     [verdictLabel(comparison), comparison.role === "exploratory" ? "exploratory" : "", comparison.source === "declared" ? "declared" : ""]
       .filter(Boolean)
       .join(", ");
+  const colours = THEME[inputs.mode];
+  /** The verdict beside an effect takes the colour of its verdict; the mark keeps its candidate's colour, as on every chart. */
+  const verdictColourOf = (comparison: Comparison) =>
+    comparison.verdict === "better" ? colours.good : comparison.verdict === "worse" ? colours.bad : colours.secondary;
   const rowOf = (comparison: Comparison, label: string): PlotRow => ({
     label,
     key: `${comparison.node ?? ""}|${comparison.candidate}`,
     candidate: comparison.candidate,
     series: series.get(comparison.candidate)!,
+    noteColour: verdictColourOf(comparison),
+    hollow: comparison.role === "exploratory",
     value: comparison.effect,
     interval: comparison.ci,
     valueText: effectAndInterval(metric, comparison).effect,
@@ -184,16 +197,21 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
   const primaryComparisons = lookup.results.computed!.primary_comparisons;
   const adjustment = everyComparisonAdjusted && primaryComparisons > 1 ? `, adjusted for ${primaryComparisons} primary comparisons` : "";
   const hasExploratory = comparisons.some((comparison) => comparison.role === "exploratory");
-  const howToRead = [
-    inputs.compact ? "" : sentence(metric.definition),
-    `Each dot: the change ${onlyCandidate ? `of ${onlyCandidate} ` : ""}against ${baselineName}, ${metric.compare_as === "relative" ? "in percent of its value" : `in ${unit.trim()}`}; ${directionWords(metric)}.`,
-    levels ? `Lines: ${levels} confidence intervals${adjustment}.` : "No interval: too few observations, or declared values.",
-    `Shaded band: changes under ${formatNumber(minimum, null)}${unit}, too small to matter.`,
-    hasExploratory ? "Exploratory comparisons were not declared before measuring: none is a claim of the benchmark." : "",
-    caveatSentences(lookup, metric, comparisons),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const howToReadParts: ReadingPart[] = [
+    { text: inputs.compact ? "" : sentence(metric.definition) },
+    {
+      mark: "dot",
+      markName: "Each dot",
+      text: `the change ${onlyCandidate ? `of ${onlyCandidate} ` : ""}against ${baselineName}, ${metric.compare_as === "relative" ? "in percent of its value" : `in ${unit.trim()}`}; ${directionWords(metric)}.`,
+    },
+    levels
+      ? { mark: "interval", markName: "Lines", text: `${levels} confidence intervals${adjustment}.` }
+      : { text: "No interval: too few observations, or declared values." },
+    { mark: "band", markName: "Shaded band", text: `changes under ${formatNumber(minimum, null)}${unit}, too small to matter.` },
+    { text: hasExploratory ? "Exploratory comparisons were not declared before measuring: none is a claim of the benchmark." : "" },
+    { text: caveatSentences(lookup, metric, comparisons) },
+  ];
+  const howToRead = howToReadOf(howToReadParts);
   const extent = unionOf([Math.min(-minimum, ...plotted), Math.max(minimum, ...plotted)], inputs.sharedExtent);
   const withGroup = hasHeadings(groups);
 
@@ -209,6 +227,7 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     }),
     subtitle: `${metric.label}: change ${onlyCandidate ? `of ${onlyCandidate} ` : ""}against ${baselineName}${unit === "%" ? ", in %" : `, in${unit}`} · ${directionWords(metric)}`,
     howToRead,
+    howToReadParts,
     kind: `Effects on ${lowerFirstLetterOfWord(metric.label)} against ${baselineName}, with their intervals`,
     table: {
       header: [...(withGroup ? ["Group"] : []), "Candidate", "Effect", "Interval", "Verdict"],

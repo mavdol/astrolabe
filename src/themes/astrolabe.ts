@@ -7,37 +7,55 @@ export interface Colours {
   ink: string;
   /** Secondary text: at least 4.5:1 against the background. */
   secondary: string;
+  /** Text that steps back, only at large sizes: at least 3:1 against the background. */
+  quiet: string;
   rule: string;
+  /** Rules that carry meaning: the zero line, the frame of a control. */
+  ruleStrong: string;
   /** The zone of effects too small to matter, and other quiet fills. */
   band: string;
   /** Quiet fills on the page: the track of a control, the head of a table, a row under the pointer. */
   surface: string;
   inkOnFill: string;
+  /** The verdicts that say better and worse, always beside their word: at least 4.5:1 against the background. */
+  good: string;
+  bad: string;
   /** Candidates without a colour of their own, in the order of candidates: ink, then greys that keep 3:1 against the background. */
   series: string[];
 }
 
-/** Black on white and white on black, hierarchy by weight and size. */
+/**
+ * Ink on white and on a cool near-black, hierarchy by weight and size. Colour has three jobs only:
+ * the first candidate's cyan, and the verdicts better and worse.
+ */
 export const THEME: Record<Mode, Colours> = {
   light: {
     background: "#ffffff",
-    ink: "#0a0a0a",
-    secondary: "#5c5c5c",
-    rule: "#e5e5e5",
-    band: "#e3e3e3",
-    surface: "#f5f5f5",
+    ink: "#111214",
+    secondary: "#5d6169",
+    quiet: "#8a8d93",
+    rule: "#ebebed",
+    ruleStrong: "#d5d6d9",
+    band: "#eff0f1",
+    surface: "#f5f5f6",
     inkOnFill: "#ffffff",
-    series: ["#0a0a0a", "#525252", "#7a7a7a", "#949494"],
+    good: "#17804f",
+    bad: "#c0502a",
+    series: ["#16798b", "#53565c", "#7a7d82", "#929599"],
   },
   dark: {
-    background: "#0a0a0a",
-    ink: "#fafafa",
-    secondary: "#a3a3a3",
-    rule: "#2a2a2a",
-    band: "#2b2b2b",
-    surface: "#171717",
-    inkOnFill: "#0a0a0a",
-    series: ["#fafafa", "#b3b3b3", "#8c8c8c", "#6e6e6e"],
+    background: "#0e0f11",
+    ink: "#f1f2f4",
+    secondary: "#9a9ea6",
+    quiet: "#676b73",
+    rule: "#1d1f22",
+    ruleStrong: "#2e3135",
+    band: "#1a1b1e",
+    surface: "#16171a",
+    inkOnFill: "#0e0f11",
+    good: "#8fe3b4",
+    bad: "#f4a37d",
+    series: ["#9fe3ee", "#b3b6bb", "#8c9096", "#6e7278"],
   },
 };
 

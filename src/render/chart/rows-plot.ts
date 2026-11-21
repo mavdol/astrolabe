@@ -3,10 +3,12 @@ import type { Decimals } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, type SvgTextRenderer } from "../svg-text.js";
 import {
   arrow,
+  growsFrom,
   INTERVAL_STROKE,
   intervalAcross,
-  marker,
+  BETTER,
   PLOT_STYLE,
+  poppingMarker,
   round,
   widestOf,
   type DrawnPlot,
@@ -43,6 +45,10 @@ export interface PlotRow {
   valueText: string;
   /** A word that qualifies the value: a verdict, "declared". */
   note?: string;
+  /** The colour of the note when it is a verdict; secondary otherwise. */
+  noteColour?: string;
+  /** An outlined marker, for a comparison that is not a claim. */
+  hollow?: boolean;
 }
 
 export interface PlotGroup {
@@ -68,7 +74,7 @@ export interface RowsPlot {
   legend?: { label: string; colour: string }[];
 }
 
-export const ROW_HEIGHT = { smallest: 22, usual: 30, largest: 44 };
+export const ROW_HEIGHT = { smallest: 22, usual: 44, largest: 52 };
 
 const HEADING_ROWS = 0.9;
 const GAP_BETWEEN_GROUPS_ROWS = 0.5;
@@ -218,14 +224,14 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
 
   const directionBaseline = directionTop + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO + 2;
   const arrowCentreY = directionBaseline - (PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO) / 2;
-  const wordWidth = text.measure("better", PLOT_STYLE.tick);
+  const wordWidth = text.measure(BETTER, PLOT_STYLE.caption);
   const pointsRight = plot.betterSide === "right";
   const wordX = pointsRight ? plotRight - ARROW_LENGTH - ARROW_GAP - wordWidth : plotLeft + ARROW_LENGTH + ARROW_GAP;
   const arrowStart = pointsRight ? plotRight - ARROW_LENGTH : plotLeft + ARROW_LENGTH;
 
-  marks.push(text.draw("better", wordX, directionBaseline, { ...PLOT_STYLE.tick, fill: colours.secondary }));
+  marks.push(text.draw(BETTER, wordX, directionBaseline, { ...PLOT_STYLE.caption, fill: colours.secondary }));
   marks.push(arrow([arrowStart, arrowCentreY], [pointsRight ? plotRight : plotLeft, arrowCentreY], colours.secondary));
-  textLines.push(pointsRight ? "better →" : "← better");
+  textLines.push(pointsRight ? `${BETTER} →` : `← ${BETTER}`);
 
   if (plot.band) {
     const [from, to] = plot.band.map((value) => Math.min(Math.max(scale.position(value), plotLeft), plotRight));
@@ -245,7 +251,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
     const labelX = Math.min(Math.max(tickX - labelWidthHere / 2, x), x + width - labelWidthHere);
 
     marks.push(
-      `<path d="${verticalLines(tickX)}" stroke="${isZeroReference || isAxisOrigin ? colours.ink : colours.rule}" stroke-width="1"/>`,
+      `<path d="${verticalLines(tickX)}" stroke="${isZeroReference || isAxisOrigin ? colours.ruleStrong : colours.rule}" stroke-width="1"/>`,
     );
     marks.push(
       text.draw(label, labelX, rowsBottom + 8 + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO, { ...PLOT_STYLE.tick, fill: colours.secondary }),
@@ -295,7 +301,10 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
           const gap = row.segments && from > 0 ? 1.5 : 0;
 
           marks.push(
-            `<rect x="${round(Math.min(start, end) + gap)}" y="${round(centreY - barHeight / 2)}" width="${round(Math.max(0, Math.abs(end - start) - gap))}" height="${round(barHeight)}" fill="${segment.colour}"/>`,
+            growsFrom(
+              scale.position(0),
+              `<rect x="${round(Math.min(start, end) + gap)}" y="${round(centreY - barHeight / 2)}" width="${round(Math.max(0, Math.abs(end - start) - gap))}" height="${round(barHeight)}" rx="1.5" fill="${segment.colour}"/>`,
+            ),
           );
           from += segment.value;
         }
@@ -336,9 +345,19 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
           `<path d="M${round(valueX)} ${round(centreY - tickHalf)}V${round(centreY + tickHalf)}" stroke="${colours.ink}" stroke-width="2.5"/>`,
         );
       } else {
-        if (interval) marks.push(intervalAcross(interval[0], interval[1], centreY, row.series.colour));
+        const zeroX = plot.zeroLine ? scale.position(0) : undefined;
+        const stem =
+          zeroX !== undefined
+            ? `<path d="M${round(zeroX)} ${round(centreY)}H${round(valueX)}" stroke="${row.series.colour}" stroke-opacity="0.4" stroke-width="1"/>`
+            : "";
 
-        marks.push(marker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
+        marks.push(
+          growsFrom(
+            zeroX ?? valueX,
+            `${stem}${interval ? intervalAcross(interval[0], interval[1], centreY, row.series.colour, INTERVAL_STROKE + 0.5) : ""}`,
+          ),
+        );
+        marks.push(poppingMarker(row.series.shape, valueX, centreY, row.series.colour, colours.background, row.hollow));
       }
 
       if (row.key) marks.push("</g>");
@@ -361,7 +380,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
           marks.push(
             text.draw(line, x + width, valueBaseline + (index + 1) * NOTE_BELOW_HEIGHT, {
               ...PLOT_STYLE.note,
-              fill: colours.secondary,
+              fill: row.noteColour ?? colours.secondary,
               anchor: "end",
             }),
           ),
@@ -370,7 +389,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
         marks.push(
           text.draw(row.note, x + width - noteWidth, baselineIn(cursorY, rowHeight, PLOT_STYLE.note.size), {
             ...PLOT_STYLE.note,
-            fill: colours.secondary,
+            fill: row.noteColour ?? colours.secondary,
           }),
         );
 
