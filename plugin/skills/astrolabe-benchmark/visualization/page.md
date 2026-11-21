@@ -16,7 +16,7 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## What the generator does without being asked
 
-On every page and image, whatever the file says: the direction and how to read each chart, the interval's level, a data table and a long text alternative for each chart, a light and a dark version, a narrow version for phones, filters that work with the keyboard, no value reachable only by hovering, no motion for readers who asked for less, no text below 12 px, and a provenance line on every export. The trust blocks (method, environment, limitations, a block to check the numbers) close the page even when `layout` leaves them out.
+On every page and image, whatever the file says: the direction and how to read each chart, the interval's level, a data table and a long text alternative for each chart, a light and a dark version, a narrow version for phones, filters that work with the keyboard, no value reachable only by hovering, no motion for readers who asked for less, no text below 12 px, and a provenance line on every export. The trust blocks close the page even when `layout` leaves them out: the method drawn as its steps, the environment and the limitations as short facts, and the provenance as the page's last line, with the benchmark file and the raw data to download.
 
 A file with no blocks still gets a page: its primary comparisons as headlines, then the trust blocks. Without `exports`, `build` writes a README card from the same comparisons.
 
@@ -27,12 +27,12 @@ The framing step already asked what the benchmark decides. Ask at most two more 
 1. Is the page about one candidate in particular (the user's own project), or a neutral comparison?
 2. Is there a colour or theme to follow, and where will it be shared first: a README, a site, a social post?
 
-Then propose the page as a short outline, before writing any block:
+Then propose the page as a short outline, before writing any block: one line per block, each chart with the reader's question it answers (charts.md), and no text block unless no chart can carry it:
 
 ```
-Headlines   wall time and identical pages, quickmark against markly (both primary)
-Chart       the effect on wall time, with the band of differences too small to matter
-Chart       every run, wall time (12 runs per candidate)
+Headlines   wall time first (the answer), then identical pages; quickmark against markly, both primary
+Chart       "Is it faster, and by how much?": the effect on wall time, with the band too small to matter
+Chart       "What will one run look like?": every run, wall time (12 runs per candidate)
 Table       both metrics by file size, with n, intervals and failures (exploratory)
 Exports     the README card (light and dark), a wide image of the effect chart
 ```
@@ -43,7 +43,7 @@ The user amends it; then write the sections, run `astrolabe validate`, and build
 
 `blocks` lists every block once; `layout` places them, one array per row, at most two per row. Order the rows from the answer to the evidence:
 
-1. **Headlines**: one per primary comparison the goal rests on, three at most. A headline names its `comparison` and a `title` (templates, style.md); the figure, interval, verdict and failures are added by the generator.
+1. **Headlines**: one per primary comparison the goal rests on, three at most, the one that answers the goal first: the top of the page states it alone. A headline names its `comparison` and a `title` (templates, style.md); the figure, interval, verdict, failures and a small drawing of the comparison are added by the generator.
 2. **The chart that backs them**: usually an `effect` or `comparison-rows` chart (charts.md).
 3. **Breakdowns**: where the difference comes from, labelled exploratory unless declared primary.
 4. **The full table**, with n, intervals and failures.
@@ -64,7 +64,7 @@ The user amends it; then write the sections, run `astrolabe validate`, and build
 }
 ```
 
-Give each chart one message. A chart that shows everything says nothing: split it, use a filter, or move the detail to the table.
+Give each chart one message. A chart that shows everything says nothing: split it, use a filter, or move the detail to the table. Do not restate in a text block what a chart, a headline or a trust block already shows: the page is read through its drawings, and every added paragraph pushes the evidence further down.
 
 ## Filters
 

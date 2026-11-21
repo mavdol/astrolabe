@@ -169,6 +169,14 @@ describe("the site", () => {
     expect(support.html).toContain(`<meta name="description" content="${answer}">`);
   });
 
+  it("names the comparison of the headline the page shows first, whatever the order of blocks", () => {
+    const benchmark = loadBenchmark("support-assistant-eval");
+
+    benchmark.layout = [["headline-cost", "headline-accuracy"], ...benchmark.layout!.slice(1)];
+
+    expect(answerOf(benchmark)).toMatch(/^Model A against Model B: cost per item \+265%, worse\./);
+  });
+
   it("names the first primary comparison when no headline leads the page", () => {
     const benchmark = loadBenchmark("support-assistant-eval");
 

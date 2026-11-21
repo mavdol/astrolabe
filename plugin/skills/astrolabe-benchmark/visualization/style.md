@@ -43,21 +43,28 @@ The default needs nothing: the `astrolabe` theme, a dark page, the first candida
 
 ## Titles and descriptions
 
-A reader remembers the title more than the chart, so a title states the finding, and only a finding the results support.
+A reader remembers the title more than the chart, so a title states the finding, and only a finding the results support. Then the chart speaks: the page writes the title in ink and your reading right after it in grey, as one short paragraph beside the chart, and the images do the same above it. Keep both short enough to read at a glance:
+
+- **The title is the claim, in a few words**: about 60 characters at most as the reader sees it (a template counts as the text it becomes), no second clause. "The gap comes from coding", not "Model A is more accurate than Model B overall, and most of the difference comes from the coding tasks".
+- **The reading is one sentence**, about 20 words at most, saying what the title does not: where the difference comes from, what to watch, the caveat. Leave out what the chart already labels (the values, the candidates, the unit) and everything the generator writes under it (the direction, how to read the marks, the interval's level, the number of runs).
+- **A headline's title says what the figure is about**, in a few words: the pair and the scope ("{candidate:quickmark} against {candidate:markly}, all pages"). The figure, its unit and its verdict are drawn beside it, and the README card leaves out a title that only restates them.
+- **The first headline is the answer**: the top of the page states its comparison alone, so place first in `layout` the one the goal asks about.
 
 - **Numbers and names by template, never typed**: `{effect:id}` (the effect of a comparison, with its unit), `{verdict:id}`, `{candidate:id}`, `{metric:id}`, `{node:id}`. A digit typed in a title is refused: after a rerun it would be stale.
 - **List in `asserts` the verdicts the title relies on**, comparison id to verdict word (`better`, `worse`, `equivalent`, `inconclusive`, `likely better`, `likely worse`). `validate` fails as soon as a rerun changes one of them, so the title cannot outlive its evidence.
 - **Only primary comparisons in a title or a headline.** An exploratory comparison is shown in charts and tables, labelled exploratory, and never claimed.
 - **Words follow the verdict**, as presentation.md says: its wording rules hold for titles as for sentences.
 - **A title without a verdict describes** ("Every run, wall time"); it needs no `asserts`.
-- **`description` is your reading of the chart** in one or two sentences, with templates: what the reader should take away. The generator writes the factual part (what is plotted, the values, the comparisons) and the long text alternative; together they are what a screen reader hears.
-- **Text blocks** (`"type": "text"`) hold a paragraph of context with an optional title, under the same template rules.
+- **`description` is that one-sentence reading**, with templates. The generator adds the factual part (what is plotted, the values, the comparisons) to it for the long text alternative; together they are what a screen reader hears.
+- **Text blocks** (`"type": "text"`) are the last resort: context no chart and no trust block can carry (why the benchmark was run, a decision taken from it), three sentences at most, under the same template rules. A finding is never a text block: draw it (charts.md).
 
 | Instead of | Write |
 | --- | --- |
 | "quickmark is 35% faster" | `"{candidate:quickmark} is faster: {effect:wall_time__quickmark}"` with `asserts: { "wall_time__quickmark": "better" }` |
 | "quickmark renders pages more faithfully" (verdict equivalent) | `"Same share of identical pages"` with `asserts: { "identical_pages__quickmark": "equivalent" }` |
 | "Huge gains on large files" (an exploratory node) | `"Wall time by file size"`, and the reading in `description`, labelled exploratory |
+| A reading that repeats the chart: "This chart shows the wall time of quickmark and markly for each file size, with 95% confidence intervals; lower is better." | A reading that adds to it: `"Exploratory: the gap widens with file size."` |
+| A text block explaining that the gain comes from large files | A chart with `"breakdown": "size"`, titled `"Wall time by file size"` |
 
 ## Tables
 

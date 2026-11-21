@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: support-page-from-results
+expected_outcome: |
+  The agent builds the page of the finished evaluation with astrolabe (dist/site/) and leaves the
+  computed results untouched. The page lets the drawings speak: the goal weighs accuracy against
+  running cost, so a scatter of the two metrics is on the page; the accuracy difference is shown
+  where it comes from, broken down by category or task; titles are short claims (about 60
+  characters as read), each reading one sentence (about 20 words), and no text block repeats what
+  a chart or a trust block shows. The top of the page answers the goal with a comparison on the
+  whole suite (accuracy or cost per item), never with a single category picked for its result.
+  Nothing is published or pushed.
+context:
+  scaffold_script: place-files.sh

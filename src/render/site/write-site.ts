@@ -8,7 +8,7 @@ import { cardAltText, cardContentOf, measuredOf, pairOf, renderCard } from "../c
 import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
-import { pageModeOf, renderPage, type PageHead } from "./page.js";
+import { pageModeOf, pageRowsOf, renderPage, type PageHead } from "./page.js";
 import { FONT_FILES, pageStyle } from "./page-style.js";
 
 const ASSETS = new URL("../../../assets/", import.meta.url);
@@ -67,11 +67,13 @@ function previewImageOf(benchmark: Benchmark, context: BuildContext, rawFiles: R
 
 const VERDICTS_IN_READING_ORDER = ["better", "likely better", "equivalent", "inconclusive", "likely worse", "worse"];
 
-/** The comparison the answer names: the first headline's, or else the first primary comparison. */
+/** The comparison the answer names: the first headline's in the page's order, or else the first primary comparison. */
 function leadClaimOf(benchmark: Benchmark, claims: Comparison[]): Comparison | undefined {
-  const headlined = (benchmark.blocks ?? []).flatMap((block) =>
-    block.type === "headline" && "comparison" in block ? claims.filter((claim) => claim.id === block.comparison) : [],
-  );
+  const headlined = pageRowsOf(benchmark)
+    .flat()
+    .flatMap((block) =>
+      block.type === "headline" && "comparison" in block ? claims.filter((claim) => claim.id === block.comparison) : [],
+    );
 
   return headlined[0] ?? claims[0];
 }
