@@ -44,6 +44,10 @@ export interface PlotRow {
   valueText: string;
   /** A word that qualifies the value: a verdict, "declared". */
   note?: string;
+  /** The colour of the note when it is a verdict; secondary otherwise. */
+  noteColour?: string;
+  /** An outlined marker, for a comparison that is not a claim. */
+  hollow?: boolean;
 }
 
 export interface PlotGroup {
@@ -69,7 +73,7 @@ export interface RowsPlot {
   legend?: { label: string; colour: string }[];
 }
 
-export const ROW_HEIGHT = { smallest: 22, usual: 38, largest: 48 };
+export const ROW_HEIGHT = { smallest: 22, usual: 44, largest: 52 };
 
 const HEADING_ROWS = 0.9;
 const GAP_BETWEEN_GROUPS_ROWS = 0.5;
@@ -352,7 +356,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
             `${stem}${interval ? intervalAcross(interval[0], interval[1], centreY, row.series.colour, INTERVAL_STROKE + 0.5) : ""}`,
           ),
         );
-        marks.push(poppingMarker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
+        marks.push(poppingMarker(row.series.shape, valueX, centreY, row.series.colour, colours.background, row.hollow));
       }
 
       if (row.key) marks.push("</g>");
@@ -375,7 +379,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
           marks.push(
             text.draw(line, x + width, valueBaseline + (index + 1) * NOTE_BELOW_HEIGHT, {
               ...PLOT_STYLE.note,
-              fill: colours.secondary,
+              fill: row.noteColour ?? colours.secondary,
               anchor: "end",
             }),
           ),
@@ -384,7 +388,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
         marks.push(
           text.draw(row.note, x + width - noteWidth, baselineIn(cursorY, rowHeight, PLOT_STYLE.note.size), {
             ...PLOT_STYLE.note,
-            fill: colours.secondary,
+            fill: row.noteColour ?? colours.secondary,
           }),
         );
 

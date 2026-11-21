@@ -157,12 +157,15 @@ describe("the site", () => {
     expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
   });
 
-  it("answers the question at the top with the comparisons the page leads with, each in the colour of its verdict, and counts the others", () => {
+  it("answers the question in the headline with the comparisons the page leads with, each in the colour of its verdict, and counts the others below it", () => {
     const answer =
       "Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse. 2 more primary comparisons: 1 better, 1 inconclusive.";
 
     expect(support.html).toContain(
-      '<p class="answer">Model A against Model B: accuracy <span class="good">+6.4 points, likely better</span>; cost per item <span class="bad">+265%, worse</span>. 2 more primary comparisons: 1 better, 1 inconclusive.</p>',
+      '<span class="answer">Model A against Model B: accuracy <span class="good">+6.4 points, likely better</span>; cost per item <span class="bad">+265%, worse</span>.</span></h1>',
+    );
+    expect(support.html).toContain(
+      '<p class="lede">Internal tasks only; does not measure latency or safety. 2 more primary comparisons: 1 better, 1 inconclusive.</p>',
     );
     expect(support.html).toContain(`<meta name="description" content="${answer}">`);
   });
@@ -305,11 +308,14 @@ describe("the site", () => {
     expect(noBlocksWarning("json-cli-parse")).toEqual([]);
   });
 
-  it("closes with how to check it: the full hash, the command at the version that built it, and links to the evidence", () => {
-    expect(support.html).toMatch(/<p class="hash"><span class="label">Results sha256<\/span><br><code>[0-9a-f]{64}<\/code><\/p>/);
-    expect(support.html).toContain('<a href="benchmark.json">benchmark.json</a>');
-    expect(support.html).toContain('<a href="data/items.jsonl">data/items.jsonl</a>');
-    expect(support.html).toContain("run <code>npx astrolabe-bench@0.2.0 validate benchmark.json</code>");
+  it("closes with how to check it: the files to download, the command at the version that built it and the full hash it prints", () => {
+    const footer = support.html.match(/<footer[\s\S]*<\/footer>/)![0];
+
+    expect(footer).toMatch(/<code class="hash">[0-9a-f]{64}<\/code>/);
+    expect(footer).toContain('<a href="benchmark.json">benchmark.json ↓</a>');
+    expect(footer).toContain('<a href="data/items.jsonl">data/items.jsonl ↓</a>');
+    expect(footer).toContain("run</span> <code>npx astrolabe-bench@0.2.0 validate benchmark.json</code>");
+    expect(footer).toContain('<footer class="footer frame" id="provenance">');
   });
 
   it("gives each fact of its provenance once: the date at the top, the source and the data at the bottom", () => {
@@ -317,7 +323,7 @@ describe("the site", () => {
 
     expect(support.html.match(/2026-11-17/g)).toHaveLength(1);
     expect(footer).toContain('<a href="https://github.com/example/support-assistant-eval">github.com/example/support-assistant-eval</a>');
-    expect(footer).toContain('<a href="benchmark.json">Download the data</a>');
+    expect(footer).toContain('<a href="benchmark.json">benchmark.json ↓</a>');
   });
 
   it("gives the trust blocks the full width of the page", () => {
@@ -328,8 +334,22 @@ describe("the site", () => {
     const parsers = loadBenchmark("json-cli-parse");
     const withoutCredit = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, attribution: false } } });
 
-    expect(support.html).toContain('<a href="https://github.com/mavdol/astrolabe">Built with Astrolabe</a></span></p></footer>');
+    expect(support.html).toContain('<a href="https://github.com/mavdol/astrolabe">Built with Astrolabe</a></span></p>');
     expect(withoutCredit.html).not.toContain("Built with Astrolabe");
+  });
+
+  it("follows the reading with a ruler on the left, and brings the headline in word by word", () => {
+    expect(support.html).toContain(`<div class="ruler" aria-hidden="true">${"<i></i>".repeat(48)}</div>`);
+    expect(support.read("page.js")).toContain("function splitIntoWords(heading)");
+    expect(support.css).toMatch(/\.motion \.hero h1:not\(\.is-split\) \{[^}]*animation: appear 0s 4s forwards;/);
+  });
+
+  it("draws the marks it makes itself, table bars and keys, in each candidate's chart colour", () => {
+    expect(support.css).toContain(`[data-candidate="model_a"] { --series: ${THEME.light.series[0]}; }`);
+    expect(support.css).toContain(`:root[data-theme="dark"] [data-candidate="model_a"] { --series: ${THEME.dark.series[0]}; }`);
+    expect(support.html).toMatch(
+      /<span class="cell-line"><span class="cell-value">73<\/span><span class="cell-bar" style="[^"]+" aria-hidden="true"><\/span><span class="cell-ci">69 to 77<\/span><\/span>/,
+    );
   });
 
   it("lets the reader switch between light and dark, and remembers the choice", () => {
@@ -344,7 +364,8 @@ describe("the site", () => {
 
   it("brings each part in only when the reader allows motion, and shows everything anyway when the script never runs", () => {
     expect(support.html).toContain('if (!matchMedia("(prefers-reduced-motion: reduce)").matches) root.classList.add("motion");');
-    expect(support.css).toMatch(/\.motion :is\([^)]+\):not\(\.is-in\) \{[^}]*animation: appear 0s 4s forwards;/);
+    expect(support.css).toMatch(/\.motion :is\(.+\):not\(\.is-in\) \{[^}]*animation: appear 0s 4s forwards;/);
+    expect(support.css).toMatch(/\.motion \.hero h1:not\(\.is-in\) \.word \{[^}]*animation: appear 0s 4s forwards;/);
     expect(support.html).toMatch(/<g data-grow-from="[\d.]+">/);
     expect(support.html).toContain("<g data-pop=");
   });

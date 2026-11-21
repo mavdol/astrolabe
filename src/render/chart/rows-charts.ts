@@ -170,11 +170,17 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     [verdictLabel(comparison), comparison.role === "exploratory" ? "exploratory" : "", comparison.source === "declared" ? "declared" : ""]
       .filter(Boolean)
       .join(", ");
+  const colours = THEME[inputs.mode];
+  /** The verdict beside an effect takes the colour of its verdict; the mark keeps its candidate's colour, as on every chart. */
+  const verdictColourOf = (comparison: Comparison) =>
+    comparison.verdict === "better" ? colours.good : comparison.verdict === "worse" ? colours.bad : colours.secondary;
   const rowOf = (comparison: Comparison, label: string): PlotRow => ({
     label,
     key: `${comparison.node ?? ""}|${comparison.candidate}`,
     candidate: comparison.candidate,
     series: series.get(comparison.candidate)!,
+    noteColour: verdictColourOf(comparison),
+    hollow: comparison.role === "exploratory",
     value: comparison.effect,
     interval: comparison.ci,
     valueText: effectAndInterval(metric, comparison).effect,

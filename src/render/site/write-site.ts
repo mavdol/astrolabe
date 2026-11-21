@@ -87,6 +87,8 @@ function namedClaimsOf(benchmark: Benchmark, claims: Comparison[]): Comparison[]
 export interface AnswerPart {
   text: string;
   tone?: "good" | "bad" | "neutral";
+  /** The count of the claims left out, said after the answer rather than in it. */
+  aside?: boolean;
 }
 
 export function answerPartsOf(benchmark: Benchmark): AnswerPart[] {
@@ -118,7 +120,7 @@ export function answerPartsOf(benchmark: Benchmark): AnswerPart[] {
       return count > 0 ? [`${count} ${verdict}`] : [];
     });
 
-    parts.push({ text: ` ${others.length} more primary comparison${others.length === 1 ? "" : "s"}: ${counts.join(", ")}.` });
+    parts.push({ text: ` ${others.length} more primary comparison${others.length === 1 ? "" : "s"}: ${counts.join(", ")}.`, aside: true });
   }
 
   return parts;
@@ -175,7 +177,13 @@ export function writeSite(
 
   for (const file of FONT_FILES) write(`fonts/${file}`, readFileSync(new URL(`fonts/${file}`, ASSETS)));
 
-  write("page.css", pageStyle(benchmark.style));
+  write(
+    "page.css",
+    pageStyle(
+      benchmark.style,
+      benchmark.results.candidates.map((candidate) => candidate.id),
+    ),
+  );
   write("page.js", readFileSync(new URL("site/page.js", ASSETS)));
   write(".nojekyll", "");
 

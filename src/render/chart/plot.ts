@@ -45,8 +45,8 @@ const HALO_OPACITY = 0.16;
 export const growsFrom = (position: number, marks: string) => `<g data-grow-from="${round(position)}">${marks}</g>`;
 
 /** A marker with its halo, which the page brings in with a spring. */
-export const poppingMarker = (shape: MarkerShape, x: number, y: number, colour: string, halo: string) =>
-  `<g data-pop=""><circle cx="${round(x)}" cy="${round(y)}" r="${HALO_RADIUS}" fill="${colour}" fill-opacity="${HALO_OPACITY}"/>${marker(shape, x, y, colour, halo)}</g>`;
+export const poppingMarker = (shape: MarkerShape, x: number, y: number, colour: string, halo: string, hollow = false) =>
+  `<g data-pop=""><circle cx="${round(x)}" cy="${round(y)}" r="${HALO_RADIUS}" fill="${colour}" fill-opacity="${HALO_OPACITY}"/>${hollow ? marker(shape, x, y, halo, colour) : marker(shape, x, y, colour, halo)}</g>`;
 
 export const MARKER_RADIUS = 5;
 export const INTERVAL_STROKE = 2;

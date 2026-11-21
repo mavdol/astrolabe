@@ -58,7 +58,7 @@ const NAME_WIDTH = 96;
 const VALUE_WIDTH = 96;
 
 /** A relative change as the two values it compares, on one axis from zero: a ratio is seen, not read. */
-function valuesFromZero(metric: Metric, rows: { name: string; value: Value; role: "subject" | "baseline" }[]): string {
+function valuesFromZero(metric: Metric, rows: { name: string; candidate: string; value: Value; role: "subject" | "baseline" }[]): string {
   const largest = Math.max(...rows.map((row) => row.value.value));
   const barRoom = STRIP_WIDTH - NAME_WIDTH - VALUE_WIDTH;
   const marks = rows.map((row, index) => {
@@ -68,7 +68,7 @@ function valuesFromZero(metric: Metric, rows: { name: string; value: Value; role
 
     return [
       `<text class="name" x="0" y="${top + 11}">${escapeHtml(row.name)}</text>`,
-      `<g data-grow-from="${NAME_WIDTH}"><rect class="bar ${row.role}" x="${NAME_WIDTH}" y="${top + 1}" width="${round(Math.max(width, 1))}" height="${BAR_HEIGHT}" rx="2"/></g>`,
+      `<g data-grow-from="${NAME_WIDTH}"><rect class="bar ${row.role}" data-candidate="${escapeHtml(row.candidate)}" x="${NAME_WIDTH}" y="${top + 1}" width="${round(Math.max(width, 1))}" height="${BAR_HEIGHT}" rx="2"/></g>`,
       `<text x="${round(NAME_WIDTH + width + 8)}" y="${top + 11}">${escapeHtml(shown)}</text>`,
     ].join("");
   });
@@ -90,8 +90,8 @@ export function headlineFigure(lookup: Lookup, comparison: Comparison): string {
 
   if (metric.compare_as === "relative" && subject && baseline && subject.value >= 0 && baseline.value >= 0)
     return valuesFromZero(metric, [
-      { name: lookup.candidateName.get(comparison.candidate)!, value: subject, role: "subject" },
-      { name: lookup.candidateName.get(comparison.vs)!, value: baseline, role: "baseline" },
+      { name: lookup.candidateName.get(comparison.candidate)!, candidate: comparison.candidate, value: subject, role: "subject" },
+      { name: lookup.candidateName.get(comparison.vs)!, candidate: comparison.vs, value: baseline, role: "baseline" },
     ]);
 
   return effectStrip(metric, comparison);

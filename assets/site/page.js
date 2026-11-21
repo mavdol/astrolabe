@@ -116,6 +116,39 @@ function countUp(element, delay) {
 
 const ARRIVING = ".hero > *, .stat, .chapter-head > *, .chapter-body, .trust-body > .block";
 
+/** Wraps each word of the headline in its own span, inside its coloured parts, so the words can arrive one after another. */
+function splitIntoWords(heading) {
+  const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  let index = 0;
+
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+  for (const node of textNodes) {
+    const fragment = document.createDocumentFragment();
+
+    for (const piece of node.textContent.split(/(\s+)/)) {
+      if (piece === "") continue;
+
+      if (/^\s+$/.test(piece)) {
+        fragment.append(piece);
+        continue;
+      }
+
+      const word = document.createElement("span");
+
+      word.className = "word";
+      word.style.setProperty("--word", String(index++));
+      word.textContent = piece;
+      fragment.append(word);
+    }
+
+    node.replaceWith(fragment);
+  }
+
+  heading.classList.add("is-split");
+}
+
 function arrive(section) {
   const parts = section.matches(ARRIVING) ? [section] : [...section.querySelectorAll(ARRIVING)];
 
@@ -129,6 +162,8 @@ function arrive(section) {
 }
 
 if (moves() && "IntersectionObserver" in window) {
+  for (const heading of document.querySelectorAll(".hero h1")) splitIntoWords(heading);
+
   const observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -143,16 +178,29 @@ if (moves() && "IntersectionObserver" in window) {
 
   for (const section of document.querySelectorAll("main > section")) observer.observe(section);
 } else {
-  for (const part of document.querySelectorAll(ARRIVING)) part.classList.add("is-in");
+  for (const part of document.querySelectorAll(`${ARRIVING}, .hero h1`)) part.classList.add("is-in", "is-split");
 }
 
 // ---- Navigation ----
 
 const nav = document.querySelector(".nav");
-const markScrolled = () => nav?.classList.toggle("is-scrolled", window.scrollY > 8);
+const rulerTicks = [...document.querySelectorAll(".ruler i")];
 
-window.addEventListener("scroll", markScrolled, { passive: true });
-markScrolled();
+/** The bar gains its rule once the page moves; the ruler on the left marks how far the reader is. */
+function followScroll() {
+  nav?.classList.toggle("is-scrolled", window.scrollY > 8);
+
+  const progress = window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+  const here = Math.round(progress * (rulerTicks.length - 1));
+
+  rulerTicks.forEach((tick, index) => {
+    tick.classList.toggle("is-here", index === here);
+    tick.classList.toggle("is-near", Math.abs(index - here) === 1);
+  });
+}
+
+window.addEventListener("scroll", followScroll, { passive: true });
+followScroll();
 
 // ---- Filters ----
 

@@ -559,13 +559,13 @@ describe("a shaded table", () => {
     expect(chart.table.rows[2]).toEqual(["Bug fixes", expect.stringMatching(/^59 \(\d+ to \d+\)$/), expect.stringMatching(/^45 \(/)]);
   });
 
-  it("shades with a single grey ramp, the figures readable on every shade", () => {
+  it("shades with a single neutral ramp, the figures readable on every shade", () => {
     for (const mode of ["light", "dark"] as const)
       for (let share = 0; share <= 1; share += 0.05) {
         const fill = cellFill(THEME[mode], share, LARGEST_SHADE[mode]);
-        const [red, green, blue] = [1, 3, 5].map((start) => fill.slice(start, start + 2));
+        const channels = [1, 3, 5].map((start) => parseInt(fill.slice(start, start + 2), 16));
 
-        expect(red === green && green === blue, fill).toBe(true);
+        expect(Math.max(...channels) - Math.min(...channels), `${fill} has no hue of its own`).toBeLessThanOrEqual(4);
         expect(contrastRatio(THEME[mode].ink, fill)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
       }
   });

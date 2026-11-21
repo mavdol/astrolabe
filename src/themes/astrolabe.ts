@@ -24,35 +24,38 @@ export interface Colours {
   series: string[];
 }
 
-/** Ink on white and on near-black, hierarchy by weight and size; colour only for verdicts and a highlighted candidate. */
+/**
+ * Ink on white and on a cool near-black, hierarchy by weight and size. Colour has three jobs only:
+ * the first candidate's cyan, and the verdicts better and worse.
+ */
 export const THEME: Record<Mode, Colours> = {
   light: {
     background: "#ffffff",
-    ink: "#111111",
-    secondary: "#5f5f5f",
-    quiet: "#8c8c8c",
-    rule: "#ebebeb",
-    ruleStrong: "#d4d4d4",
-    band: "#efefef",
-    surface: "#f5f5f5",
+    ink: "#111214",
+    secondary: "#5d6169",
+    quiet: "#8a8d93",
+    rule: "#ebebed",
+    ruleStrong: "#d5d6d9",
+    band: "#eff0f1",
+    surface: "#f5f5f6",
     inkOnFill: "#ffffff",
     good: "#17804f",
     bad: "#c0502a",
-    series: ["#111111", "#535353", "#7a7a7a", "#939393"],
+    series: ["#16798b", "#53565c", "#7a7d82", "#929599"],
   },
   dark: {
-    background: "#0e0e0e",
-    ink: "#f2f2f2",
-    secondary: "#9d9d9d",
-    quiet: "#6a6a6a",
-    rule: "#1f1f1f",
-    ruleStrong: "#303030",
-    band: "#1c1c1c",
-    surface: "#171717",
-    inkOnFill: "#0e0e0e",
+    background: "#0e0f11",
+    ink: "#f1f2f4",
+    secondary: "#9a9ea6",
+    quiet: "#676b73",
+    rule: "#1d1f22",
+    ruleStrong: "#2e3135",
+    band: "#1a1b1e",
+    surface: "#16171a",
+    inkOnFill: "#0e0f11",
     good: "#8fe3b4",
     bad: "#f4a37d",
-    series: ["#f2f2f2", "#b4b4b4", "#8e8e8e", "#717171"],
+    series: ["#9fe3ee", "#b3b6bb", "#8c9096", "#6e7278"],
   },
 };
 

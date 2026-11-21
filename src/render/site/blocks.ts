@@ -198,7 +198,11 @@ interface DrawnView {
   chart: RenderedChart;
 }
 
-function chartViewsOf(block: ChartBlock, inputs: PageInputs, width: number, state: FilterState): DrawnView[] {
+/** Charts on the page are laid out narrower than their column and shown at its width, so their text and marks read larger. */
+const PAGE_CHART_ENLARGEMENT = 1.15;
+
+function chartViewsOf(block: ChartBlock, inputs: PageInputs, columnWidth: number, state: FilterState): DrawnView[] {
+  const width = Math.round(columnWidth / PAGE_CHART_ENLARGEMENT);
   const draw = (mode: Mode, chartWidth: number) =>
     renderChart(
       inputs.benchmark,
@@ -335,8 +339,6 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
 
             const details: string[] = [];
 
-            if (show.has("ci") && value.ci) details.push(escapeHtml(formatInterval(value.ci, decimals)));
-
             if (show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
 
             if (show.has("failures") && value.source !== "declared") details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
@@ -347,8 +349,11 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
 
             return [
               `<td class="value-cell" data-candidate="${escapeHtml(candidate.id)}">`,
+              '<span class="cell-line">',
               `<span class="cell-value">${escapeHtml(shown)}</span>`,
               `<span class="cell-bar${candidate.id === lookup.results.baseline ? " baseline" : ""}" style="${barPositionsOf(extent, value.value, show.has("ci") ? value.ci : undefined)}" aria-hidden="true"></span>`,
+              show.has("ci") && value.ci ? `<span class="cell-ci">${escapeHtml(formatInterval(value.ci, decimals))}</span>` : "",
+              "</span>",
               details.length > 0 ? `<span class="cell-detail">${details.join(" · ")}</span>` : "",
               "</td>",
             ].join("");
@@ -476,9 +481,10 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
   const comparisons = lookup.results.comparisons ?? [];
   const primary = comparisons.filter((comparison) => comparison.role === "primary");
   const exploratory = comparisons.filter((comparison) => comparison.role === "exploratory");
-  const steps = pipelineOf(lookup).map(
-    (step) =>
-      `<li><p class="step-figure">${escapeHtml(step.figure)}<small>${escapeHtml(step.unit)}</small></p>${step.note ? `<p class="step-note">${escapeHtml(step.note)}</p>` : ""}</li>`,
+  const pipeline = pipelineOf(lookup);
+  const steps = pipeline.map(
+    (step, index) =>
+      `<li style="--step: ${index}"><p class="step-figure">${escapeHtml(step.figure)}<small>${escapeHtml(step.unit)}</small></p>${step.note ? `<p class="step-note">${escapeHtml(step.note)}</p>` : ""}${index < pipeline.length - 1 ? '<span class="step-link" aria-hidden="true"></span>' : ""}</li>`,
   );
   const facts = methodLines(lookup)
     .map(factOf)
@@ -519,27 +525,21 @@ const factBlock = (title: string, lines: string[]) =>
     `<ul class="fact-lines">\n${lines.map((line) => `<li>${withLinks(line)}</li>`).join("\n")}\n</ul>`,
   ].join("\n");
 
-function provenanceHtml(inputs: PageInputs): string {
-  const { benchmark, context } = inputs;
-  const evidence = [
-    `<li><a href="benchmark.json">benchmark.json</a>: the plan, the results and this page's presentation</li>`,
-    ...benchmark.results.raw_data.flatMap((raw) => {
+/** The files a reader downloads to check the page: the benchmark file and the raw data copied beside it. */
+export function downloadLinksOf(inputs: PageInputs): string[] {
+  return [
+    '<a href="benchmark.json">benchmark.json ↓</a>',
+    ...inputs.benchmark.results.raw_data.flatMap((raw) => {
       const path = inputs.evidencePaths.get(raw.id);
 
-      return path
-        ? [
-            `<li><a href="${escapeHtml(path)}">${escapeHtml(path)}</a>: ${raw.rows ?? "?"} rows, sha256 <code>${escapeHtml(raw.sha256 ?? "")}</code></li>`,
-          ]
-        : [];
+      return path ? [`<a href="${escapeHtml(path)}">${escapeHtml(path)} ↓</a>`] : [];
     }),
   ];
+}
 
-  return [
-    '<h3 class="fact-title">Check it yourself</h3>',
-    `<p>Download the file and its raw data, keep them in the same folders, and run <code>npx astrolabe-bench@${escapeHtml(context.generatorVersion)} validate benchmark.json</code>: it computes every number again and prints this hash of the results.</p>`,
-    `<p class="hash"><span class="label">Results sha256</span><br><code>${resultsHash(benchmark.results)}</code></p>`,
-    `<ul class="fact-lines">\n${evidence.join("\n")}\n</ul>`,
-  ].join("\n");
+/** How to check the page, under its last line: the command at the version that built it, and the full hash it prints. */
+export function verificationHtml(inputs: PageInputs): string {
+  return `<p class="verify"><span class="dim">Check it yourself: in a folder holding these files, run</span> <code>npx astrolabe-bench@${escapeHtml(inputs.context.generatorVersion)} validate benchmark.json</code><span class="dim">. It computes every number again and prints the hash of the results:</span> <code class="hash">${resultsHash(inputs.benchmark.results)}</code></p>`;
 }
 
 /** The inside of one block, in the order the reader meets it; number is its place on the page. */
@@ -560,6 +560,6 @@ export function blockHtml(block: Block, inputs: PageInputs, width: number, numbe
     case "limitations":
       return factBlock("Limitations", inputs.lookup.results.limitations);
     case "provenance":
-      return provenanceHtml(inputs);
+      return verificationHtml(inputs);
   }
 }

@@ -2,7 +2,7 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import { TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
-import { blockHtml, sectionLabel, type PageInputs } from "./blocks.js";
+import { blockHtml, downloadLinksOf, sectionLabel, verificationHtml, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
 import type { AnswerPart } from "./write-site.js";
 import { escapeHtml } from "./html.js";
@@ -146,7 +146,14 @@ function navHtml(benchmark: Benchmark, rows: Block[][], canSwitchTheme: boolean)
 }
 
 const answerHtml = (parts: AnswerPart[]) =>
-  parts.map((part) => (part.tone ? `<span class="${part.tone}">${escapeHtml(part.text)}</span>` : escapeHtml(part.text))).join("");
+  parts
+    .map((part) => (part.tone ? `<span class="${part.tone}">${escapeHtml(part.text)}</span>` : escapeHtml(part.text)))
+    .join("")
+    .trim();
+
+/** A ruler down the left edge that follows the reading, drawn by the script on wide screens. */
+const RULER_TICKS = 48;
+const rulerHtml = () => `<div class="ruler" aria-hidden="true">${"<i></i>".repeat(RULER_TICKS)}</div>`;
 
 /** The trust blocks that follow one another, as one part: how it was measured, and how to check it. */
 function trustSectionHtml(blocks: Block[], inputs: PageInputs, number: string, isFirst: boolean): string {
@@ -186,9 +193,12 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
     trustRun = [];
   };
 
+  let provenanceBlock: Block | undefined;
+
   for (const row of rows) {
     if (row.every(isTrustBlock)) {
-      trustRun.push(...row);
+      provenanceBlock ??= row.find((block) => block.type === "provenance");
+      trustRun.push(...row.filter((block) => block.type !== "provenance"));
       continue;
     }
 
@@ -218,32 +228,40 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
 
   const ciRun = provenance.continuousIntegration;
   const commit = ciRun ? `commit ${escapeHtml(ciRun.commit)}` : undefined;
-  const footer = [
+  const footerLine = [
     linkedIfAddress(provenance.source),
     `results ${escapeHtml(provenance.hash)}`,
     ...(commit ? [ciRun?.runUrl ? `<a href="${escapeHtml(ciRun.runUrl)}">${commit}</a>` : commit] : []),
-    '<a href="benchmark.json">Download the data</a>',
+    ...downloadLinksOf(pageInputs),
     ...(provenance.attribution ? [`<a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a>`] : []),
   ].map((part) => `<span>${part}</span>`);
+  const claims = head.answer.filter((part) => !part.aside);
+  const aside = head.answer.filter((part) => part.aside);
+  const lede = [escapeHtml(results.benchmark.scope ?? ""), answerHtml(aside)].filter(Boolean).join(" ");
 
   return [
     "<!doctype html>",
     '<html lang="en">',
     headHtml(benchmark, head),
     "<body>",
+    rulerHtml(),
     navHtml(benchmark, rows, inputs.modes.length > 1),
     '<main id="top">',
     '<section class="hero frame">',
-    `<p class="mono-label">Benchmark<span class="dim"> · </span>updated ${escapeHtml(provenance.date)}<span class="dim"> · </span>baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
-    `<h1><span class="goal">${escapeHtml(results.benchmark.goal)}</span>${results.benchmark.scope ? ` <span class="scope">${escapeHtml(results.benchmark.scope)}</span>` : ""}</h1>`,
-    `<p class="answer">${answerHtml(head.answer)}</p>`,
+    `<p class="mono-label"><span class="tick-mark" aria-hidden="true"></span>Benchmark<span class="dim"> · </span>updated ${escapeHtml(provenance.date)}<span class="dim"> · </span>baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
+    `<h1><span class="question">${escapeHtml(results.benchmark.goal)}</span> <span class="answer">${answerHtml(claims)}</span></h1>`,
+    lede ? `<p class="lede">${lede}</p>` : "",
     "</section>",
     ...sections,
     "</main>",
-    `<footer class="footer frame"><p class="mono-label">${footer.join("")}</p></footer>`,
+    `<footer class="footer frame"${provenanceBlock ? ` id="${escapeHtml(provenanceBlock.id)}"` : ""}>`,
+    `<p class="mono-label">${footerLine.join("")}</p>`,
+    ...(provenanceBlock ? [verificationHtml(pageInputs)] : []),
+    "</footer>",
     "</body>",
     "</html>",
   ]
+    .filter(Boolean)
     .join("\n")
     .concat("\n");
 }
