@@ -175,7 +175,7 @@ const PROOFS: Record<string, Proof> = {
   V17: { test: "tests/chart.test.ts", title: "keeps a candidate's colour and marker on every chart, whichever candidates a chart shows" },
   V18: { test: "tests/chart.test.ts", title: "tells candidates apart by shape as well as by colour" },
   V19: { test: "tests/chart.test.ts", title: "moves a colour that would be too faint towards the ink, and keeps one that is visible" },
-  V23: { test: "tests/chart.test.ts", title: "shades with a single grey ramp, the figures readable on every shade" },
+  V23: { test: "tests/chart.test.ts", title: "shades with a single neutral ramp, the figures readable on every shade" },
   V25: { test: "tests/validate.test.ts", title: "an asserted verdict that no longer holds fails the file" },
   V26: { test: "tests/validate.test.ts", title: "a number typed in a title is refused, a template is not" },
   V27: {

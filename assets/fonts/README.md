@@ -10,3 +10,10 @@ The renderer reads no font at run time. `scripts/extract-font-data.py` turns the
 ```bash
 uv run --no-project --with fonttools==4.60.1 python scripts/extract-font-data.py
 ```
+
+# Geist Mono
+
+The site sets its labels, ticks and figures in Geist Mono.
+
+- Source: the `geist` package 1.9.2, weights 400 and 500, subset to Latin and the signs the page uses (`pyftsubset`, `.woff2`).
+- Licence: SIL Open Font License 1.1, in `OFL-Geist.txt`. Copyright 2023 Vercel, in collaboration with basement.studio.

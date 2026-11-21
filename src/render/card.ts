@@ -1,6 +1,8 @@
-import type { Benchmark, Comparison, Metric } from "../schema/benchmark.js";
+import type { Benchmark, Comparison, Metric, Value } from "../schema/benchmark.js";
+import { withUnit } from "./chart/chart-content.js";
 import {
   effectAndInterval,
+  labelDecimals,
   lookupOf,
   lowerFirstLetterOfWord,
   provenanceParts,
@@ -11,38 +13,52 @@ import {
   type BuildContext,
   type Lookup,
 } from "./describe.js";
-import { THEME, type Colours, type Mode } from "../themes/astrolabe.js";
+import { seriesStylesOf, THEME, type Colours, type Mode } from "../themes/astrolabe.js";
 import { formatNumber } from "./number-format.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "./svg-text.js";
 
 export type CardMode = Mode;
 
 const WIDTH = 800;
-const PADDING = 40;
-/** Space on each side of the thin rule between two headline columns. */
-const COLUMN_GUTTER = 24;
-const CORNER_RADIUS = 12;
-const STRIP_HEIGHT = 24;
-const STRIP_SCALE_ROW = 20;
-const BADGE_HEIGHT = 22;
-const BADGE_PADDING = 10;
-const BADGE_ICON_SIZE = 10;
+/** Space between the frame and the text of the header and the footer. */
+const PADDING = 36;
+/** Space between the hairlines of a cell and its content. */
+const CELL_PADDING = 28;
+const STRIP_HEIGHT = 28;
+const STRIP_SCALE_ROW = 22;
+const CHIP_HEIGHT = 26;
+const CHIP_PADDING = 10;
+const CHIP_DOT_SIZE = 6;
+const CHIP_GAP = 8;
+const CHIP_STROKE_OPACITY = 0.4;
+const BAR_ROW = 26;
+const BAR_HEIGHT = 12;
 const WARNING_ICON_SIZE = 12;
+
+export const TICK_MARK_WIDTH = 28;
+/** The gap between the groups of the top line, a small dot in its middle, as on the site. */
+const EYEBROW_GAP = 22;
+const HALO_RADIUS = 10;
+const HALO_OPACITY = 0.16;
 
 export const MAX_HEADLINES = 3;
 
-/** Every size is at least 12 px at the card's own width, the smallest text readable once shown in a README. */
+/**
+ * Every size is at least 12 px at the card's own width, the smallest text readable once shown in a README.
+ * Labels, verdicts and the small print are in Geist Mono, the question and the figures in Inter, as on the site.
+ */
 export const STYLE = {
-  eyebrow: { weight: 500, size: 14, lineHeight: 18 },
-  title: { weight: 600, size: 22, lineHeight: 28, tracking: -0.01 },
-  label: { weight: 600, size: 13, lineHeight: 18 },
-  effect: { weight: 700, size: 44, lineHeight: 48, tabular: true, tracking: -0.03 },
-  effectUnit: { weight: 500, size: 16 },
+  eyebrow: { weight: 400, size: 12, lineHeight: 16, tracking: 0.04, mono: true },
+  title: { weight: 500, size: 24, lineHeight: 30, tracking: -0.02 },
+  label: { weight: 400, size: 12, lineHeight: 17, tracking: 0.04, mono: true },
+  effect: { weight: 500, size: 56, lineHeight: 56, tabular: true, tracking: -0.05 },
+  effectUnit: { weight: 400, size: 18 },
   heading: { weight: 500, size: 14, lineHeight: 20 },
-  badge: { weight: 600, size: 12, tracking: 0.04 },
-  detail: { weight: 400, size: 12, lineHeight: 17 },
-  warning: { weight: 600, size: 12, lineHeight: 17 },
-  scale: { weight: 400, size: 12, tabular: true },
+  chip: { weight: 400, size: 12, tracking: 0.06, mono: true },
+  name: { weight: 500, size: 13 },
+  detail: { weight: 400, size: 12, lineHeight: 18, mono: true },
+  warning: { weight: 500, size: 12, lineHeight: 18, mono: true },
+  scale: { weight: 400, size: 12, mono: true },
 } as const;
 
 export interface CardHeadline {
@@ -267,22 +283,109 @@ export function isFirmVerdict(comparison: Comparison): boolean {
   return comparison.qualifier === undefined && comparison.verdict !== "inconclusive";
 }
 
+/** The colour of a verdict, always drawn beside its word: better and worse have their own, the others the ink. */
+export function verdictColourOf(comparison: Comparison, colours: Colours): string {
+  if (comparison.verdict === "better") return colours.good;
+
+  return comparison.verdict === "worse" ? colours.bad : colours.ink;
+}
+
 const round = (value: number) => String(Math.round(value * 10) / 10);
 
-/** A check for better, a cross for worse, an equals sign for equivalent; inconclusive has no direction to show. */
-function verdictIcon(comparison: Comparison, x: number, centreY: number, colour: string): string {
-  const top = centreY - BADGE_ICON_SIZE / 2;
-  const shapes = {
-    better: `M${x} ${top + 5.2}L${x + 3.6} ${top + 8.6}L${x + 10} ${top + 1.6}`,
-    worse: `M${x + 1} ${top + 1}L${x + 9} ${top + 9}M${x + 9} ${top + 1}L${x + 1} ${top + 9}`,
-    equivalent: `M${x + 1} ${top + 3.4}H${x + 9}M${x + 1} ${top + 6.6}H${x + 9}`,
-    inconclusive: "",
-  };
-  const shape = shapes[comparison.verdict];
+/** A percent sign sits against its number, a word unit a space away, as on the site. */
+const unitGapOf = (unit: string) => (unit === "%" ? 3 : 8);
 
-  return shape
-    ? `<path d="${shape}" fill="none" stroke="${colour}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`
-    : "";
+/** The colour of a verdict's chip, its word and its strip: better and worse have their own, the others stay grey. */
+const chipColourOf = (comparison: Comparison, colours: Colours) =>
+  comparison.verdict === "better" ? colours.good : comparison.verdict === "worse" ? colours.bad : colours.secondary;
+
+const chipWidthOf = (text: SvgTextRenderer, verdict: string) =>
+  CHIP_PADDING + CHIP_DOT_SIZE + CHIP_GAP + text.measure(verdict, STYLE.chip) + CHIP_PADDING;
+
+/** The verdict as on the site: its word after a dot, in a hairline frame, all in the verdict's colour. */
+function verdictChip(text: SvgTextRenderer, verdict: string, x: number, top: number, colour: string, colours: Colours): string {
+  const centreY = top + CHIP_HEIGHT / 2;
+  const width = chipWidthOf(text, verdict);
+  const stroke =
+    colour === colours.secondary ? `stroke="${colours.ruleStrong}"` : `stroke="${colour}" stroke-opacity="${CHIP_STROKE_OPACITY}"`;
+
+  return [
+    `<rect x="${round(x + 0.5)}" y="${round(top + 0.5)}" width="${round(width - 1)}" height="${CHIP_HEIGHT - 1}" rx="6" fill="none" ${stroke}/>`,
+    `<circle cx="${round(x + CHIP_PADDING + CHIP_DOT_SIZE / 2)}" cy="${round(centreY)}" r="${CHIP_DOT_SIZE / 2}" fill="${colour}"/>`,
+    text.draw(verdict, x + CHIP_PADDING + CHIP_DOT_SIZE + CHIP_GAP, centreY + (STYLE.chip.size * CAP_HEIGHT_RATIO) / 2, {
+      ...STYLE.chip,
+      fill: colour,
+    }),
+  ].join("");
+}
+
+export interface ValueFromZero {
+  candidate: string;
+  value: Value;
+}
+
+/**
+ * A change in percent is drawn as the two values it compares, from zero, so the ratio is seen rather than read;
+ * null when the change is a difference, or a value is missing or below zero.
+ */
+export function valuesDrawnFromZero(lookup: Lookup, comparison: Comparison): ValueFromZero[] | null {
+  const metric = lookup.metricById.get(comparison.metric)!;
+  const valueOf = (candidate: string) =>
+    (lookup.results.values ?? []).find(
+      (value) => value.metric === comparison.metric && value.node === comparison.node && value.candidate === candidate,
+    );
+  const [subject, baseline] = [valueOf(comparison.candidate), valueOf(comparison.vs)];
+
+  if (metric.compare_as !== "relative" || !subject || !baseline || subject.value < 0 || baseline.value < 0) return null;
+
+  return [
+    { candidate: comparison.candidate, value: subject },
+    { candidate: comparison.vs, value: baseline },
+  ];
+}
+
+const valuesHeight = (rows: number) => (rows - 1) * BAR_ROW + BAR_HEIGHT + 2;
+
+/** The two values as bars from zero, each in its candidate's colour, the name before and the value after. */
+function valuesFromZero(
+  text: SvgTextRenderer,
+  metric: Metric,
+  rows: { name: string; value: Value; colour: string }[],
+  x: number,
+  y: number,
+  width: number,
+  colours: Colours,
+): { marks: string; textLines: string[] } {
+  const shown = rows.map((row) => withUnit(formatNumber(row.value.value, labelDecimals(metric, row.value)), metric.unit));
+  const nameWidth = Math.min(Math.max(...rows.map((row) => text.measure(row.name, STYLE.name))) + 12, width * 0.4);
+  const valueWidth = Math.max(...shown.map((label) => text.measure(label, STYLE.scale))) + 8;
+  const barRoom = width - nameWidth - valueWidth;
+  const largest = Math.max(...rows.map((row) => row.value.value));
+  const zero = x + nameWidth;
+  const marks: string[] = [];
+  const textLines: string[] = [];
+
+  rows.forEach((row, index) => {
+    const top = y + index * BAR_ROW;
+    const centreY = top + 1 + BAR_HEIGHT / 2;
+    const barWidth = largest > 0 ? (row.value.value / largest) * barRoom : 0;
+    const name = text.fit(row.name, STYLE.name, nameWidth - 12);
+
+    marks.push(text.draw(name, x, centreY + (STYLE.name.size * CAP_HEIGHT_RATIO) / 2, { ...STYLE.name, fill: colours.ink }));
+    marks.push(
+      `<rect x="${round(zero)}" y="${top + 1}" width="${round(Math.max(barWidth, 1))}" height="${BAR_HEIGHT}" rx="2" fill="${row.colour}"/>`,
+    );
+    marks.push(
+      text.draw(shown[index], zero + barWidth + 8, centreY + (STYLE.scale.size * CAP_HEIGHT_RATIO) / 2, {
+        ...STYLE.scale,
+        fill: colours.secondary,
+      }),
+    );
+    textLines.push(`${name}  ${shown[index]}`);
+  });
+  marks.push(`<path d="M${round(zero)} ${y - 2}V${y + valuesHeight(rows.length) + 2}" stroke="${colours.ruleStrong}" stroke-width="1"/>`);
+
+  return { marks: marks.join(""), textLines };
 }
 
 function warningIcon(x: number, top: number, colour: string): string {
@@ -295,11 +398,12 @@ function warningIcon(x: number, top: number, colour: string): string {
   ].join("");
 }
 
-/** A small arrow from x, drawn as a path because the bundled font has no arrows. */
-function sideArrow(x: number, centreY: number, pointsRight: boolean, colour: string): string {
-  const [tail, tip, barb] = pointsRight ? [x, x + 9, x + 5.5] : [x + 9, x, x + 3.5];
-
-  return `<path d="M${tail} ${centreY}H${tip}M${barb} ${centreY - 3.5}L${tip} ${centreY}L${barb} ${centreY + 3.5}" fill="none" stroke="${colour}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+/** The mark before a label, as on the site: a short rule ending in a dot. */
+export function tickMark(x: number, centreY: number, colours: Colours): string {
+  return [
+    `<path d="M${x} ${round(centreY)}H${x + 18}" stroke="${colours.quiet}" stroke-width="1"/>`,
+    `<rect x="${x + 16}" y="${round(centreY - 2.5)}" width="5" height="5" rx="2.5" fill="${colours.secondary}"/>`,
+  ].join("");
 }
 
 /** Share of the strip's range left empty on each side, so the caps and the dot never touch its ends. */
@@ -339,9 +443,17 @@ interface StripDrawing {
 /**
  * The effect as a dot, its interval as a capped line, zero as a rule and the
  * smallest difference that matters as a shaded band: the reader sees why the
- * verdict is what it is. Each strip has its own scale.
+ * verdict is what it is. A faint stem joins zero to the effect. Each strip has its own scale.
  */
-function effectStrip(metric: Metric, comparison: Comparison, x: number, y: number, width: number, colours: Colours): StripDrawing {
+function effectStrip(
+  metric: Metric,
+  comparison: Comparison,
+  x: number,
+  y: number,
+  width: number,
+  colours: Colours,
+  markColour: string,
+): StripDrawing {
   const minimum = metric.minimum_meaningful;
   const measuredInterval = comparison.source === "declared" ? undefined : comparison.ci;
   const interval: [number, number] = measuredInterval
@@ -352,27 +464,26 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
   const left = positionOf(-minimum);
   const right = positionOf(minimum);
   const zero = positionOf(0);
+  const effectX = positionOf(comparison.effect);
   const marks: string[] = [];
 
-  marks.push(`<path d="M${x} ${middle}H${round(x + width)}" stroke="${colours.rule}" stroke-width="1"/>`);
-
   marks.push(`<rect x="${round(left)}" y="${y}" width="${round(right - left)}" height="${STRIP_HEIGHT}" fill="${colours.band}"/>`);
-  marks.push(
-    `<path d="M${round(left)} ${y}V${y + STRIP_HEIGHT}M${round(right)} ${y}V${y + STRIP_HEIGHT}" stroke="${colours.secondary}" stroke-width="1" stroke-dasharray="2 2"/>`,
-  );
+  marks.push(`<path d="M${x} ${middle}H${round(x + width)}" stroke="${colours.ruleStrong}" stroke-width="1"/>`);
   marks.push(`<path d="M${round(zero)} ${y - 2}V${y + STRIP_HEIGHT + 2}" stroke="${colours.secondary}" stroke-width="1"/>`);
+  marks.push(`<path d="M${round(zero)} ${middle}H${round(effectX)}" stroke="${markColour}" stroke-opacity="0.4" stroke-width="1"/>`);
 
   if (measuredInterval) {
     const start = positionOf(interval[0]);
     const end = positionOf(interval[1]);
 
     marks.push(
-      `<path d="M${round(start)} ${middle}H${round(end)}M${round(start)} ${middle - 5}V${middle + 5}M${round(end)} ${middle - 5}V${middle + 5}" stroke="${colours.ink}" stroke-width="2.5" stroke-linecap="round"/>`,
+      `<path d="M${round(start)} ${middle}H${round(end)}M${round(start)} ${middle - 6}V${middle + 6}M${round(end)} ${middle - 6}V${middle + 6}" stroke="${markColour}" stroke-width="2.5" stroke-linecap="round"/>`,
     );
   }
 
+  marks.push(`<circle cx="${round(effectX)}" cy="${middle}" r="${HALO_RADIUS}" fill="${markColour}" fill-opacity="${HALO_OPACITY}"/>`);
   marks.push(
-    `<circle cx="${round(positionOf(comparison.effect))}" cy="${middle}" r="4.5" fill="${colours.ink}" stroke="${colours.background}" stroke-width="1.5"/>`,
+    `<circle cx="${round(effectX)}" cy="${middle}" r="5" fill="${markColour}" stroke="${colours.background}" stroke-width="1.5"/>`,
   );
 
   const edges = bandEdgeLabels(metric);
@@ -387,7 +498,13 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
   };
 }
 
-/** The README card: headlines with their verdicts and intervals, how to read them, and the provenance line. */
+/** The groups of the top line, in order, each a run of differently coloured pieces, as on the site. */
+type EyebrowGroup = { text: string; fill: string }[];
+
+/**
+ * The README card, in the site's style: the benchmark and what it compares, the question, then one cell per
+ * headline with its figure and verdict, its drawing, its claim and its details, then how to read it and the provenance.
+ */
 export function renderCard(benchmark: Benchmark, content: CardContent, mode: CardMode, context: BuildContext): RenderedCard {
   const results = benchmark.results;
 
@@ -395,6 +512,11 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
   const lookup = lookupOf(results);
   const colours = THEME[mode];
+  const series = seriesStylesOf(
+    results.candidates.map((candidate) => candidate.id),
+    benchmark.style,
+    mode,
+  );
   const text = new SvgTextRenderer();
   const marks: string[] = [];
   const textLines: string[] = [];
@@ -413,17 +535,59 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
     return y;
   };
+  const centreOfLine = (top: number, style: { size: number }) => baselineOf(top, style) - (style.size * CAP_HEIGHT_RATIO) / 2;
 
   const sharedPair = sharedPairOf(lookup, content);
-  const eyebrow = sharedPair ?? `${results.candidates.length - 1} candidates against ${lookup.candidateName.get(results.baseline)}`;
+  const compared = sharedPair ?? `${results.candidates.length - 1} candidates against ${lookup.candidateName.get(results.baseline)}`;
+  const eyebrowGroups: EyebrowGroup[] = [
+    [
+      { text: results.benchmark.id, fill: colours.ink },
+      { text: ` v${results.benchmark.version}`, fill: colours.quiet },
+    ],
+    [{ text: compared.toUpperCase(), fill: colours.secondary }],
+  ];
+  const eyebrowStart = PADDING + TICK_MARK_WIDTH;
+  const groupWidth = (group: EyebrowGroup) => group.reduce((width, piece) => width + text.measure(piece.text, STYLE.eyebrow), 0);
+  const eyebrowLines: EyebrowGroup[][] = [];
 
-  cursorY = drawLines([eyebrow], STYLE.eyebrow, colours.secondary, PADDING, cursorY);
-  cursorY = drawLines(text.wrap(results.benchmark.goal, STYLE.title, innerWidth), STYLE.title, colours.ink, PADDING, cursorY + 8);
-  cursorY += 28;
+  for (const group of eyebrowGroups) {
+    const line = eyebrowLines[eyebrowLines.length - 1];
+    const lineWidth = line ? line.reduce((width, placed) => width + groupWidth(placed) + EYEBROW_GAP, 0) : 0;
 
+    if (line && eyebrowStart + lineWidth + groupWidth(group) <= WIDTH - PADDING) line.push(group);
+    else eyebrowLines.push([group]);
+  }
+
+  marks.push(tickMark(PADDING, centreOfLine(cursorY, STYLE.eyebrow), colours));
+
+  for (const line of eyebrowLines) {
+    let x = eyebrowStart;
+
+    line.forEach((group, index) => {
+      if (index > 0) {
+        marks.push(
+          `<circle cx="${round(x + EYEBROW_GAP / 2)}" cy="${round(centreOfLine(cursorY, STYLE.eyebrow))}" r="1" fill="${colours.quiet}"/>`,
+        );
+        x += EYEBROW_GAP;
+      }
+
+      for (const piece of group) {
+        marks.push(text.draw(piece.text, x, baselineOf(cursorY, STYLE.eyebrow), { ...STYLE.eyebrow, fill: piece.fill }));
+        x += text.measure(piece.text, STYLE.eyebrow);
+      }
+    });
+    textLines.push(line.map((group) => group.map((piece) => piece.text).join("")).join(" · "));
+    cursorY += STYLE.eyebrow.lineHeight;
+  }
+
+  cursorY = drawLines(text.wrap(results.benchmark.goal, STYLE.title, innerWidth), STYLE.title, colours.ink, PADDING, cursorY + 16);
+  cursorY += 30;
+
+  const headerRuleY = cursorY;
   const columnCount = Math.max(1, content.headlines.length);
-  const columnWidth = (innerWidth - 2 * COLUMN_GUTTER * (columnCount - 1)) / columnCount;
-  const columnX = (index: number) => PADDING + index * (columnWidth + 2 * COLUMN_GUTTER);
+  const cellWidth = WIDTH / columnCount;
+  const columnWidth = cellWidth - 2 * CELL_PADDING;
+  const columnX = (index: number) => index * cellWidth + CELL_PADDING;
   const levels = new Set(
     content.headlines
       .map(({ comparison }) => effectAndInterval(lookup.metricById.get(comparison.metric)!, comparison).level)
@@ -431,15 +595,17 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   );
   const sharedLevel = levels.size === 1 ? ([...levels][0] as string) : null;
 
-  // Laid out in rows, each as tall as its tallest column, so labels, figures, verdicts and strips line up across columns.
+  // Laid out in rows, each as tall as its tallest column, so labels, figures, verdicts and drawings line up across columns.
   const columns = content.headlines.map(({ comparison, title }) => {
     const metric = lookup.metricById.get(comparison.metric)!;
-    const measured = `${measuredOf(lookup, comparison)}${sharedPair ? "" : ` · ${lookup.candidateName.get(comparison.candidate)}`}`;
-    const oneLineLabel = `${measured} · ${directionWords(metric)}`;
-    const labelLines =
-      text.measure(oneLineLabel, STYLE.label) <= columnWidth
-        ? [oneLineLabel]
-        : [...text.wrap(measured, STYLE.label, columnWidth), directionWords(metric)];
+    const labelParts = [
+      measuredOf(lookup, comparison),
+      ...(sharedPair ? [] : [lookup.candidateName.get(comparison.candidate)!]),
+      directionWords(metric),
+    ].map((part) => part.toUpperCase());
+    const { effectNumber, unit } = effectAndInterval(metric, comparison);
+    const verdict = `${verdictLabel(comparison)}${comparison.source === "declared" ? " (declared)" : ""}`.toUpperCase();
+    const fromZero = valuesDrawnFromZero(lookup, comparison);
     const resolvedTitle = title ? resolveTemplates(title, lookup) : undefined;
     const details = detailsOf(lookup, comparison, sharedLevel).map((detail) => ({
       ...detail,
@@ -453,7 +619,13 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     return {
       comparison,
       metric,
-      labelLines,
+      labelLines: text.wrapParts(labelParts, STYLE.label, columnWidth - TICK_MARK_WIDTH),
+      effectNumber,
+      unit: unit.trim(),
+      figureWidth: text.measure(effectNumber, STYLE.effect) + unitGapOf(unit.trim()) + text.measure(unit.trim(), STYLE.effectUnit),
+      verdict,
+      fromZero,
+      drawingHeight: fromZero ? valuesHeight(fromZero.length) : STRIP_HEIGHT + STRIP_SCALE_ROW,
       titleLines:
         resolvedTitle && addsInformation(resolvedTitle, lookup, comparison) ? text.wrap(resolvedTitle, STYLE.heading, columnWidth) : [],
       details,
@@ -461,99 +633,98 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   });
   const rowHeight = (linesOf: (column: (typeof columns)[number]) => string[], lineHeight: number) =>
     Math.max(0, ...columns.map((column) => linesOf(column).length)) * lineHeight;
-  const columnsTop = cursorY;
-  const effectTop = columnsTop + rowHeight((column) => column.labelLines, STYLE.label.lineHeight) + 8;
-  const titleTop = effectTop + STYLE.effect.lineHeight + 4;
+  const chipsBesideFigures = columns.every((column) => column.figureWidth + 16 + chipWidthOf(text, column.verdict) <= columnWidth);
+  const columnsTop = headerRuleY + 28;
+  const effectTop = columnsTop + rowHeight((column) => column.labelLines, STYLE.label.lineHeight) + 24;
+  const chipTop = chipsBesideFigures
+    ? effectTop + (STYLE.effect.size * CAP_HEIGHT_RATIO - CHIP_HEIGHT) / 2
+    : effectTop + STYLE.effect.lineHeight;
+  const drawingTop = chipsBesideFigures ? effectTop + STYLE.effect.lineHeight + 12 : chipTop + CHIP_HEIGHT + 22;
+  const titleTop = drawingTop + Math.max(...columns.map((column) => column.drawingHeight)) + 22;
   const titleRowHeight = rowHeight((column) => column.titleLines, STYLE.heading.lineHeight);
-  const badgeTop = titleTop + titleRowHeight + (titleRowHeight > 0 ? 12 : 8);
-  const stripTop = badgeTop + BADGE_HEIGHT + 24;
-  const detailsTop = stripTop + STRIP_HEIGHT + STRIP_SCALE_ROW + 8;
+  const detailsTop = titleTop + titleRowHeight + (titleRowHeight > 0 ? 10 : 0);
   const columnsBottom = detailsTop + rowHeight((column) => column.details.flatMap((detail) => detail.lines), STYLE.detail.lineHeight);
 
-  columns.forEach(({ comparison, metric, labelLines, titleLines, details }, index) => {
+  columns.forEach((column, index) => {
+    const { comparison, metric, labelLines, effectNumber, unit, verdict, fromZero, titleLines, details } = column;
     const x = columnX(index);
-    const { effectNumber, unit } = effectAndInterval(metric, comparison);
     const effectBaseline = baselineOf(effectTop, STYLE.effect);
-    const numberWithPercent = unit === "%" ? `${effectNumber}%` : effectNumber;
+    const verdictColour = verdictColourOf(comparison, colours);
 
-    drawLines(labelLines, STYLE.label, colours.secondary, x, columnsTop);
-    marks.push(text.draw(numberWithPercent, x, effectBaseline, { ...STYLE.effect, fill: colours.ink }));
-    textLines.push(unit === "%" ? numberWithPercent : `${numberWithPercent} ${unit.trim()}`);
-
-    if (unit !== "%") {
-      const unitX = x + text.measure(numberWithPercent, STYLE.effect) + 6;
-
-      marks.push(text.draw(unit.trim(), unitX, effectBaseline, { ...STYLE.effectUnit, fill: colours.secondary }));
-    }
-
-    drawLines(titleLines, STYLE.heading, colours.ink, x, titleTop);
-
-    const verdict = `${verdictLabel(comparison)}${comparison.source === "declared" ? " (declared)" : ""}`.toUpperCase();
-    const hasIcon = comparison.verdict !== "inconclusive";
-    const iconSpace = hasIcon ? BADGE_ICON_SIZE + 6 : 0;
-    const badgeWidth = text.measure(verdict, STYLE.badge) + 2 * BADGE_PADDING + iconSpace;
-    const firm = isFirmVerdict(comparison);
-    const badgeInk = firm ? colours.inkOnFill : colours.ink;
-    const badgeCentreY = badgeTop + BADGE_HEIGHT / 2;
-
+    marks.push(tickMark(x, centreOfLine(columnsTop, STYLE.label), colours));
+    drawLines(labelLines, STYLE.label, colours.secondary, x + TICK_MARK_WIDTH, columnsTop);
+    marks.push(text.draw(effectNumber, x, effectBaseline, { ...STYLE.effect, fill: verdictColour }));
     marks.push(
-      firm
-        ? `<rect x="${x}" y="${badgeTop}" width="${round(badgeWidth)}" height="${BADGE_HEIGHT}" rx="${BADGE_HEIGHT / 2}" fill="${colours.ink}"/>`
-        : `<rect x="${x + 0.5}" y="${badgeTop + 0.5}" width="${round(badgeWidth - 1)}" height="${BADGE_HEIGHT - 1}" rx="${(BADGE_HEIGHT - 1) / 2}" fill="none" stroke="${colours.secondary}"/>`,
-    );
-    marks.push(verdictIcon(comparison, x + BADGE_PADDING, badgeCentreY, badgeInk));
-    marks.push(
-      text.draw(verdict, x + BADGE_PADDING + iconSpace, badgeCentreY + (STYLE.badge.size * CAP_HEIGHT_RATIO) / 2, {
-        ...STYLE.badge,
-        fill: badgeInk,
-      }),
-    );
-    textLines.push(verdict);
-
-    const strip = effectStrip(metric, comparison, x, stripTop, columnWidth, colours);
-    const scaleBaseline = stripTop + STRIP_HEIGHT + 6 + STYLE.scale.size * CAP_HEIGHT_RATIO;
-    const betterBaseline = stripTop - 6;
-    const betterWidth = text.measure("better", STYLE.scale);
-    const arrowWidth = 13;
-    const betterIsRight = metric.direction === "higher";
-    const arrowCentreY = betterBaseline - (STYLE.scale.size * CAP_HEIGHT_RATIO) / 2;
-    const occupied: [number, number][] = [];
-    const drawnScaleLabels: { text: string; start: number }[] = [];
-
-    marks.push(strip.marks);
-    marks.push(
-      text.draw("better", betterIsRight ? x + columnWidth - arrowWidth - betterWidth : x + arrowWidth, betterBaseline, {
-        ...STYLE.scale,
+      text.draw(unit, x + text.measure(effectNumber, STYLE.effect) + unitGapOf(unit), effectBaseline, {
+        ...STYLE.effectUnit,
         fill: colours.secondary,
       }),
     );
-    marks.push(sideArrow(betterIsRight ? x + columnWidth - arrowWidth + 4 : x, arrowCentreY, betterIsRight, colours.secondary));
-    textLines.push(betterIsRight ? "better →" : "← better");
+    textLines.push(unit === "%" ? `${effectNumber}%` : `${effectNumber} ${unit}`);
+    marks.push(
+      verdictChip(
+        text,
+        verdict,
+        chipsBesideFigures ? x + columnWidth - chipWidthOf(text, verdict) : x,
+        chipTop,
+        chipColourOf(comparison, colours),
+        colours,
+      ),
+    );
+    textLines.push(verdict);
 
-    for (const label of strip.scaleLabels) {
-      const labelWidth = text.measure(label.text, STYLE.scale);
-      const start = Math.min(Math.max(label.centreX - labelWidth / 2, x), x + columnWidth - labelWidth);
-      const end = start + labelWidth;
+    if (fromZero) {
+      const drawn = valuesFromZero(
+        text,
+        metric,
+        fromZero.map((entry) => ({
+          name: lookup.candidateName.get(entry.candidate)!,
+          value: entry.value,
+          colour: series.get(entry.candidate)!.colour,
+        })),
+        x,
+        drawingTop,
+        columnWidth,
+        colours,
+      );
 
-      if (occupied.some(([takenStart, takenEnd]) => start < takenEnd + 6 && end > takenStart - 6)) continue;
+      marks.push(drawn.marks);
+      textLines.push(...drawn.textLines);
+    } else {
+      const strip = effectStrip(metric, comparison, x, drawingTop, columnWidth, colours, chipColourOf(comparison, colours));
+      const scaleBaseline = drawingTop + STRIP_HEIGHT + 8 + STYLE.scale.size * CAP_HEIGHT_RATIO;
+      const occupied: [number, number][] = [];
+      const drawnScaleLabels: { text: string; start: number }[] = [];
 
-      occupied.push([start, end]);
-      drawnScaleLabels.push({ text: label.text, start });
-      marks.push(text.draw(label.text, start, scaleBaseline, { ...STYLE.scale, fill: colours.secondary }));
+      marks.push(strip.marks);
+
+      for (const label of strip.scaleLabels) {
+        const labelWidth = text.measure(label.text, STYLE.scale);
+        const start = Math.min(Math.max(label.centreX - labelWidth / 2, x), x + columnWidth - labelWidth);
+        const end = start + labelWidth;
+
+        if (occupied.some(([takenStart, takenEnd]) => start < takenEnd + 6 && end > takenStart - 6)) continue;
+
+        occupied.push([start, end]);
+        drawnScaleLabels.push({ text: label.text, start });
+        marks.push(text.draw(label.text, start, scaleBaseline, { ...STYLE.scale, fill: colours.secondary }));
+      }
+
+      textLines.push(
+        drawnScaleLabels
+          .sort((first, second) => first.start - second.start)
+          .map((label) => label.text)
+          .join("  "),
+      );
     }
 
-    textLines.push(
-      drawnScaleLabels
-        .sort((first, second) => first.start - second.start)
-        .map((label) => label.text)
-        .join("  "),
-    );
+    drawLines(titleLines, STYLE.heading, colours.ink, x, titleTop);
 
     let detailY = detailsTop;
 
     for (const detail of details) {
       if (detail.isWarning) {
-        marks.push(warningIcon(x, detailY + 2, colours.ink));
+        marks.push(warningIcon(x, detailY + 3, colours.ink));
         detailY = drawLines(detail.lines, STYLE.warning, colours.ink, x + WARNING_ICON_SIZE + 6, detailY);
       } else {
         detailY = drawLines(detail.lines, STYLE.detail, colours.secondary, x, detailY);
@@ -561,15 +732,15 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     }
   });
 
-  for (let column = 1; column < columnCount; column++) {
-    const ruleX = columnX(column) - COLUMN_GUTTER;
+  const footerRuleY = columnsBottom + 32;
 
-    marks.push(`<path d="M${round(ruleX)} ${columnsTop}V${round(columnsBottom)}" stroke="${colours.rule}" stroke-width="1"/>`);
-  }
+  marks.push(`<path d="M1 ${headerRuleY}H${WIDTH - 1}" stroke="${colours.rule}" stroke-width="1"/>`);
+  marks.push(`<path d="M1 ${footerRuleY}H${WIDTH - 1}" stroke="${colours.rule}" stroke-width="1"/>`);
 
-  cursorY = columnsBottom + 28;
-  marks.push(`<path d="M${PADDING} ${cursorY}H${WIDTH - PADDING}" stroke="${colours.rule}" stroke-width="1"/>`);
-  cursorY += 16;
+  for (let column = 1; column < columnCount; column++)
+    marks.push(`<path d="M${round(column * cellWidth)} ${headerRuleY}V${footerRuleY}" stroke="${colours.rule}" stroke-width="1"/>`);
+
+  cursorY = footerRuleY + 22;
 
   const primaryCount = results.computed.primary_comparisons;
   const everyHeadlineAdjusted = content.headlines.every(({ comparison }) => comparison.adjusted);
@@ -582,28 +753,34 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
       : sharedLevel
         ? `${possessive} ${sharedLevel} ${intervalNoun}`
         : `${possessive} ${intervalNoun}`;
-  const legend = [
-    `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}. Shaded band: too small to matter.`,
+  const legendSentences = [
+    `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`,
+    ...(columns.some((column) => !column.fromZero) ? ["Shaded band: too small to matter."] : []),
     ...(content.omittedCount > 0
       ? [`${content.omittedCount} more primary comparison${content.omittedCount === 1 ? "" : "s"} in the full results.`]
       : []),
-  ].join(" ");
+  ];
+  const legend = legendSentences.join(" ");
+  const legendLines = text.wrap(legend, STYLE.detail, innerWidth).length === 1 ? [legend] : legendSentences;
 
-  cursorY = drawLines(text.wrap(legend, STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
+  for (const sentence of legendLines)
+    cursorY = drawLines(text.wrap(sentence, STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
+
   cursorY += 6;
 
   const provenance = provenanceParts(benchmark, context);
-  const provenanceText = [
+  const provenanceItems = [
     provenance.source.replace(/^https?:\/\//, ""),
     `results ${provenance.hash}`,
     provenance.date,
     ...(provenance.continuousIntegration ? [`commit ${provenance.continuousIntegration.commit}`] : []),
     ...(provenance.attribution ? ["Built with Astrolabe"] : []),
-  ].join(" · ");
+  ];
+  const provenanceText = provenanceItems.join(" · ");
 
-  cursorY = drawLines(text.wrap(provenanceText, STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
+  cursorY = drawLines(text.wrapParts(provenanceItems, STYLE.detail, innerWidth), STYLE.detail, colours.quiet, PADDING, cursorY);
 
-  const height = Math.ceil(cursorY + PADDING - 12);
+  const height = Math.ceil(cursorY + 24);
   const altText = cardAltText(benchmark, content);
   const longDescription = [altText, legend, provenanceText].join(" ");
   const svg = [
@@ -612,7 +789,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     `<title id="title">${escapeXml(altText)}</title>`,
     `<desc id="description">${escapeXml(longDescription)}</desc>`,
     text.definitions(),
-    `<rect x="0.5" y="0.5" width="${WIDTH - 1}" height="${height - 1}" rx="${CORNER_RADIUS}" fill="${colours.background}" stroke="${colours.rule}"/>`,
+    `<rect x="0.5" y="0.5" width="${WIDTH - 1}" height="${height - 1}" fill="${colours.background}" stroke="${colours.ruleStrong}"/>`,
     ...marks,
     "</svg>\n",
   ].join("");

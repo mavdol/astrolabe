@@ -18,6 +18,8 @@ export interface ChartContent {
   subtitle: string;
   /** How to read the chart: what is measured, its direction, the observations and the intervals. */
   howToRead: string;
+  /** The same, sentence by sentence, each sentence about a mark tagged with it, so a page can draw a key. */
+  howToReadParts?: ReadingPart[];
   table: DataTable;
   /** What is plotted, in words, for the text alternative. */
   kind: string;
@@ -55,14 +57,58 @@ export function levelsOf(entries: { ci?: [number, number]; ci_level?: number }[]
   return levels.length > 0 ? `${levels.join("% and ")}%` : null;
 }
 
-export function intervalSentence(values: { ci?: [number, number]; ci_level?: number; method?: string }[], name = "Lines"): string {
+/** A mark a reader meets on a chart, which a page can draw in the chart's key. */
+export type KeyMark = "dot" | "bar" | "interval" | "band" | "frontier";
+
+/** One sentence of how to read a chart. A sentence about a mark starts with the mark's name, which a key replaces with the mark itself. */
+export interface ReadingPart {
+  text: string;
+  mark?: KeyMark;
+  markName?: string;
+}
+
+/** How a key mark is painted: a page names classes for its stylesheet, a file that travels alone writes the colours. */
+export type KeyPaint = (role: "fill" | "stroke" | "dashed" | "band") => string;
+
+/** A key mark, drawn as it appears on the chart, in an 18 by 12 box. */
+export function keyMarkOf(mark: KeyMark, paint: KeyPaint): string {
+  switch (mark) {
+    case "dot":
+      return `<circle cx="9" cy="6" r="4" ${paint("fill")}/>`;
+    case "bar":
+      return `<rect x="1" y="2" width="16" height="8" rx="1.5" ${paint("fill")}/>`;
+    case "interval":
+      return `<path d="M2 6H16M2 2.5V9.5M16 2.5V9.5" ${paint("stroke")}/>`;
+    case "band":
+      return `<rect x="1" y="0" width="16" height="12" ${paint("band")}/>`;
+    case "frontier":
+      return `<path d="M1 6H17" ${paint("dashed")}/>`;
+  }
+}
+
+export const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** A claim and the reading after it, read as two sentences. */
+export const asSentence = (text: string) => (/[.!?:…]$/.test(text.trim()) ? text : `${text}.`);
+
+export const howToReadOf = (parts: ReadingPart[]) =>
+  parts
+    .filter((part) => part.text)
+    .map((part) => (part.markName ? `${part.markName}: ${part.text}` : part.text))
+    .join(" ");
+
+type WithInterval = { ci?: [number, number]; ci_level?: number; method?: string };
+
+export function intervalPart(values: WithInterval[], name = "Lines"): ReadingPart {
   const levels = levelsOf(values);
   const methods = intervalMethodsOf(values);
 
   return levels
-    ? `${name}: ${levels} confidence intervals${methods.length > 0 ? ` (${methods.join("; ")})` : ""}.`
-    : "No interval: too few observations, or declared values.";
+    ? { mark: "interval", markName: name, text: `${levels} confidence intervals${methods.length > 0 ? ` (${methods.join("; ")})` : ""}.` }
+    : { text: "No interval: too few observations, or declared values." };
 }
+
+export const intervalSentence = (values: WithInterval[], name = "Lines") => howToReadOf([intervalPart(values, name)]);
 
 /** What a reader must weigh beside the chart: failures left out or unequal, judges who were not blind. */
 export function caveatSentences(lookup: Lookup, metric: Metric, comparisons: Comparison[]): string {

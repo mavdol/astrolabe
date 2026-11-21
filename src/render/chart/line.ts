@@ -17,7 +17,7 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
-import { arrow, intervalUpwards, marker, PLOT_STYLE, round, taggedWith, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
+import { arrow, intervalUpwards, PLOT_STYLE, poppingMarker, round, taggedWith, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
 import { linearScale, logScale } from "./scale.js";
 
 interface LinePoint {
@@ -132,7 +132,11 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
 
     const tag = (element: string) => taggedWith(element, line.candidate);
 
-    marks.push(tag(`<path d="${segments.join("")}" stroke="${line.series.colour}" stroke-width="2" fill="none" stroke-linejoin="round"/>`));
+    marks.push(
+      tag(
+        `<path d="${segments.join("")}" stroke="${line.series.colour}" stroke-width="2" fill="none" stroke-linejoin="round" data-draw=""/>`,
+      ),
+    );
 
     line.points.forEach((point, index) => {
       if (point?.interval)
@@ -152,7 +156,9 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
     line.points.forEach((point, index) => {
       if (point)
         marks.push(
-          tag(marker(line.series.shape, xOf(index, lineIndex), yScale.position(point.value), line.series.colour, colours.background)),
+          tag(
+            poppingMarker(line.series.shape, xOf(index, lineIndex), yScale.position(point.value), line.series.colour, colours.background),
+          ),
         );
     });
 

@@ -73,6 +73,16 @@ describe("the colours of the default theme", () => {
     for (const grey of colours.series) expect(contrastRatio(grey, colours.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
   });
 
+  it.each(["light", "dark"] as const)("%s: the verdict colours read as text, and quiet text holds at large sizes", (mode) => {
+    const colours = THEME[mode];
+
+    expect(contrastRatio(colours.good, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.bad, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.inkOnFill, colours.good)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.inkOnFill, colours.bad)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.quiet, colours.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
+  });
+
   it("tells candidates apart by shape as well as by colour", () => {
     const styles = [...seriesStylesOf(["a", "b", "c", "d"], undefined, "light").values()];
 
@@ -194,7 +204,7 @@ describe("a chart broken down by node", () => {
   });
 
   it("resolves the templates of the author's reading", () => {
-    expect(draw(notes, tasks).textLines).toContain("Overall: inconclusive.");
+    expect(draw(notes, tasks).textLines.join(" ")).toContain("Overall: inconclusive.");
   });
 
   it("is narrowed by the filters it listens to", () => {
@@ -268,10 +278,12 @@ describe("a chart as an image", () => {
   });
 
   it("carries its provenance only when it travels alone", () => {
-    const provenance = expect.stringMatching(/results [0-9a-f]{12} · 2026-11-17 · Built with Astrolabe$/);
+    const provenance = /results [0-9a-f]{12} · 2026-11-17 · Built with Astrolabe$/;
+    const standalone = draw(parsers, effects, { standalone: true }).textLines;
 
-    expect(draw(parsers, effects, { standalone: true }).textLines).toContainEqual(provenance);
-    expect(draw(parsers, effects).textLines).not.toContainEqual(provenance);
+    expect(standalone.join(" · ")).toMatch(provenance);
+    expect(standalone.at(-1), "broken between its parts, never inside one").toBe("Built with Astrolabe");
+    expect(draw(parsers, effects).textLines.join(" · ")).not.toMatch(provenance);
   });
 
   it("is as tall as its rows need, or exactly the height asked for", () => {
@@ -396,7 +408,7 @@ describe("the chart set", () => {
 
   it("draws the interval of every value that has one", () => {
     const notes = loadBenchmark("notes-apps-onboarding");
-    const chart = draw(notes, chartBlockOf(notes, "chart-tasks"));
+    const chart = draw(notes, chartBlockOf(notes, "chart-tasks"), { plotOnly: true });
     const intervalsAcross = chart.svg.match(/<path d="M[\d.]+ [\d.]+H[\d.]+M[\d.]+ [\d.]+V[\d.]+M[\d.]+ [\d.]+V[\d.]+"/g) ?? [];
 
     expect(chart.table.rows.filter((row) => row[3] !== "—")).toHaveLength(6);
@@ -465,7 +477,9 @@ describe("comparison rows", () => {
   });
 
   it("writes the effects of its title and reading as factors too", () => {
-    expect(draw(parsers, fastjson).textLines).toContain("Faster, at the cost of memory: wall time 1.98× faster, peak memory 2.88× more.");
+    expect(draw(parsers, fastjson).textLines.join(" ")).toContain(
+      "Faster, at the cost of memory: wall time 1.98× faster, peak memory 2.88× more.",
+    );
   });
 
   it("refuses a factor on a difference, on another chart type, and comparisons that do not exist", () => {
@@ -504,7 +518,7 @@ describe("a scatter chart", () => {
     beaten.results.values!.find((value) => value.metric === "accuracy" && value.node === "suite" && value.candidate === "model_b")!.value =
       90;
 
-    const chart = draw(beaten, costAccuracy);
+    const chart = draw(beaten, costAccuracy, { plotOnly: true });
 
     expect(chart.table.rows.map((row) => row[5])).toEqual(["yes", "no"]);
     expect(chart.svg).not.toContain("stroke-dasharray");
@@ -547,13 +561,13 @@ describe("a shaded table", () => {
     expect(chart.table.rows[2]).toEqual(["Bug fixes", expect.stringMatching(/^59 \(\d+ to \d+\)$/), expect.stringMatching(/^45 \(/)]);
   });
 
-  it("shades with a single grey ramp, the figures readable on every shade", () => {
+  it("shades with a single neutral ramp, the figures readable on every shade", () => {
     for (const mode of ["light", "dark"] as const)
       for (let share = 0; share <= 1; share += 0.05) {
         const fill = cellFill(THEME[mode], share, LARGEST_SHADE[mode]);
-        const [red, green, blue] = [1, 3, 5].map((start) => fill.slice(start, start + 2));
+        const channels = [1, 3, 5].map((start) => parseInt(fill.slice(start, start + 2), 16));
 
-        expect(red === green && green === blue, fill).toBe(true);
+        expect(Math.max(...channels) - Math.min(...channels), `${fill} has no hue of its own`).toBeLessThanOrEqual(4);
         expect(contrastRatio(THEME[mode].ink, fill)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
       }
   });
