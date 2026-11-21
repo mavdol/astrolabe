@@ -25,10 +25,10 @@ const coloursOf = (colours: Colours) =>
 
 /**
  * The page's stylesheet, from the same theme as the charts: one place for every colour. The file sets
- * the mode: light by default, dark, or auto to follow the reader's system.
+ * the mode: dark by default, light, or auto to follow the reader's system.
  */
 export function pageStyle(style: Style | undefined, candidateIds: string[] = []): string {
-  const mode = style?.mode ?? "light";
+  const mode = style?.mode ?? "dark";
   /** Each candidate's colour, the same as on its charts, for the marks the page draws itself: table bars, keys. */
   const seriesOf = (colourMode: Mode) =>
     [...seriesStylesOf(candidateIds, style, colourMode).entries()]
@@ -100,23 +100,23 @@ p, li { text-wrap: pretty; }
 main > section + section { border-top: 1px solid var(--rule); }
 
 .rail { display: none; }
-.rail-inner { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 0 16px 0 24px; }
-.rail-group { display: flex; align-items: center; gap: 12px; min-height: 17px; color: var(--secondary); text-decoration: none; }
-.rail-group:focus-visible { outline-offset: 4px; }
-.rail-ticks { flex: none; display: grid; gap: 5px; width: 24px; }
-.rail-ticks i { display: block; width: 12px; height: 1px; background: var(--rule-strong); transition: width 400ms ${EASE_OUT}, background-color 400ms; }
-.rail-label { max-width: ${RAIL_WIDTH - 24 - 24 - 12 - 16}px; font-family: ${MONO}; font-size: 10px; line-height: 14px; letter-spacing: 0.02em; text-transform: uppercase; text-wrap: balance; opacity: 0; transform: translateX(-4px); transition: opacity 300ms, transform 400ms ${EASE_OUT}; }
+.rail-inner { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 7px; padding-left: 20px; }
+.rail-tick, .rail-ticks i { display: block; width: 14px; height: 1px; background: var(--rule-strong); transition: width 300ms ${EASE_OUT}, background-color 300ms; }
+.rail-group { position: relative; display: block; width: 24px; color: var(--secondary); text-decoration: none; }
+.rail-group::before { content: ""; position: absolute; inset: -4px -8px; }
+.rail-group:focus-visible { outline-offset: 5px; }
+.rail-ticks { display: grid; gap: 7px; }
+.rail-label { position: absolute; top: 50%; left: 36px; width: max-content; max-width: ${RAIL_WIDTH - 20 - 36 - 16}px; font-family: ${MONO}; font-size: 10px; line-height: 14px; letter-spacing: 0.02em; text-transform: uppercase; text-wrap: balance; opacity: 0; transform: translate(-4px, -50%); transition: opacity 300ms, transform 400ms ${EASE_OUT}; pointer-events: none; }
 .rail-label .dim { color: var(--quiet); }
-.rail-group:is(:hover, :focus-visible) .rail-ticks i { width: 16px; background: var(--secondary); }
-.rail-group:is(:hover, :focus-visible, .is-here) .rail-label { opacity: 1; transform: none; }
-.rail-group.is-here .rail-ticks i { width: 18px; background: var(--secondary); }
+.rail-group:is(:hover, :focus-visible) .rail-ticks i, .rail-group.is-here .rail-ticks i { width: 18px; background: var(--secondary); }
 .rail-group.is-here .rail-ticks i:nth-child(2) { width: 24px; background: var(--ink); }
+.rail-group:is(:hover, :focus-visible, .is-here) .rail-label { opacity: 1; transform: translate(0, -50%); }
 @media (min-width: ${RAIL_FROM}px) {
   .layout { display: grid; grid-template-columns: ${RAIL_WIDTH}px minmax(0, ${PAGE_WIDTH}px); max-width: ${PAGE_WIDTH + RAIL_WIDTH + 48}px; padding: 0 24px; }
   .rail { display: block; }
 }
 
-.hero { padding: 112px ${GUTTER}px 88px; }
+.hero { padding: 72px ${GUTTER}px 80px; }
 /* Groups separated by a dot drawn in the gap; a group that starts a line leaves its dot outside, clipped. */
 .hero-label { display: flex; flex-wrap: wrap; gap: 4px 22px; overflow: hidden; }
 .hero-label > span { position: relative; white-space: nowrap; }

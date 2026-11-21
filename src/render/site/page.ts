@@ -75,8 +75,8 @@ export interface PageHead {
  */
 const HEAD_SCRIPT = `if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("motion");`;
 
-/** The page's mode, as the file sets it: light unless it asks for dark, or for the reader's own setting with auto. */
-export const pageModeOf = (benchmark: Benchmark) => benchmark.style?.mode ?? "light";
+/** The page's mode, as the file sets it: dark unless it asks for light, or for the reader's own setting with auto. */
+export const pageModeOf = (benchmark: Benchmark) => benchmark.style?.mode ?? "dark";
 
 function headHtml(benchmark: Benchmark, head: PageHead): string {
   const title = benchmark.results.benchmark.goal;
@@ -131,19 +131,30 @@ interface RulerEntry {
   name: string;
 }
 
+/** The ruler has as many ticks as the prototype's, whatever the number of parts, each part taking three of them. */
+const RULER_TICKS = 48;
+const TICKS_PER_PART = 3;
+
 /**
- * The ruler beside the page: three ticks for each part, the part being read drawn brighter with its
- * name beside it. Each group is a link to its part, so the ruler is also the page's navigation.
+ * The ruler beside the page: an even ladder of ticks where each part of the page owns three, spread
+ * along it in reading order, the part being read drawn brighter with its name beside it. Each group is
+ * a link to its part, so the ruler is also the page's navigation.
  */
 function rulerHtml(entries: RulerEntry[]): string {
   if (entries.length === 0) return "";
 
+  const spareTicks = Math.max(0, RULER_TICKS - entries.length * TICKS_PER_PART);
+  const spaces = entries.length + 1;
+  const plainTicks = (space: number) =>
+    '<i class="rail-tick" aria-hidden="true"></i>'.repeat(
+      Math.floor(((space + 1) * spareTicks) / spaces) - Math.floor((space * spareTicks) / spaces),
+    );
   const groups = entries.map(
-    (entry) =>
-      `<a class="rail-group" href="#${escapeHtml(entry.anchor)}"><span class="rail-ticks" aria-hidden="true"><i></i><i></i><i></i></span><span class="rail-label">${escapeHtml(entry.number)}<span class="dim"> / </span>${escapeHtml(entry.name)}</span></a>`,
+    (entry, index) =>
+      `${plainTicks(index)}<a class="rail-group" href="#${escapeHtml(entry.anchor)}"><span class="rail-ticks" aria-hidden="true">${"<i></i>".repeat(TICKS_PER_PART)}</span><span class="rail-label">${escapeHtml(entry.number)}<span class="dim"> / </span>${escapeHtml(entry.name)}</span></a>`,
   );
 
-  return `<nav class="rail" aria-label="Parts of the page"><div class="rail-inner">\n${groups.join("\n")}\n</div></nav>`;
+  return `<nav class="rail" aria-label="Parts of the page"><div class="rail-inner">\n${groups.join("\n")}${plainTicks(entries.length)}\n</div></nav>`;
 }
 
 /** The trust blocks that follow one another, as one part: how it was measured. */

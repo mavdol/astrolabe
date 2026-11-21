@@ -366,6 +366,10 @@ describe("the site", () => {
       ["method", "07 / How it was measured"],
     ]);
     expect(ticks.every((count) => count === 3)).toBe(true);
+    expect(
+      support.html.match(/<i class="rail-tick" aria-hidden="true"><\/i>/g)!.length + 3 * groups.length,
+      "as many ticks as the prototype",
+    ).toBe(48);
     expect(support.read("page.js")).toContain('group.setAttribute("aria-current", "location")');
   });
 
@@ -396,7 +400,7 @@ describe("the site", () => {
       benchmark: { ...loadBenchmark("support-assistant-eval"), style: { mode: "auto" } },
     });
 
-    expect(support.css).toContain(`[data-candidate="model_a"] { --series: ${THEME.light.series[0]}; }`);
+    expect(support.css).toContain(`[data-candidate="model_a"] { --series: ${THEME.dark.series[0]}; }`);
     expect(following.css).toMatch(
       new RegExp(
         `@media \\(prefers-color-scheme: dark\\) \\{[^\\n]*\\[data-candidate="model_a"\\] \\{ --series: ${THEME.dark.series[0]}; \\}`,
@@ -407,14 +411,14 @@ describe("the site", () => {
     );
   });
 
-  it("takes its mode from the file: light by default, dark when asked, the reader's own with auto", () => {
-    const withMode = (mode: "auto" | "dark") =>
+  it("takes its mode from the file: dark by default, light when asked, the reader's own with auto", () => {
+    const withMode = (mode: "auto" | "light") =>
       buildSite("support-assistant-eval", { benchmark: { ...loadBenchmark("support-assistant-eval"), style: { mode } } });
     const following = withMode("auto");
 
-    expect(support.css).toContain(`:root { color-scheme: light; --background: ${THEME.light.background};`);
-    expect(support.html).toContain('<meta name="color-scheme" content="light">');
-    expect(withMode("dark").css).toContain(`:root { color-scheme: dark; --background: ${THEME.dark.background};`);
+    expect(support.css).toContain(`:root { color-scheme: dark; --background: ${THEME.dark.background};`);
+    expect(support.html).toContain('<meta name="color-scheme" content="dark">');
+    expect(withMode("light").css).toContain(`:root { color-scheme: light; --background: ${THEME.light.background};`);
     expect(following.css).toContain(`@media (prefers-color-scheme: dark) { :root { --background: ${THEME.dark.background};`);
     expect(following.html).toContain('<div data-mode="dark">');
   });
@@ -482,10 +486,10 @@ describe("the site", () => {
 
   it("keeps the colours of a file that fixes its mode, and draws its charts once", () => {
     const parsers = loadBenchmark("json-cli-parse");
-    const dark = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, mode: "dark" } } });
+    const light = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, mode: "light" } } });
 
-    expect(dark.css).toContain(`:root { color-scheme: dark; --background: ${THEME.dark.background};`);
-    expect(dark.html).not.toContain("data-mode=");
+    expect(light.css).toContain(`:root { color-scheme: light; --background: ${THEME.light.background};`);
+    expect(light.html).not.toContain("data-mode=");
   });
 });
 

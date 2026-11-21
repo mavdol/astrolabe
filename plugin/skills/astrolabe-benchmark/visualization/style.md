@@ -13,12 +13,12 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## Colour
 
-The default needs nothing: the `astrolabe` theme, ink on white, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Leave `style` out unless the user asks for something; set `mode` when the user wants the page dark, or following the reader's system.
+The default needs nothing: the `astrolabe` theme, a dark page, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Leave `style` out unless the user asks for something; set `mode` when the user wants the page light, or following the reader's system.
 
 ```json
 {
   "style": {
-    "mode": "dark",
+    "mode": "light",
     "accent": "#2f6fed",
     "series": { "quickmark": "#2f6fed" },
     "highlight": "quickmark",
@@ -30,7 +30,7 @@ The default needs nothing: the `astrolabe` theme, ink on white, the first candid
 | Field | Use |
 | --- | --- |
 | `theme` | `astrolabe`, the only theme; can be left out |
-| `mode` | `light` (default), `dark`, or `auto` to follow the reader's system |
+| `mode` | `dark` (default), `light`, or `auto` to follow the reader's system. README cards and images keep their own modes, set in `exports[]` |
 | `accent` | One colour for the highlighted candidate, written `#rrggbb` |
 | `series` | A colour per candidate id, kept on every chart and export. Unlisted candidates take the theme's greys in the order of `candidates[]` |
 | `highlight` | The candidate the page is about, when it is the user's own project: it takes the accent, the others grey. Its values are drawn exactly like the others |
