@@ -366,10 +366,7 @@ describe("the site", () => {
       ["method", "07 / How it was measured"],
     ]);
     expect(ticks.every((count) => count === 3)).toBe(true);
-    expect(
-      support.html.match(/<i class="rail-tick" aria-hidden="true"><\/i>/g)!.length + 3 * groups.length,
-      "as many ticks as the prototype",
-    ).toBe(48);
+    expect(support.html, "no tick that stands for nothing").not.toContain('class="rail-tick"');
     expect(support.read("page.js")).toContain('group.setAttribute("aria-current", "location")');
   });
 

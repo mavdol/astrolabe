@@ -101,7 +101,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 
 .rail { display: none; }
 .rail-inner { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 7px; padding-left: 20px; }
-.rail-tick, .rail-ticks i { display: block; width: 14px; height: 1px; background: var(--rule-strong); transition: width 300ms ${EASE_OUT}, background-color 300ms; }
+.rail-ticks i { display: block; width: 14px; height: 1px; background: var(--rule-strong); transition: width 300ms ${EASE_OUT}, background-color 300ms; }
 .rail-group { position: relative; display: block; width: 24px; color: var(--secondary); text-decoration: none; }
 .rail-group::before { content: ""; position: absolute; inset: -4px -8px; }
 .rail-group:focus-visible { outline-offset: 5px; }
