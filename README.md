@@ -1,5 +1,9 @@
 <div align="center">
-<h1> <code>Astrolabe</code></h1>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/banner-dark.png">
+  <img alt="Astrolabe" src="assets/readme/banner-light.png" width="340">
+</picture>
+<br><br>
 
 <b>An open benchmark format. Agents measure, the tool computes, anyone can verify.</b>
 
