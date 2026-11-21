@@ -11,6 +11,7 @@ import { cardAltText, cardContentOf } from "../src/render/card.js";
 import { pageRowsOf } from "../src/render/site/page.js";
 import { answerOf } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
+import type { Block } from "../src/schema/presentation.js";
 import { THEME } from "../src/themes/astrolabe.js";
 import { planOf, rawFileOf } from "./helpers.js";
 import { decodePng } from "./png.js";
@@ -126,18 +127,18 @@ describe("the site", () => {
     expect(support.html).toContain('<div data-filters="category">');
   });
 
-  it("draws each chart in a wide and a narrow version, in both modes, with real text", () => {
+  it("draws each chart in a wide and a narrow version, with real text, in the mode the file sets", () => {
     const svgs = support.html.match(/<svg[\s\S]*?<\/svg>/g)!.filter((svg) => !/^<svg[^>]*aria-hidden="true"/.test(svg));
 
     expect(svgs.length).toBeGreaterThan(0);
-    expect(support.html).toContain('<div data-mode="dark">');
+    expect(support.html).not.toContain("data-mode=");
     expect(support.html).toContain('<div data-width="narrow">');
     expect(svgs.every((svg) => svg.includes("<text ") && !svg.includes("<use "))).toBe(true);
     expect(svgs.every((svg) => /role="img" aria-label="[^"]+"/.test(svg))).toBe(true);
   });
 
   it("gives every chart its title, how to read it, its description and its data table", () => {
-    const chapters = support.html.match(/<section class="block chapter chart frame"[\s\S]*?<\/section>/g)!;
+    const chapters = support.html.match(/<section class="block chapter chart"[\s\S]*?<\/section>/g)!;
 
     expect(chapters).toHaveLength(3);
 
@@ -226,7 +227,7 @@ describe("the site", () => {
   });
 
   it("keys each row and tags each mark with its candidate, so a filter moves rows and a pointer highlights one candidate", () => {
-    const panel = support.html.match(/<section class="block chapter chart frame" id="chart-by-task">[\s\S]*?<\/section>/)![0];
+    const panel = support.html.match(/<section class="block chapter chart" id="chart-by-task">[\s\S]*?<\/section>/)![0];
     const keysOf = (state: string) => {
       const view = panel.match(new RegExp(`<div data-state="${state}"[^>]*>[\\s\\S]*?(?=<div data-state=|</figure>)`))![0];
 
@@ -248,7 +249,7 @@ describe("the site", () => {
 
   it("breaks the notes of a narrow chart into lines instead of crushing its plot, and keeps every word", () => {
     const narrow = support.html
-      .match(/<section class="block chapter chart frame" id="chart-by-task">[\s\S]*?<\/section>/)![0]
+      .match(/<section class="block chapter chart" id="chart-by-task">[\s\S]*?<\/section>/)![0]
       .match(/<div data-width="narrow"><svg[\s\S]*?<\/svg>/)![0];
     const texts = [...narrow.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
 
@@ -308,22 +309,29 @@ describe("the site", () => {
     expect(noBlocksWarning("json-cli-parse")).toEqual([]);
   });
 
-  it("closes with how to check it: the files to download, the command at the version that built it and the full hash it prints", () => {
+  it("closes with the provenance line every export carries, and the files to download", () => {
     const footer = support.html.match(/<footer[\s\S]*<\/footer>/)![0];
+    const parts = [...footer.matchAll(/<span(?: class="credit")?>([\s\S]*?)<\/span>/g)].map((match) => match[1].replace(/<[^>]+>/g, ""));
 
-    expect(footer).toMatch(/<code class="hash">[0-9a-f]{64}<\/code>/);
-    expect(footer).toContain('<a href="benchmark.json">benchmark.json ↓</a>');
-    expect(footer).toContain('<a href="data/items.jsonl">data/items.jsonl ↓</a>');
-    expect(footer).toContain("run</span> <code>npx astrolabe-bench@0.2.0 validate benchmark.json</code>");
-    expect(footer).toContain('<footer class="footer frame" id="provenance">');
+    expect(footer).toContain('<footer class="footer" id="provenance">');
+    expect(parts).toEqual([
+      "github.com/example/support-assistant-eval",
+      expect.stringMatching(/^results [0-9a-f]{12}$/),
+      "2026-11-17",
+      "benchmark.json ↓",
+      "data/items.jsonl ↓",
+      "Built with Astrolabe",
+    ]);
+    expect(footer).toContain('<a href="https://github.com/example/support-assistant-eval">');
+    expect(footer).not.toContain("validate");
   });
 
-  it("gives each fact of its provenance once: the date at the top, the source and the data at the bottom", () => {
-    const footer = support.html.match(/<footer[\s\S]*<\/footer>/)![0];
+  it("names the benchmark and its version on its first line, with the date it was built and the baseline", () => {
+    const label = support.html.match(/<p class="mono-label hero-label">[\s\S]*?<\/p>/)![0].replace(/<[^>]+>/g, "");
 
-    expect(support.html.match(/2026-11-17/g)).toHaveLength(1);
-    expect(footer).toContain('<a href="https://github.com/example/support-assistant-eval">github.com/example/support-assistant-eval</a>');
-    expect(footer).toContain('<a href="benchmark.json">benchmark.json ↓</a>');
+    expect(label).toBe("support-assistant-eval v1.2.0 updated 2026-11-17 baseline Model B");
+    expect(support.css).toContain(".hero-label > span + span::before");
+    expect(support.html).not.toMatch(/<header class="nav"|data-theme-switch|Download data/);
   });
 
   it("gives the trust blocks the full width of the page", () => {
@@ -338,32 +346,83 @@ describe("the site", () => {
     expect(withoutCredit.html).not.toContain("Built with Astrolabe");
   });
 
-  it("follows the reading with a ruler on the left, and brings the headline in word by word", () => {
-    expect(support.html).toContain(`<div class="ruler" aria-hidden="true">${"<i></i>".repeat(48)}</div>`);
+  it("lists its parts on a ruler beside the page: three ticks and a name for each, each a link to its part", () => {
+    const groups = [
+      ...support.html.matchAll(
+        /<a class="rail-group" href="#([^"]+)"><span class="rail-ticks" aria-hidden="true">(<i><\/i>)+<\/span><span class="rail-label">([\s\S]*?)<\/span><\/a>/g,
+      ),
+    ];
+    const ticks = [...support.html.matchAll(/<span class="rail-ticks" aria-hidden="true">((?:<i><\/i>)+)<\/span>/g)].map(
+      (match) => match[1].length / 7,
+    );
+
+    expect(support.html).toContain('<nav class="rail" aria-label="Parts of the page">');
+    expect(groups.map((group) => [group[1], group[3].replace(/<[^>]+>/g, "")])).toEqual([
+      ["headline-accuracy", "01–02 / Results"],
+      ["chart-by-category", "03 / By category"],
+      ["chart-cost-accuracy", "04 / Accuracy against cost per item"],
+      ["chart-by-task", "05 / By task · exploratory"],
+      ["table-tasks", "06 / The numbers"],
+      ["method", "07 / How it was measured"],
+    ]);
+    expect(ticks.every((count) => count === 3)).toBe(true);
+    expect(support.read("page.js")).toContain('group.setAttribute("aria-current", "location")');
+  });
+
+  it("names each chapter as its ruler entry does, with its measure only when two chapters would share a name", () => {
+    const support = loadBenchmark("support-assistant-eval");
+    const costByTask = {
+      ...support.blocks!.find((block) => block.id === "chart-by-task")!,
+      id: "chart-cost-by-task",
+      metric: "cost_per_item",
+      title: "Cost by task",
+    } as Block;
+    const both = buildSite("support-assistant-eval", {
+      benchmark: { ...support, blocks: [...support.blocks!, costByTask], layout: undefined },
+    });
+
+    expect(both.html).toContain("Accuracy by task · exploratory");
+    expect(both.html).toContain("Cost per item by task · exploratory");
+    expect(both.html).not.toMatch(/\/ <\/span>By task/);
+  });
+
+  it("brings the headline in word by word", () => {
     expect(support.read("page.js")).toContain("function splitIntoWords(heading)");
     expect(support.css).toMatch(/\.motion \.hero h1:not\(\.is-split\) \{[^}]*animation: appear 0s 4s forwards;/);
   });
 
   it("draws the marks it makes itself, table bars and keys, in each candidate's chart colour", () => {
+    const following = buildSite("support-assistant-eval", {
+      benchmark: { ...loadBenchmark("support-assistant-eval"), style: { mode: "auto" } },
+    });
+
     expect(support.css).toContain(`[data-candidate="model_a"] { --series: ${THEME.light.series[0]}; }`);
-    expect(support.css).toContain(`:root[data-theme="dark"] [data-candidate="model_a"] { --series: ${THEME.dark.series[0]}; }`);
+    expect(following.css).toMatch(
+      new RegExp(
+        `@media \\(prefers-color-scheme: dark\\) \\{[^\\n]*\\[data-candidate="model_a"\\] \\{ --series: ${THEME.dark.series[0]}; \\}`,
+      ),
+    );
     expect(support.html).toMatch(
       /<span class="cell-line"><span class="cell-value">73<\/span><span class="cell-bar" style="[^"]+" aria-hidden="true"><\/span><span class="cell-ci">69 to 77<\/span><\/span>/,
     );
   });
 
-  it("lets the reader switch between light and dark, and remembers the choice", () => {
-    expect(support.html).toContain(
-      '<button class="theme-switch" type="button" data-theme-switch aria-label="Switch between light and dark">',
-    );
-    expect(support.html).toContain('localStorage.getItem("astrolabe-theme")');
-    expect(support.read("page.js")).toContain('localStorage.setItem("astrolabe-theme", next)');
-    expect(support.css).toContain(`:root[data-theme="dark"] { color-scheme: dark; --background: ${THEME.dark.background};`);
-    expect(support.css).toContain(':root:not([data-theme="light"])');
+  it("takes its mode from the file: light by default, dark when asked, the reader's own with auto", () => {
+    const withMode = (mode: "auto" | "dark") =>
+      buildSite("support-assistant-eval", { benchmark: { ...loadBenchmark("support-assistant-eval"), style: { mode } } });
+    const following = withMode("auto");
+
+    expect(support.css).toContain(`:root { color-scheme: light; --background: ${THEME.light.background};`);
+    expect(support.html).toContain('<meta name="color-scheme" content="light">');
+    expect(withMode("dark").css).toContain(`:root { color-scheme: dark; --background: ${THEME.dark.background};`);
+    expect(following.css).toContain(`@media (prefers-color-scheme: dark) { :root { --background: ${THEME.dark.background};`);
+    expect(following.html).toContain('<div data-mode="dark">');
   });
 
   it("brings each part in only when the reader allows motion, and shows everything anyway when the script never runs", () => {
-    expect(support.html).toContain('if (!matchMedia("(prefers-reduced-motion: reduce)").matches) root.classList.add("motion");');
+    expect(support.html).toContain(
+      '<script>if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("motion");</script>',
+    );
     expect(support.css).toMatch(/\.motion :is\(.+\):not\(\.is-in\) \{[^}]*animation: appear 0s 4s forwards;/);
     expect(support.css).toMatch(/\.motion \.hero h1:not\(\.is-in\) \.word \{[^}]*animation: appear 0s 4s forwards;/);
     expect(support.html).toMatch(/<g data-grow-from="[\d.]+">/);
@@ -391,7 +450,7 @@ describe("the site", () => {
   });
 
   it("draws the key of a chart with its marks, and keeps their names for screen readers", () => {
-    const chapter = support.html.match(/<section class="block chapter chart frame" id="chart-by-category">[\s\S]*?<\/section>/)![0];
+    const chapter = support.html.match(/<section class="block chapter chart" id="chart-by-category">[\s\S]*?<\/section>/)![0];
     const key = chapter.match(/<ul class="chart-key">[\s\S]*?<\/ul>/)![0];
 
     expect(key.match(/<svg class="key-mark"/g)).toHaveLength(3);
@@ -418,16 +477,15 @@ describe("the site", () => {
     );
 
     expect(steps).toEqual(["470 items", "× 5 repeats", "2 candidates", "1 model judge", "4 claims"]);
-    expect(support.html).toContain('<section class="trust-section frame" id="method">');
+    expect(support.html).toContain('<section class="trust-section" id="method">');
   });
 
-  it("keeps the colours of a file that fixes its mode, draws its charts once and offers no theme switch", () => {
+  it("keeps the colours of a file that fixes its mode, and draws its charts once", () => {
     const parsers = loadBenchmark("json-cli-parse");
     const dark = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, mode: "dark" } } });
 
     expect(dark.css).toContain(`:root { color-scheme: dark; --background: ${THEME.dark.background};`);
     expect(dark.html).not.toContain("data-mode=");
-    expect(dark.html).not.toContain("data-theme-switch");
   });
 });
 

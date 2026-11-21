@@ -2,7 +2,7 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import { TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
-import { blockHtml, downloadLinksOf, sectionLabel, verificationHtml, type PageInputs } from "./blocks.js";
+import { blockHtml, downloadLinksOf, sectionLabel, sectionLabelsOf, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
 import type { AnswerPart } from "./write-site.js";
 import { escapeHtml } from "./html.js";
@@ -70,15 +70,18 @@ export interface PageHead {
 }
 
 /**
- * Before the first paint: the theme the reader chose last time, and whether the page may move.
- * Revealing waits for the script; a stylesheet rule shows everything anyway if the script never runs.
+ * Before the first paint: whether the page may move. Revealing waits for the script; a stylesheet
+ * rule shows everything anyway if the script never runs.
  */
-const HEAD_SCRIPT = `(() => { const root = document.documentElement; try { const theme = localStorage.getItem("astrolabe-theme"); if (theme === "light" || theme === "dark") root.dataset.theme = theme; } catch {} if (!matchMedia("(prefers-reduced-motion: reduce)").matches) root.classList.add("motion"); })();`;
+const HEAD_SCRIPT = `if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("motion");`;
+
+/** The page's mode, as the file sets it: light unless it asks for dark, or for the reader's own setting with auto. */
+export const pageModeOf = (benchmark: Benchmark) => benchmark.style?.mode ?? "light";
 
 function headHtml(benchmark: Benchmark, head: PageHead): string {
   const title = benchmark.results.benchmark.goal;
   const absolute = (path: string) => new URL(path, head.url!.endsWith("/") ? head.url : `${head.url}/`).toString();
-  const colourScheme = benchmark.style?.mode === "light" || benchmark.style?.mode === "dark" ? benchmark.style.mode : "light dark";
+  const mode = pageModeOf(benchmark);
   const preview =
     head.url && head.previewImage
       ? [
@@ -97,7 +100,7 @@ function headHtml(benchmark: Benchmark, head: PageHead): string {
     "<head>",
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    `<meta name="color-scheme" content="${colourScheme}">`,
+    `<meta name="color-scheme" content="${mode === "auto" ? "light dark" : mode}">`,
     `<title>${escapeHtml(title)}</title>`,
     `<meta name="description" content="${escapeHtml(head.description)}">`,
     '<meta property="og:type" content="website">',
@@ -115,53 +118,41 @@ function headHtml(benchmark: Benchmark, head: PageHead): string {
 /** The width of a chart beside its claim, inside the page's frame. */
 export const CHAPTER_FIGURE_WIDTH = PAGE_WIDTH - CHAPTER_HEAD_WIDTH - 2 * GUTTER - 2;
 
-const SUN_ICON =
-  '<svg class="when-dark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg>';
-const MOON_ICON =
-  '<svg class="when-light" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 9.6A5.5 5.5 0 016.4 2.5a5.5 5.5 0 107.1 7.1z"/></svg>';
-
-function navHtml(benchmark: Benchmark, rows: Block[][], canSwitchTheme: boolean): string {
-  const { results } = benchmark;
-  const firstResult = rows.flat().find((block) => !isTrustBlock(block));
-  const hasTrust = rows.flat().some(isTrustBlock);
-  const links = [
-    ...(firstResult ? [`<a href="#${escapeHtml(firstResult.id)}">Results</a>`] : []),
-    ...(hasTrust ? ['<a href="#method">Method</a>'] : []),
-  ];
-
-  return [
-    '<header class="nav">',
-    '<div class="frame nav-inner">',
-    `<a class="brand" href="#top">${escapeHtml(results.benchmark.id)}<span class="dim">v${escapeHtml(results.benchmark.version)}</span></a>`,
-    links.length > 0 ? `<nav class="nav-links" aria-label="Sections">${links.join("")}</nav>` : "",
-    canSwitchTheme
-      ? `<button class="theme-switch" type="button" data-theme-switch aria-label="Switch between light and dark">${SUN_ICON}${MOON_ICON}</button>`
-      : "",
-    '<a class="button" href="benchmark.json" download>Download data</a>',
-    "</div>",
-    "</header>",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 const answerHtml = (parts: AnswerPart[]) =>
   parts
     .map((part) => (part.tone ? `<span class="${part.tone}">${escapeHtml(part.text)}</span>` : escapeHtml(part.text)))
     .join("")
     .trim();
 
-/** A ruler down the left edge that follows the reading, drawn by the script on wide screens. */
-const RULER_TICKS = 48;
-const rulerHtml = () => `<div class="ruler" aria-hidden="true">${"<i></i>".repeat(RULER_TICKS)}</div>`;
+/** A part of the page as the ruler lists it: where it starts, its number and its name. */
+interface RulerEntry {
+  anchor: string;
+  number: string;
+  name: string;
+}
 
-/** The trust blocks that follow one another, as one part: how it was measured, and how to check it. */
+/**
+ * The ruler beside the page: three ticks for each part, the part being read drawn brighter with its
+ * name beside it. Each group is a link to its part, so the ruler is also the page's navigation.
+ */
+function rulerHtml(entries: RulerEntry[]): string {
+  if (entries.length === 0) return "";
+
+  const groups = entries.map(
+    (entry) =>
+      `<a class="rail-group" href="#${escapeHtml(entry.anchor)}"><span class="rail-ticks" aria-hidden="true"><i></i><i></i><i></i></span><span class="rail-label">${escapeHtml(entry.number)}<span class="dim"> / </span>${escapeHtml(entry.name)}</span></a>`,
+  );
+
+  return `<nav class="rail" aria-label="Parts of the page"><div class="rail-inner">\n${groups.join("\n")}\n</div></nav>`;
+}
+
+/** The trust blocks that follow one another, as one part: how it was measured. */
 function trustSectionHtml(blocks: Block[], inputs: PageInputs, number: string, isFirst: boolean): string {
   return [
-    `<section class="trust-section frame"${isFirst ? ' id="method"' : ""}>`,
+    `<section class="trust-section"${isFirst ? ' id="method"' : ""}>`,
     '<header class="chapter-head">',
-    `<div class="chapter-label">${sectionLabel(number, "How it was measured")}</div>`,
-    '<h2>Method and evidence. <span class="reading">What was measured, what was declared, and how to check every number.</span></h2>',
+    `<div class="chapter-label">${sectionLabel(number, TRUST_SECTION_NAME)}</div>`,
+    '<h2>Method and evidence. <span class="reading">What was measured, what was declared, and how.</span></h2>',
     "</header>",
     '<div class="chapter-body trust-body">',
     ...blocks.map(
@@ -173,26 +164,32 @@ function trustSectionHtml(blocks: Block[], inputs: PageInputs, number: string, i
   ].join("\n");
 }
 
+const TRUST_SECTION_NAME = "How it was measured";
+
 /** The whole page: the question and its answer, the parts in order with every filter state rendered in advance, the evidence. */
-export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): string {
+export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">, head: PageHead): string {
   const { benchmark } = inputs;
   const lookup = lookupOf(benchmark.results);
-  const pageInputs = { ...inputs, lookup };
+  const rows = pageRowsOf(benchmark);
+  const pageInputs: PageInputs = { ...inputs, lookup, sectionLabels: sectionLabelsOf(rows.flat(), { ...inputs, lookup }) };
   const results = benchmark.results;
   const provenance = provenanceParts(benchmark, inputs.context);
-  const rows = pageRowsOf(benchmark);
   let count = 0;
   const nextNumber = () => String(++count).padStart(2, "0");
   const sections: string[] = [];
+  const ruler: RulerEntry[] = [];
   let trustRun: Block[] = [];
   let trustSections = 0;
   const closeTrustRun = () => {
     if (trustRun.length === 0) return;
 
-    sections.push(trustSectionHtml(trustRun, pageInputs, nextNumber(), trustSections++ === 0));
+    const number = nextNumber();
+    const isFirst = trustSections++ === 0;
+
+    sections.push(trustSectionHtml(trustRun, pageInputs, number, isFirst));
+    ruler.push({ anchor: isFirst ? "method" : trustRun[0].id, number, name: TRUST_SECTION_NAME });
     trustRun = [];
   };
-
   let provenanceBlock: Block | undefined;
 
   for (const row of rows) {
@@ -206,22 +203,34 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
 
     const headlines = row.filter((block) => block.type === "headline");
 
-    if (headlines.length > 0)
+    if (headlines.length > 0) {
+      const numbers = headlines.map(() => nextNumber());
+
       sections.push(
         [
-          `<section class="stats frame" style="--columns: ${headlines.length}">`,
+          `<section class="stats" style="--columns: ${headlines.length}">`,
           ...headlines.map(
-            (block) =>
-              `<article class="block stat headline" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, 0, nextNumber())}\n</article>`,
+            (block, index) =>
+              `<article class="block stat headline" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, 0, numbers[index])}\n</article>`,
           ),
           "</section>",
         ].join("\n"),
       );
+      ruler.push({
+        anchor: headlines[0].id,
+        number: numbers.length > 1 ? `${numbers[0]}–${numbers[numbers.length - 1]}` : numbers[0],
+        name: numbers.length > 1 ? "Results" : "Result",
+      });
+    }
 
-    for (const block of row.filter((entry) => entry.type !== "headline"))
+    for (const block of row.filter((entry) => entry.type !== "headline")) {
+      const number = nextNumber();
+
       sections.push(
-        `<section class="block chapter ${escapeHtml(block.type)} frame" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, CHAPTER_FIGURE_WIDTH, nextNumber())}\n</section>`,
+        `<section class="block chapter ${escapeHtml(block.type)}" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, CHAPTER_FIGURE_WIDTH, number)}\n</section>`,
       );
+      ruler.push({ anchor: block.id, number, name: pageInputs.sectionLabels.get(block.id)! });
+    }
   }
 
   closeTrustRun();
@@ -231,10 +240,11 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
   const footerLine = [
     linkedIfAddress(provenance.source),
     `results ${escapeHtml(provenance.hash)}`,
+    escapeHtml(provenance.date),
     ...(commit ? [ciRun?.runUrl ? `<a href="${escapeHtml(ciRun.runUrl)}">${commit}</a>` : commit] : []),
     ...downloadLinksOf(pageInputs),
-    ...(provenance.attribution ? [`<a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a>`] : []),
   ].map((part) => `<span>${part}</span>`);
+  const credit = provenance.attribution ? `<span class="credit"><a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a></span>` : "";
   const claims = head.answer.filter((part) => !part.aside);
   const aside = head.answer.filter((part) => part.aside);
   const lede = [escapeHtml(results.benchmark.scope ?? ""), answerHtml(aside)].filter(Boolean).join(" ");
@@ -244,20 +254,22 @@ export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): 
     '<html lang="en">',
     headHtml(benchmark, head),
     "<body>",
-    rulerHtml(),
-    navHtml(benchmark, rows, inputs.modes.length > 1),
+    '<div class="layout">',
+    rulerHtml(ruler),
+    '<div class="sheet">',
     '<main id="top">',
-    '<section class="hero frame">',
-    `<p class="mono-label"><span class="tick-mark" aria-hidden="true"></span>Benchmark<span class="dim"> · </span>updated ${escapeHtml(provenance.date)}<span class="dim"> · </span>baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
+    '<section class="hero">',
+    `<p class="mono-label hero-label"><span><span class="tick-mark" aria-hidden="true"></span><span class="benchmark-name">${escapeHtml(results.benchmark.id)}</span> <span class="benchmark-version">v${escapeHtml(results.benchmark.version)}</span></span> <span>updated ${escapeHtml(provenance.date)}</span> <span>baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</span></p>`,
     `<h1><span class="question">${escapeHtml(results.benchmark.goal)}</span> <span class="answer">${answerHtml(claims)}</span></h1>`,
     lede ? `<p class="lede">${lede}</p>` : "",
     "</section>",
     ...sections,
     "</main>",
-    `<footer class="footer frame"${provenanceBlock ? ` id="${escapeHtml(provenanceBlock.id)}"` : ""}>`,
-    `<p class="mono-label">${footerLine.join("")}</p>`,
-    ...(provenanceBlock ? [verificationHtml(pageInputs)] : []),
+    `<footer class="footer"${provenanceBlock ? ` id="${escapeHtml(provenanceBlock.id)}"` : ""}>`,
+    `<p class="footer-line">${footerLine.join("")}${credit}</p>`,
     "</footer>",
+    "</div>",
+    "</div>",
     "</body>",
     "</html>",
   ]

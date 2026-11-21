@@ -13,12 +13,12 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## Colour
 
-The default needs nothing: the `astrolabe` theme, black on white and white on black, candidates in ink and greys told apart by their labels and marker shapes, the light or dark mode of the reader's system. Leave `style` out unless the user asks for something.
+The default needs nothing: the `astrolabe` theme, ink on white, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Leave `style` out unless the user asks for something; set `mode` when the user wants the page dark, or following the reader's system.
 
 ```json
 {
   "style": {
-    "mode": "auto",
+    "mode": "dark",
     "accent": "#2f6fed",
     "series": { "quickmark": "#2f6fed" },
     "highlight": "quickmark",
@@ -30,15 +30,15 @@ The default needs nothing: the `astrolabe` theme, black on white and white on bl
 | Field | Use |
 | --- | --- |
 | `theme` | `astrolabe`, the only theme; can be left out |
-| `mode` | `auto` (default: follows the reader's system), `light` or `dark` |
+| `mode` | `light` (default), `dark`, or `auto` to follow the reader's system |
 | `accent` | One colour for the highlighted candidate, written `#rrggbb` |
 | `series` | A colour per candidate id, kept on every chart and export. Unlisted candidates take the theme's greys in the order of `candidates[]` |
 | `highlight` | The candidate the page is about, when it is the user's own project: it takes the accent, the others grey. Its values are drawn exactly like the others |
 | `attribution` | `false` removes the "Built with Astrolabe" mention; the hash, the date and the source stay |
 
 - **Colours go in `style` only**, never in a block. The generator checks every colour against the background in both modes, adjusts its lightness when the contrast is too low, and refuses what it cannot fix.
-- **Four candidates fit in ink and greys.** Beyond that, set `highlight`, ask the user for colours, or split the chart.
-- **No colour for better or worse.** Verdicts are words and signs; a candidate never looks bad because of its colour.
+- **Four candidates fit in the theme's colours.** Beyond that, set `highlight`, ask the user for colours, or split the chart.
+- **Better and worse have their own colours, always beside their word**: green and orange on the verdicts, the headline figures and the README card. A candidate's own colour never changes with a verdict, so no candidate looks bad because of its colour.
 - **Colour is never the only cue**: labels sit on the chart and markers differ in shape, so the page reads in greyscale and for colour-blind readers.
 
 ## Titles and descriptions

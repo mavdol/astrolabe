@@ -9,7 +9,7 @@ import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
 import { toneOf } from "./headline-figure.js";
-import { renderPage, type PageHead } from "./page.js";
+import { pageModeOf, renderPage, type PageHead } from "./page.js";
 import { FONT_FILES, pageStyle } from "./page-style.js";
 
 const ASSETS = new URL("../../../assets/", import.meta.url);
@@ -205,8 +205,8 @@ export function writeSite(
     site.warnings.push("no --url given: the site works anywhere, but a link to it shared on a social network shows no preview image");
   }
 
-  const modes =
-    benchmark.style?.mode === "light" || benchmark.style?.mode === "dark" ? [benchmark.style.mode] : (["light", "dark"] as const);
+  const mode = pageModeOf(benchmark);
+  const modes = mode === "auto" ? (["light", "dark"] as const) : [mode];
 
   write("index.html", renderPage({ benchmark, context, rawFiles, modes: [...modes], evidencePaths }, head));
 

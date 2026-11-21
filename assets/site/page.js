@@ -1,7 +1,7 @@
 // Everything on the page is already rendered: every filter state, in every mode and width, in its final place.
 // This script chooses what to show, brings each part in as the reader reaches it, moves marks between
-// states, brings a candidate forward, and switches the theme. Without it, the page shows the default
-// state of every filter, all at once.
+// states, brings a candidate forward, and marks on the ruler the part being read. Without it, the page
+// shows the default state of every filter, all at once.
 
 const root = document.documentElement;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -22,26 +22,6 @@ const SPRING = (() => {
 
   return { easing: `linear(${samples.join(", ")})`, duration: duration * 1000 };
 })();
-
-// ---- Theme ----
-
-const themeSwitch = document.querySelector("[data-theme-switch]");
-
-if (themeSwitch) {
-  themeSwitch.addEventListener("click", () => {
-    const systemIsDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const isDark = root.dataset.theme ? root.dataset.theme === "dark" : systemIsDark;
-    const next = isDark ? "light" : "dark";
-
-    root.dataset.theme = next;
-
-    try {
-      window.localStorage.setItem("astrolabe-theme", next);
-    } catch {
-      // A page opened from disk may not keep anything; the theme still changes for this visit.
-    }
-  });
-}
 
 // ---- Arrival ----
 
@@ -181,26 +161,53 @@ if (moves() && "IntersectionObserver" in window) {
   for (const part of document.querySelectorAll(`${ARRIVING}, .hero h1`)) part.classList.add("is-in", "is-split");
 }
 
-// ---- Navigation ----
+// ---- Ruler ----
 
-const nav = document.querySelector(".nav");
-const rulerTicks = [...document.querySelectorAll(".ruler i")];
+// Each group of the ruler stands for a part of the page. The part being read is the last one whose top
+// has passed the upper third of the window, or the last part once the page cannot scroll further.
+const rulerGroups = [...document.querySelectorAll(".rail-group")].map((group) => ({
+  group,
+  part: document.getElementById(decodeURIComponent(group.hash.slice(1)))?.closest("main > section") ?? null,
+}));
+let partBeingRead = null;
 
-/** The bar gains its rule once the page moves; the ruler on the left marks how far the reader is. */
-function followScroll() {
-  nav?.classList.toggle("is-scrolled", window.scrollY > 8);
+function followReading() {
+  const readingLine = window.innerHeight / 3;
+  const atTheEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+  const passed = rulerGroups.filter(({ part }) => part && part.getBoundingClientRect().top <= readingLine);
+  const current = atTheEnd ? rulerGroups[rulerGroups.length - 1] : passed[passed.length - 1];
 
-  const progress = window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-  const here = Math.round(progress * (rulerTicks.length - 1));
+  if (current?.group === partBeingRead) return;
 
-  rulerTicks.forEach((tick, index) => {
-    tick.classList.toggle("is-here", index === here);
-    tick.classList.toggle("is-near", Math.abs(index - here) === 1);
-  });
+  partBeingRead = current?.group ?? null;
+
+  for (const { group } of rulerGroups) {
+    group.classList.toggle("is-here", group === partBeingRead);
+
+    if (group === partBeingRead) group.setAttribute("aria-current", "location");
+    else group.removeAttribute("aria-current");
+  }
 }
 
-window.addEventListener("scroll", followScroll, { passive: true });
-followScroll();
+if (rulerGroups.length > 0) {
+  let scheduled = false;
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (scheduled) return;
+
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        followReading();
+      });
+    },
+    { passive: true },
+  );
+  window.addEventListener("resize", followReading);
+  followReading();
+}
 
 // ---- Filters ----
 

@@ -1,5 +1,4 @@
 import type { RawFile } from "../../compute/raw-data.js";
-import { resultsHash } from "../../compute/files.js";
 import type { Benchmark, Comparison } from "../../schema/benchmark.js";
 import type { Block, ChartBlock, HeadlineBlock, TableBlock } from "../../schema/presentation.js";
 import type { Mode } from "../../themes/astrolabe.js";
@@ -48,6 +47,8 @@ export interface PageInputs {
   modes: Mode[];
   /** Where each raw file is copied in the site, by raw file id. */
   evidencePaths: Map<string, string>;
+  /** The short name of each part of the page, by block id, written above its claim and in the ruler. */
+  sectionLabels: Map<string, string>;
 }
 
 /** Below this width a chart is drawn again for phones rather than shrunk. */
@@ -159,23 +160,78 @@ const COPIED_ICON = iconOf("done", "M3.5 8.5l3 3 6-7");
 const copyLinkOf = (block: Block) =>
   `<a class="icon-button" href="#${escapeHtml(block.id)}" data-copy-link>${LINK_ICON}${COPIED_ICON}<span class="visually-hidden" data-copy-status>Copy a link to this part</span></a>`;
 
-/** What a chart is about, in the few words of its label: the measure and its direction, or the two measures it sets against each other. */
-function chartLabelOf(block: ChartBlock, lookup: Lookup): string {
-  const metricOf = (metricId: string | undefined) => (metricId ? lookup.metricById.get(metricId) : undefined);
+/** True when every comparison a chart draws, in any of its filter states, is exploratory. */
+function showsOnlyExploratory(block: ChartBlock, inputs: PageInputs): boolean {
+  const { benchmark, lookup } = inputs;
+  const comparisons = lookup.results.comparisons ?? [];
+  const drawn =
+    block.chart === "comparison-rows"
+      ? comparisons.filter((comparison) => (block.comparisons ?? []).includes(comparison.id))
+      : block.chart === "effect"
+        ? (() => {
+            const nodes = new Set(filterStatesOf(block, benchmark, lookup).flatMap((state) => nodesOf(block, benchmark, lookup, state)));
+
+            return comparisons.filter((comparison) => comparison.metric === block.metric && nodes.has(comparison.node));
+          })()
+        : [];
+
+  return drawn.length > 0 && drawn.every((comparison) => comparison.role === "exploratory");
+}
+
+interface SectionName {
+  /** The few words a reader navigates by: "By task". */
+  short: string;
+  /** The same with its measure, when another part has the same short name: "Accuracy by task". */
+  full: string;
+}
+
+function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefined {
+  const { lookup } = inputs;
+  const metricLabel = (metricId: string | undefined) => (metricId ? (lookup.metricById.get(metricId)?.label ?? metricId) : "");
   const baseline = lookup.candidateName.get(lookup.results.baseline);
+  const same = (name: string) => ({ short: name, full: name });
 
-  if (block.chart === "scatter")
-    return `${metricOf(block.y)?.label ?? ""} against ${lowerFirstLetterOfWord(metricOf(block.x)?.label ?? "")}`;
+  switch (block.type) {
+    case "chart": {
+      if (block.chart === "scatter") return same(`${metricLabel(block.y)} against ${lowerFirstLetterOfWord(metricLabel(block.x))}`);
 
-  if (block.chart === "comparison-rows") return `Against ${baseline}`;
+      const exploratory = showsOnlyExploratory(block, inputs) ? " · exploratory" : "";
 
-  const metric = metricOf(block.metric);
+      if (block.chart === "comparison-rows") return same(`Against ${baseline}${exploratory}`);
 
-  if (!metric) return block.chart;
+      const metric = metricLabel(block.metric);
 
-  return block.chart === "effect"
-    ? `${metric.label} · change against ${baseline}`
-    : `${metric.label} · ${directionWords(metric.direction)}`;
+      if (block.breakdown) return { short: `By ${block.breakdown}${exploratory}`, full: `${metric} by ${block.breakdown}${exploratory}` };
+
+      return same(`${metric}${block.chart === "effect" ? ` against ${baseline}` : ""}${exploratory}`);
+    }
+    case "table":
+      return {
+        short: "The numbers",
+        full: `The numbers · ${block.metrics.map((metricId) => lowerFirstLetterOfWord(metricLabel(metricId))).join(", ")}`,
+      };
+    case "text":
+      return same(block.title ? resolveTemplates(block.title, lookup) : "Note");
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * The name of each chapter of the page, as short as the page allows: "By task", unless another chapter
+ * is also by task, when both name their measure. The same names label the ruler.
+ */
+export function sectionLabelsOf(blocks: Block[], inputs: Omit<PageInputs, "sectionLabels">): Map<string, string> {
+  const names = blocks.flatMap((block) => {
+    const name = sectionNameOf(block, { ...inputs, sectionLabels: new Map() });
+
+    return name ? [{ id: block.id, ...name }] : [];
+  });
+  const shortCounts = new Map<string, number>();
+
+  for (const name of names) shortCounts.set(name.short, (shortCounts.get(name.short) ?? 0) + 1);
+
+  return new Map(names.map((name) => [name.id, shortCounts.get(name.short)! > 1 ? name.full : name.short]));
 }
 
 /** A claim and the reading after it, read as two sentences. */
@@ -296,7 +352,7 @@ function chartHtml(block: ChartBlock, inputs: PageInputs, width: number, number:
   };
 
   return [
-    chapterHead(block, inputs, number, chartLabelOf(block, inputs.lookup), first.title, first.reading),
+    chapterHead(block, inputs, number, inputs.sectionLabels.get(block.id)!, first.title, first.reading),
     '<div class="chapter-body">',
     viewsOf(block, inputs, view),
     "</div>",
@@ -316,7 +372,6 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
   const { lookup, benchmark } = inputs;
   const show = new Set(block.show);
   const candidates = lookup.results.candidates;
-  const labels: string[] = [];
   const view = (state: FilterState) =>
     block.metrics
       .map((metricId) => {
@@ -363,8 +418,6 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
         });
         const caption = `${metric.label}, ${STATISTIC_WORD[metric.statistic].toLowerCase()} in ${metric.unit} · ${directionWords(metric.direction)}`;
 
-        labels.push(caption);
-
         return [
           '<div class="table-scroll"><table class="value-table">',
           `<caption class="visually-hidden">${escapeHtml(caption)}</caption>`,
@@ -380,14 +433,19 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
     : block.metrics.map((metricId) => lookup.metricById.get(metricId)!.label).join(", ");
   const reading = block.description ? resolveTemplates(block.description, lookup) : "";
 
-  return [chapterHead(block, inputs, number, labels[0], title, reading), '<div class="chapter-body">', body, "</div>"].join("\n");
+  return [
+    chapterHead(block, inputs, number, inputs.sectionLabels.get(block.id)!, title, reading),
+    '<div class="chapter-body">',
+    body,
+    "</div>",
+  ].join("\n");
 }
 
 function textHtml(block: Extract<Block, { type: "text" }>, inputs: PageInputs, number: string): string {
   const title = block.title ? resolveTemplates(block.title, inputs.lookup) : "";
 
   return [
-    chapterHead(block, inputs, number, "Note", title, ""),
+    chapterHead(block, inputs, number, inputs.sectionLabels.get(block.id)!, title, ""),
     `<div class="chapter-body prose">\n${paragraphsOf(resolveTemplates(block.description, inputs.lookup))}\n</div>`,
   ].join("\n");
 }
@@ -537,11 +595,6 @@ export function downloadLinksOf(inputs: PageInputs): string[] {
   ];
 }
 
-/** How to check the page, under its last line: the command at the version that built it, and the full hash it prints. */
-export function verificationHtml(inputs: PageInputs): string {
-  return `<p class="verify"><span class="dim">Check it yourself: in a folder holding these files, run</span> <code>npx astrolabe-bench@${escapeHtml(inputs.context.generatorVersion)} validate benchmark.json</code><span class="dim">. It computes every number again and prints the hash of the results:</span> <code class="hash">${resultsHash(inputs.benchmark.results)}</code></p>`;
-}
-
 /** The inside of one block, in the order the reader meets it; number is its place on the page. */
 export function blockHtml(block: Block, inputs: PageInputs, width: number, number: string): string {
   switch (block.type) {
@@ -560,6 +613,6 @@ export function blockHtml(block: Block, inputs: PageInputs, width: number, numbe
     case "limitations":
       return factBlock("Limitations", inputs.lookup.results.limitations);
     case "provenance":
-      return verificationHtml(inputs);
+      return `<p class="mono-label">${downloadLinksOf(inputs).join(" ")}</p>`;
   }
 }
