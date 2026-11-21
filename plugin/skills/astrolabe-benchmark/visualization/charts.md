@@ -14,26 +14,30 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## Which chart for which question
 
-| The question the chart answers | `chart` | Fields it needs |
-| --- | --- | --- |
-| One comparison answers the goal | no chart: a headline block | `comparison` (see page.md) |
-| Who wins, and by how much, against the baseline | `effect` | `metric`; `breakdown` to show it per category |
-| Several metrics, each compared once with the baseline (a release against the previous one) | `comparison-rows` | `comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2× |
-| One metric, a few candidates, one node | `dot-interval`; `bar` only for a quantity with a true zero (memory, cost, a count) | `metric`, `node` |
-| One metric, candidates across categories | `grouped-bar` up to 4 candidates, `dot-interval` beyond | `metric`, `breakdown` |
-| Two metrics in tension (accuracy and cost, speed and memory) | `scatter` | `x`, `y` (metric ids), `node` |
-| What one run or one request looks like (run times, latencies) | `distribution` | `metric`; reads the raw file |
-| A metric along an ordered level (input size, concurrency) | `line` | `metric`, `breakdown` (the level, at least two nodes) |
-| Many candidates across many tasks | `shaded-table` | `metric`, `breakdown` |
-| Parts of one total (cost split by stage) | `stacked-bar` | `metric` (the total), `breakdown` (the level of the parts) |
+Start from the question the reader brings, not from the data you have: write it down, then take its row. A reader understands a drawing faster than a sentence, so whatever can be drawn is drawn, and the words only say what the drawing cannot.
+
+| The reader asks | `chart` | Fields it needs | Not when |
+| --- | --- | --- | --- |
+| "So which one?": one comparison answers the goal | no chart: a headline block | `comparison` (see page.md) | |
+| "Is it better, and by how much?" | `effect` | `metric` | the comparisons are on different metrics: `comparison-rows` |
+| "Where does the gap come from?" | `effect` with `breakdown` | `metric`, `breakdown` (a level: category, task, size) | the level has one node: the headline already says it |
+| "Did this release improve, metric by metric?" | `comparison-rows` | `comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2× | more than 10 rows: a table |
+| "Is the gain worth the cost?": two metrics in tension (accuracy and cost, speed and memory) | `scatter` | `x`, `y` (metric ids), `node` | the two metrics do not trade against each other: two headlines |
+| "What will one run, one request look like?" (run times, latencies, flaky tasks) | `distribution` | `metric`; reads the raw file | the question is about the average: `effect` |
+| "How does it change as the input grows?": an ordered level (input size, concurrency, version) | `line` | `metric`, `breakdown` (the level, at least two nodes) | the level has no order (categories): `effect` with `breakdown` |
+| "How do they rank?": one metric, a few candidates | `dot-interval`; `bar` only for a quantity with a true zero (memory, cost, a count) | `metric`, `node` | the comparison is paired: `effect` |
+| "How do they rank in each category?" | `grouped-bar` up to 4 candidates, `dot-interval` beyond | `metric`, `breakdown` | many candidates across many tasks: `shaded-table` |
+| "Which candidate is good at what?": many candidates, many tasks | `shaded-table` | `metric`, `breakdown` | a few cells: `grouped-bar` |
+| "Where does the total go?": parts of one total (cost by stage) | `stacked-bar` | `metric` (the total), `breakdown` (the level of the parts) | one part is compared across candidates: `grouped-bar` |
 
 How to pick, in order:
 
-1. **The answer first.** Each primary comparison the goal rests on gets a headline block; the chart that backs it is an `effect` chart, or a `comparison-rows` chart when the comparisons are on different metrics.
-2. **A paired comparison is never left to two separate intervals.** When the same items or runs were measured for both candidates, show the effect itself (headline, `effect` or `comparison-rows`); two dots with their own intervals cannot show a paired result, and `validate` says so.
-3. **Then the breakdowns**, which are exploratory unless declared primary: the reader sees where the difference comes from.
-4. **Then the spread**, when the reader's question is about one run (latency, flaky tasks): a `distribution` shows every run up to 20, a box beyond.
-5. **No chart for one, two or three numbers**: a headline or a sentence says it better.
+1. **The answer first.** Each primary comparison the goal rests on gets a headline block, the one that answers the goal first; the chart that backs them is an `effect` chart, or a `comparison-rows` chart when the comparisons are on different metrics.
+2. **The question the goal names.** A goal that weighs two things ("given accuracy and running cost", "faster without using more memory") gets the `scatter` of those two metrics; a goal about one run (latency, flaky tasks) gets the `distribution`, which shows every run up to 20 and a box beyond.
+3. **A paired comparison is never left to two separate intervals.** When the same items or runs were measured for both candidates, show the effect itself (headline, `effect` or `comparison-rows`); two dots with their own intervals cannot show a paired result, and `validate` says so.
+4. **Then the breakdowns**, which are exploratory unless declared primary: the reader sees where the difference comes from.
+5. **No chart for one, two or three numbers**: a headline says it better.
+6. **No paragraph where a chart fits.** A finding you are about to explain in a text block ("the gain comes from coding", "slower on small files") is a breakdown to draw; the method, the environment and the limitations are drawn by the generator from the file.
 
 Pies, donuts, bubbles, radar charts, two y-axes and 3D are not in the chart set: angle, area and a second axis are judged far less accurately than positions on one scale.
 

@@ -24,6 +24,10 @@ const WIDTH = 800;
 const PADDING = 36;
 /** Space between the hairlines of a cell and its content. */
 const CELL_PADDING = 28;
+/** The least space a cell keeps inside its hairlines, when a verdict needs the room. */
+const SMALLEST_CELL_PADDING = 16;
+/** The sizes a figure steps down through, all of them, so that every figure fits its column. */
+const EFFECT_SIZES = [56, 48, 40, 32];
 const STRIP_HEIGHT = 28;
 const STRIP_SCALE_ROW = 22;
 const CHIP_HEIGHT = 26;
@@ -42,6 +46,17 @@ const HALO_RADIUS = 10;
 const HALO_OPACITY = 0.16;
 
 export const MAX_HEADLINES = 3;
+
+const VERDICTS_IN_READING_ORDER = ["better", "likely better", "equivalent", "inconclusive", "likely worse", "worse"];
+
+/** "1 better, 1 inconclusive": how comparisons left out of a summary came out, so leaving one out hides nothing. */
+export function countsByVerdict(comparisons: Comparison[]): string {
+  return VERDICTS_IN_READING_ORDER.flatMap((verdict) => {
+    const count = comparisons.filter((comparison) => verdictLabel(comparison) === verdict).length;
+
+    return count > 0 ? [`${count} ${verdict}`] : [];
+  }).join(", ");
+}
 
 /**
  * Every size is at least 12 px at the card's own width, the smallest text readable once shown in a README.
@@ -69,8 +84,8 @@ export interface CardHeadline {
 
 export interface CardContent {
   headlines: CardHeadline[];
-  /** Primary comparisons left out of a default card, which shows at most three. */
-  omittedCount: number;
+  /** Primary comparisons the card does not show, counted by verdict in its footer. */
+  omitted: Comparison[];
 }
 
 interface HeadlineBlock {
@@ -83,9 +98,12 @@ interface HeadlineBlock {
 /**
  * The headlines of a card: the headline blocks an export names, or by default
  * the first primary comparisons. Other kinds of blocks cannot be drawn on a card yet.
+ * Either way the card counts the primary comparisons it leaves out, so a card that shows
+ * only some of the results says so.
  */
 export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardContent {
   const comparisonById = new Map((benchmark.results.comparisons ?? []).map((comparison) => [comparison.id, comparison]));
+  const primary = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
 
   if (blockIds) {
     const blocks = (benchmark.blocks ?? []) as HeadlineBlock[];
@@ -103,14 +121,14 @@ export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardCo
       return { comparison, title: block.title };
     });
 
-    return { headlines, omittedCount: 0 };
-  }
+    const shown = new Set(headlines.map(({ comparison }) => comparison.id));
 
-  const primary = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
+    return { headlines, omitted: primary.filter((comparison) => !shown.has(comparison.id)) };
+  }
 
   return {
     headlines: primary.slice(0, MAX_HEADLINES).map((comparison) => ({ comparison })),
-    omittedCount: Math.max(0, primary.length - MAX_HEADLINES),
+    omitted: primary.slice(MAX_HEADLINES),
   };
 }
 
@@ -149,7 +167,7 @@ const normalizedWords = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{
  * A block title is left out when it only restates what the card already
  * shows: the candidates, the metric, the effect and the verdict.
  */
-function addsInformation(resolvedTitle: string, lookup: Lookup, comparison: Comparison): boolean {
+export function addsInformation(resolvedTitle: string, lookup: Lookup, comparison: Comparison): boolean {
   const metric = lookup.metricById.get(comparison.metric)!;
   const alreadyShown = [
     effectAndInterval(metric, comparison).effect,
@@ -586,8 +604,13 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const headerRuleY = cursorY;
   const columnCount = Math.max(1, content.headlines.length);
   const cellWidth = WIDTH / columnCount;
-  const columnWidth = cellWidth - 2 * CELL_PADDING;
-  const columnX = (index: number) => index * cellWidth + CELL_PADDING;
+  const verdictOf = (comparison: Comparison) =>
+    `${verdictLabel(comparison)}${comparison.source === "declared" ? " (declared)" : ""}`.toUpperCase();
+  const widestChip = Math.max(...content.headlines.map(({ comparison }) => chipWidthOf(text, verdictOf(comparison))));
+  // Many cells give up some of their inner space before a verdict would run past its hairline.
+  const cellPadding = Math.max(SMALLEST_CELL_PADDING, Math.min(CELL_PADDING, Math.floor((cellWidth - widestChip) / 2)));
+  const columnWidth = cellWidth - 2 * cellPadding;
+  const columnX = (index: number) => index * cellWidth + cellPadding;
   const levels = new Set(
     content.headlines
       .map(({ comparison }) => effectAndInterval(lookup.metricById.get(comparison.metric)!, comparison).level)
@@ -604,7 +627,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
       directionWords(metric),
     ].map((part) => part.toUpperCase());
     const { effectNumber, unit } = effectAndInterval(metric, comparison);
-    const verdict = `${verdictLabel(comparison)}${comparison.source === "declared" ? " (declared)" : ""}`.toUpperCase();
+    const verdict = verdictOf(comparison);
     const fromZero = valuesDrawnFromZero(lookup, comparison);
     const resolvedTitle = title ? resolveTemplates(title, lookup) : undefined;
     const details = detailsOf(lookup, comparison, sharedLevel).map((detail) => ({
@@ -622,7 +645,6 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
       labelLines: text.wrapParts(labelParts, STYLE.label, columnWidth),
       effectNumber,
       unit: unit.trim(),
-      figureWidth: text.measure(effectNumber, STYLE.effect) + unitGapOf(unit.trim()) + text.measure(unit.trim(), STYLE.effectUnit),
       verdict,
       fromZero,
       drawingHeight: fromZero ? valuesHeight(fromZero.length) : STRIP_HEIGHT + STRIP_SCALE_ROW,
@@ -633,13 +655,22 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   });
   const rowHeight = (linesOf: (column: (typeof columns)[number]) => string[], lineHeight: number) =>
     Math.max(0, ...columns.map((column) => linesOf(column).length)) * lineHeight;
-  const chipsBesideFigures = columns.every((column) => column.figureWidth + 16 + chipWidthOf(text, column.verdict) <= columnWidth);
+  const figureWidthOf = (column: (typeof columns)[number], style: TextStyle) =>
+    text.measure(column.effectNumber, style) + unitGapOf(column.unit) + text.measure(column.unit, STYLE.effectUnit);
+  const effectSizeThatFits =
+    EFFECT_SIZES.find((size) => columns.every((column) => figureWidthOf(column, { ...STYLE.effect, size }) <= columnWidth)) ??
+    EFFECT_SIZES[EFFECT_SIZES.length - 1];
+  // One size for every figure of the card, so none looks larger than the others.
+  const effectStyle = { ...STYLE.effect, size: effectSizeThatFits, lineHeight: effectSizeThatFits };
+  const chipsBesideFigures = columns.every(
+    (column) => figureWidthOf(column, effectStyle) + 16 + chipWidthOf(text, column.verdict) <= columnWidth,
+  );
   const columnsTop = headerRuleY + 28;
   const effectTop = columnsTop + rowHeight((column) => column.labelLines, STYLE.label.lineHeight) + 24;
   const chipTop = chipsBesideFigures
-    ? effectTop + (STYLE.effect.size * CAP_HEIGHT_RATIO - CHIP_HEIGHT) / 2
-    : effectTop + STYLE.effect.lineHeight;
-  const drawingTop = chipsBesideFigures ? effectTop + STYLE.effect.lineHeight + 12 : chipTop + CHIP_HEIGHT + 22;
+    ? effectTop + (effectStyle.size * CAP_HEIGHT_RATIO - CHIP_HEIGHT) / 2
+    : effectTop + effectStyle.lineHeight;
+  const drawingTop = chipsBesideFigures ? effectTop + effectStyle.lineHeight + 12 : chipTop + CHIP_HEIGHT + 22;
   const titleTop = drawingTop + Math.max(...columns.map((column) => column.drawingHeight)) + 22;
   const titleRowHeight = rowHeight((column) => column.titleLines, STYLE.heading.lineHeight);
   const detailsTop = titleTop + titleRowHeight + (titleRowHeight > 0 ? 10 : 0);
@@ -648,13 +679,13 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   columns.forEach((column, index) => {
     const { comparison, metric, labelLines, effectNumber, unit, verdict, fromZero, titleLines, details } = column;
     const x = columnX(index);
-    const effectBaseline = baselineOf(effectTop, STYLE.effect);
+    const effectBaseline = baselineOf(effectTop, effectStyle);
     const verdictColour = verdictColourOf(comparison, colours);
 
     drawLines(labelLines, STYLE.label, colours.secondary, x, columnsTop);
-    marks.push(text.draw(effectNumber, x, effectBaseline, { ...STYLE.effect, fill: verdictColour }));
+    marks.push(text.draw(effectNumber, x, effectBaseline, { ...effectStyle, fill: verdictColour }));
     marks.push(
-      text.draw(unit, x + text.measure(effectNumber, STYLE.effect) + unitGapOf(unit), effectBaseline, {
+      text.draw(unit, x + text.measure(effectNumber, effectStyle) + unitGapOf(unit), effectBaseline, {
         ...STYLE.effectUnit,
         fill: colours.secondary,
       }),
@@ -755,15 +786,23 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const legendSentences = [
     `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`,
     ...(columns.some((column) => !column.fromZero) ? ["Shaded band: too small to matter."] : []),
-    ...(content.omittedCount > 0
-      ? [`${content.omittedCount} more primary comparison${content.omittedCount === 1 ? "" : "s"} in the full results.`]
+    ...(content.omitted.length > 0
+      ? [
+          `${content.omitted.length} more primary comparison${content.omitted.length === 1 ? "" : "s"} in the full results: ${countsByVerdict(content.omitted)}.`,
+        ]
       : []),
   ];
   const legend = legendSentences.join(" ");
   const legendLines = text.wrap(legend, STYLE.detail, innerWidth).length === 1 ? [legend] : legendSentences;
 
   for (const sentence of legendLines)
-    cursorY = drawLines(text.wrap(sentence, STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
+    cursorY = drawLines(
+      text.wrapParts(sentence.split(/(?<=,) /), STYLE.detail, innerWidth, " "),
+      STYLE.detail,
+      colours.secondary,
+      PADDING,
+      cursorY,
+    );
 
   cursorY += 6;
 

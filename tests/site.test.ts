@@ -169,6 +169,22 @@ describe("the site", () => {
     expect(support.html).toContain(`<meta name="description" content="${answer}">`);
   });
 
+  it("leaves out a headline title that only restates its figure, and the pair every headline shares", () => {
+    const notes = buildSite("notes-apps-onboarding");
+
+    expect(support.html, "the accuracy title restates the figure").not.toContain('id="headline-accuracy-title"');
+    expect(support.html, "the hero names the shared pair").not.toContain("<li>Model A against Model B</li>");
+    expect(notes.html, "a title that adds a fact stays").toContain('id="headline-features-title"');
+  });
+
+  it("names the comparison of the headline the page shows first, whatever the order of blocks", () => {
+    const benchmark = loadBenchmark("support-assistant-eval");
+
+    benchmark.layout = [["headline-cost", "headline-accuracy"], ...benchmark.layout!.slice(1)];
+
+    expect(answerOf(benchmark)).toMatch(/^Model A against Model B: cost per item \+265%, worse\./);
+  });
+
   it("names the first primary comparison when no headline leads the page", () => {
     const benchmark = loadBenchmark("support-assistant-eval");
 

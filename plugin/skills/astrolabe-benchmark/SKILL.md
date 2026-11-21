@@ -178,10 +178,10 @@ Compute prints each primary verdict. Read them as they are (statistics.md explai
 
 The presentation sections of `benchmark.json` (`style`, `filters`, `layout`, `blocks`, `exports`) say what the page, the README card and the images show; `build` draws them. They never touch `results`, so changing them never changes a number or the hash. Read visualization/page.md and presentation.md, then propose the page as a short outline (headlines, charts, table, exports) and let the user amend it before writing anything. Seven things hold on every page:
 
-1. The chart follows the shape of the data (visualization/charts.md).
+1. Each chart answers a question the reader brings and fits the shape of the data (visualization/charts.md); what can be drawn is drawn, not written.
 2. Honest scales: bars from zero, no axis breaks, compared charts on one scale, the direction marked.
 3. Every value that has an interval is drawn with it, and the interval is named.
-4. Titles are claims: numbers by template, and the verdicts they rely on listed in `asserts`.
+4. Titles are short claims and readings one sentence: numbers by template, the verdicts they rely on listed in `asserts`, the headline that answers the goal first.
 5. One colour per candidate, never colour alone, contrast checked by the generator.
 6. The default view tells the whole story, and exports show that view.
 7. Every chart and export reads alone: how to read it, a text alternative, a data table, provenance.
@@ -194,7 +194,7 @@ astrolabe build       # the site in dist/site/, dist/benchmark.md, the README ca
 astrolabe preview     # the site on this computer, to read it as a reader would
 ```
 
-Each `validate` error names the block, the rule and what to use instead: fix the file, never `dist/`.
+Each `validate` error names the block, the rule and what to use instead: fix the file, never `dist/`. Warnings are fixed the same way: a page that builds with a warning is not finished, unless you tell the user which warning you kept and why.
 
 ## Step 7: the write-up
 
