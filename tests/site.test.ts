@@ -158,26 +158,25 @@ describe("the site", () => {
     expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
   });
 
-  it("answers the question in the headline with the comparisons the page leads with, each in the colour of its verdict, and counts the others below it", () => {
+  it("answers the question in the headline with the one comparison the page leads with, in ink without verdict colours, and counts the others below it", () => {
     const answer =
-      "Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse. 2 more primary comparisons: 1 better, 1 inconclusive.";
+      "Model A against Model B: accuracy +6.4 points, likely better. 3 more primary comparisons: 1 better, 1 inconclusive, 1 worse.";
 
+    expect(support.html).toContain('<span class="answer">Model A against Model B: accuracy +6.4 points, likely better.</span></h1>');
     expect(support.html).toContain(
-      '<span class="answer">Model A against Model B: accuracy <span class="good">+6.4 points, likely better</span>; cost per item <span class="bad">+265%, worse</span>.</span></h1>',
-    );
-    expect(support.html).toContain(
-      '<p class="lede">Internal tasks only; does not measure latency or safety. 2 more primary comparisons: 1 better, 1 inconclusive.</p>',
+      '<p class="lede">Internal tasks only; does not measure latency or safety. 3 more primary comparisons: 1 better, 1 inconclusive, 1 worse.</p>',
     );
     expect(support.html).toContain(`<meta name="description" content="${answer}">`);
   });
 
-  it("names the first primary comparisons when no headline leads the page", () => {
+  it("names the first primary comparison when no headline leads the page", () => {
     const benchmark = loadBenchmark("support-assistant-eval");
 
     benchmark.blocks = benchmark.blocks?.filter((block) => block.type !== "headline");
+    benchmark.results.comparisons = [...benchmark.results.comparisons!].reverse();
 
     expect(answerOf(benchmark)).toBe(
-      "Model A against Model B: accuracy +6.4 points, likely better; accuracy, Reasoning −1.5 points, inconclusive; accuracy, Coding +14 points, better. 1 more primary comparison: 1 worse.",
+      "Model A against Model B: cost per item +265%, worse. 3 more primary comparisons: 1 better, 1 likely better, 1 inconclusive.",
     );
   });
 
@@ -220,7 +219,7 @@ describe("the site", () => {
     );
     const scripts = { schema_version: SCHEMA_VERSION, results: compute(plan, { data: rawFileOf(rows) }) } as Benchmark;
 
-    expect(answerOf(scripts)).toBe("new against base: wall time, Start-up script +20%, worse; wall time, Parsing script −20%, better.");
+    expect(answerOf(scripts)).toBe("new against base: wall time, Start-up script +20%, worse. 1 more primary comparison: 1 better.");
     expect(cardAltText(scripts, cardContentOf(scripts))).toBe(
       "new against base: wall time, Start-up script (lower is better) +20%, worse; wall time, Parsing script (lower is better) −20%, better.",
     );

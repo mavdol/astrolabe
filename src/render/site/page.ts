@@ -4,7 +4,7 @@ import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
 import { blockHtml, downloadLinksOf, sectionLabel, sectionLabelsOf, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
-import type { AnswerPart } from "./write-site.js";
+import type { Answer } from "./write-site.js";
 import { escapeHtml } from "./html.js";
 
 const ASTROLABE_REPOSITORY = "https://github.com/mavdol/astrolabe";
@@ -65,8 +65,8 @@ export interface PageHead {
   /** The preview image, relative to the site, with its text alternative. */
   previewImage?: { path: string; alt: string; width: number; height: number };
   description: string;
-  /** The same answer in parts, each claim with the tone of its verdict. */
-  answer: AnswerPart[];
+  /** The same answer in parts: the claim under the question, the count of the others in the lede. */
+  answer: Answer;
 }
 
 /**
@@ -117,12 +117,6 @@ function headHtml(benchmark: Benchmark, head: PageHead): string {
 
 /** The width of a chart beside its claim, inside the page's frame. */
 export const CHAPTER_FIGURE_WIDTH = PAGE_WIDTH - CHAPTER_HEAD_WIDTH - 2 * GUTTER - 2;
-
-const answerHtml = (parts: AnswerPart[]) =>
-  parts
-    .map((part) => (part.tone ? `<span class="${part.tone}">${escapeHtml(part.text)}</span>` : escapeHtml(part.text)))
-    .join("")
-    .trim();
 
 /** A part of the page as the ruler lists it: where it starts, its number and its name. */
 interface RulerEntry {
@@ -248,9 +242,11 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
     ...downloadLinksOf(pageInputs),
   ].map((part) => `<span>${part}</span>`);
   const credit = provenance.attribution ? `<span class="credit"><a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a></span>` : "";
-  const claims = head.answer.filter((part) => !part.aside);
-  const aside = head.answer.filter((part) => part.aside);
-  const lede = [escapeHtml(results.benchmark.scope ?? ""), answerHtml(aside)].filter(Boolean).join(" ");
+  const lede = [results.benchmark.scope, head.answer.others]
+    .filter((text): text is string => Boolean(text))
+    .map(escapeHtml)
+    .join(" ");
+  const answer = head.answer.claim ? ` <span class="answer">${escapeHtml(head.answer.claim)}</span>` : "";
 
   return [
     "<!doctype html>",
@@ -263,7 +259,7 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
     '<main id="top">',
     '<section class="hero">',
     `<p class="mono-label hero-label"><span><span class="tick-mark" aria-hidden="true"></span><span class="benchmark-name">${escapeHtml(results.benchmark.id)}</span> <span class="benchmark-version">v${escapeHtml(results.benchmark.version)}</span></span> <span>updated ${escapeHtml(provenance.date)}</span> <span>baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</span></p>`,
-    `<h1><span class="question">${escapeHtml(results.benchmark.goal)}</span> <span class="answer">${answerHtml(claims)}</span></h1>`,
+    `<h1><span class="question">${escapeHtml(results.benchmark.goal)}</span>${answer}</h1>`,
     lede ? `<p class="lede">${lede}</p>` : "",
     "</section>",
     ...sections,

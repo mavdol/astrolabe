@@ -4,11 +4,10 @@ import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark } from "../../schema/benchmark.js";
 import { THEME } from "../../themes/astrolabe.js";
 import type { Comparison } from "../../schema/benchmark.js";
-import { cardAltText, cardContentOf, MAX_HEADLINES, measuredOf, pairOf, renderCard } from "../card.js";
+import { cardAltText, cardContentOf, measuredOf, pairOf, renderCard } from "../card.js";
 import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
-import { toneOf } from "./headline-figure.js";
 import { pageModeOf, renderPage, type PageHead } from "./page.js";
 import { FONT_FILES, pageStyle } from "./page-style.js";
 
@@ -66,70 +65,50 @@ function previewImageOf(benchmark: Benchmark, context: BuildContext, rawFiles: R
   return { png: pngOf(card.svg, 1), alt: card.alt };
 }
 
-/**
- * The answer in one sentence, from every primary comparison: the claims a reader came for, each with
- * the group it is measured on, its effect and its verdict.
- */
 const VERDICTS_IN_READING_ORDER = ["better", "likely better", "equivalent", "inconclusive", "likely worse", "worse"];
 
-/** The comparisons the answer names: those the page leads with when there are more than a card holds. */
-function namedClaimsOf(benchmark: Benchmark, claims: Comparison[]): Comparison[] {
-  if (claims.length <= MAX_HEADLINES) return claims;
-
+/** The comparison the answer names: the first headline's, or else the first primary comparison. */
+function leadClaimOf(benchmark: Benchmark, claims: Comparison[]): Comparison | undefined {
   const headlined = (benchmark.blocks ?? []).flatMap((block) =>
     block.type === "headline" && "comparison" in block ? claims.filter((claim) => claim.id === block.comparison) : [],
   );
 
-  return (headlined.length > 0 ? [...new Set(headlined)] : claims).slice(0, MAX_HEADLINES);
+  return headlined[0] ?? claims[0];
 }
 
-/** A piece of the answer: a claim carries the tone of its verdict, so the page can colour it beside its words. */
-export interface AnswerPart {
-  text: string;
-  tone?: "good" | "bad" | "neutral";
-  /** The count of the claims left out, said after the answer rather than in it. */
-  aside?: boolean;
+/** The answer under the question: one claim, so the headline says one thing, then a count of the other primary comparisons. */
+export interface Answer {
+  claim?: string;
+  others?: string;
 }
 
-export function answerPartsOf(benchmark: Benchmark): AnswerPart[] {
+export function answerPartsOf(benchmark: Benchmark): Answer {
   const lookup = lookupOf(benchmark.results);
   const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
-  const named = namedClaimsOf(benchmark, claims);
-  const others = claims.filter((claim) => !named.includes(claim));
-  const byPair = new Map<string, Comparison[]>();
+  const lead = leadClaimOf(benchmark, claims);
 
-  for (const comparison of named) byPair.set(pairOf(lookup, comparison), [...(byPair.get(pairOf(lookup, comparison)) ?? []), comparison]);
+  if (!lead) return {};
 
-  const parts: AnswerPart[] = [];
+  const metric = lookup.metricById.get(lead.metric)!;
+  const claim = `${pairOf(lookup, lead)}: ${lowerFirstLetterOfWord(measuredOf(lookup, lead))} ${effectAndInterval(metric, lead).effect}, ${verdictLabel(lead)}.`;
+  const others = claims.filter((other) => other !== lead);
 
-  [...byPair.entries()].forEach(([pair, comparisons], index) => {
-    parts.push({ text: `${index > 0 ? " " : ""}${pair}: ` });
-    comparisons.forEach((comparison, position) => {
-      const metric = lookup.metricById.get(comparison.metric)!;
+  if (others.length === 0) return { claim };
 
-      parts.push({ text: `${position > 0 ? "; " : ""}${lowerFirstLetterOfWord(measuredOf(lookup, comparison))} ` });
-      parts.push({ text: `${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}`, tone: toneOf(comparison) });
-    });
-    parts.push({ text: "." });
+  const counts = VERDICTS_IN_READING_ORDER.flatMap((verdict) => {
+    const count = others.filter((other) => verdictLabel(other) === verdict).length;
+
+    return count > 0 ? [`${count} ${verdict}`] : [];
   });
 
-  if (others.length > 0) {
-    const counts = VERDICTS_IN_READING_ORDER.flatMap((verdict) => {
-      const count = others.filter((claim) => verdictLabel(claim) === verdict).length;
-
-      return count > 0 ? [`${count} ${verdict}`] : [];
-    });
-
-    parts.push({ text: ` ${others.length} more primary comparison${others.length === 1 ? "" : "s"}: ${counts.join(", ")}.`, aside: true });
-  }
-
-  return parts;
+  return { claim, others: `${others.length} more primary comparison${others.length === 1 ? "" : "s"}: ${counts.join(", ")}.` };
 }
 
-export const answerOf = (benchmark: Benchmark) =>
-  answerPartsOf(benchmark)
-    .map((part) => part.text)
-    .join("");
+export const answerOf = (benchmark: Benchmark) => {
+  const { claim, others } = answerPartsOf(benchmark);
+
+  return [claim, others].filter(Boolean).join(" ");
+};
 
 /**
  * The site in one folder: the page with every filter state, its style, script and font, a copy of the
