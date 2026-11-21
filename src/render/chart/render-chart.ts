@@ -57,11 +57,12 @@ export interface RenderedChart {
   charactersWithoutGlyph: string[];
 }
 
+/** As on the site: the claim in Inter, what is measured and the small print in Geist Mono. */
 const STYLE = {
-  title: { weight: 600, size: 20, lineHeight: 26, tracking: -0.01 },
-  subtitle: { weight: 500, size: 13, lineHeight: 18 },
-  description: { weight: 400, size: 13, lineHeight: 19 },
-  foot: { weight: 400, size: 12, lineHeight: 17 },
+  title: { weight: 500, size: 22, lineHeight: 28, tracking: -0.02 },
+  subtitle: { weight: 400, size: 12, lineHeight: 18, mono: true },
+  description: { weight: 400, size: 14, lineHeight: 20 },
+  foot: { weight: 400, size: 12, lineHeight: 18, mono: true },
 } as const;
 
 const PADDING = 32;
@@ -190,13 +191,14 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const title = resolveTemplates(block.title, lookup, block.effect_format);
   const reading = block.description ? resolveTemplates(block.description, lookup, block.effect_format) : "";
   const provenance = provenanceParts(benchmark, context);
-  const provenanceText = [
+  const provenanceItems = [
     provenance.source.replace(/^https?:\/\//, ""),
     `results ${provenance.hash}`,
     provenance.date,
     ...(provenance.continuousIntegration ? [`commit ${provenance.continuousIntegration.commit}`] : []),
     ...(provenance.attribution ? ["Built with Astrolabe"] : []),
-  ].join(" · ");
+  ];
+  const provenanceText = provenanceItems.join(" · ");
 
   interface TextPart {
     lines: string[];
@@ -218,7 +220,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
     : [
         { lines: wrapped(content.howToRead, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 6 },
         ...(options.standalone
-          ? [{ lines: wrapped(provenanceText, STYLE.foot), style: STYLE.foot, fill: colours.secondary, gapAfter: 0 }]
+          ? [{ lines: text.wrapParts(provenanceItems, STYLE.foot, innerWidth), style: STYLE.foot, fill: colours.quiet, gapAfter: 0 }]
           : []),
       ];
   const heightOf = (parts: TextPart[]) =>
@@ -276,7 +278,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const enlargement = options.enlargement ?? 1;
   const frame =
     options.standalone && !plotOnly
-      ? `<rect x="0.5" y="0.5" width="${options.width - 1}" height="${height - 1}" rx="${CORNER_RADIUS}" fill="${colours.background}" stroke="${colours.rule}"/>`
+      ? `<rect x="0.5" y="0.5" width="${options.width - 1}" height="${height - 1}" rx="${CORNER_RADIUS}" fill="${colours.background}" stroke="${colours.ruleStrong}"/>`
       : "";
   const opening = plotOnly
     ? [

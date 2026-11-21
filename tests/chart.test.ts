@@ -73,6 +73,16 @@ describe("the colours of the default theme", () => {
     for (const grey of colours.series) expect(contrastRatio(grey, colours.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
   });
 
+  it.each(["light", "dark"] as const)("%s: the verdict colours read as text, and quiet text holds at large sizes", (mode) => {
+    const colours = THEME[mode];
+
+    expect(contrastRatio(colours.good, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.bad, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.inkOnFill, colours.good)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.inkOnFill, colours.bad)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrastRatio(colours.quiet, colours.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
+  });
+
   it("tells candidates apart by shape as well as by colour", () => {
     const styles = [...seriesStylesOf(["a", "b", "c", "d"], undefined, "light").values()];
 
@@ -268,10 +278,12 @@ describe("a chart as an image", () => {
   });
 
   it("carries its provenance only when it travels alone", () => {
-    const provenance = expect.stringMatching(/results [0-9a-f]{12} · 2026-11-17 · Built with Astrolabe$/);
+    const provenance = /results [0-9a-f]{12} · 2026-11-17 · Built with Astrolabe$/;
+    const standalone = draw(parsers, effects, { standalone: true }).textLines;
 
-    expect(draw(parsers, effects, { standalone: true }).textLines).toContainEqual(provenance);
-    expect(draw(parsers, effects).textLines).not.toContainEqual(provenance);
+    expect(standalone.join(" · ")).toMatch(provenance);
+    expect(standalone.at(-1), "broken between its parts, never inside one").toBe("Built with Astrolabe");
+    expect(draw(parsers, effects).textLines.join(" · ")).not.toMatch(provenance);
   });
 
   it("is as tall as its rows need, or exactly the height asked for", () => {

@@ -132,7 +132,11 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
 
     const tag = (element: string) => taggedWith(element, line.candidate);
 
-    marks.push(tag(`<path d="${segments.join("")}" stroke="${line.series.colour}" stroke-width="2" fill="none" stroke-linejoin="round" data-draw=""/>`));
+    marks.push(
+      tag(
+        `<path d="${segments.join("")}" stroke="${line.series.colour}" stroke-width="2" fill="none" stroke-linejoin="round" data-draw=""/>`,
+      ),
+    );
 
     line.points.forEach((point, index) => {
       if (point?.interval)
@@ -152,7 +156,9 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
     line.points.forEach((point, index) => {
       if (point)
         marks.push(
-          tag(poppingMarker(line.series.shape, xOf(index, lineIndex), yScale.position(point.value), line.series.colour, colours.background)),
+          tag(
+            poppingMarker(line.series.shape, xOf(index, lineIndex), yScale.position(point.value), line.series.colour, colours.background),
+          ),
         );
     });
 

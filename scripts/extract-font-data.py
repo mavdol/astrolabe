@@ -1,6 +1,6 @@
-# Extracts what the SVG renderer needs from the bundled Inter files into src/render/fonts/inter.json:
-# for each weight, the outline and advance width of every character drawn, the tabular figures,
-# and the kerning pairs. Nothing parses a font at run time.
+# Extracts what the SVG renderer needs from the bundled font files into src/render/fonts/: for each
+# face and weight, the outline and advance width of every character drawn, the tabular figures, and
+# the kerning pairs. Nothing parses a font at run time.
 #
 # Run from the repository root after changing assets/fonts/:
 #   uv run --no-project --with fonttools==4.60.1 python scripts/extract-font-data.py
@@ -13,8 +13,28 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 FONT_FOLDER = Path("assets/fonts")
-OUTPUT_PATH = Path("src/render/fonts/inter.json")
-WEIGHTS = [400, 500, 600, 700]
+OUTPUT_FOLDER = Path("src/render/fonts")
+
+FACES = [
+    {
+        "family": "Inter",
+        "file": "inter-latin-{weight}-normal.woff",
+        "weights": [400, 500, 600, 700],
+        "output": "inter.json",
+        "copyright": "Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)",
+        "license": "SIL Open Font License, Version 1.1; see assets/fonts/OFL.txt",
+        "source": "@fontsource/inter 5.3.0, latin subset",
+    },
+    {
+        "family": "Geist Mono",
+        "file": "geist-mono-latin-{weight}-normal.woff2",
+        "weights": [400, 500],
+        "output": "geist-mono.json",
+        "copyright": "Copyright 2023 Vercel, in collaboration with basement.studio",
+        "license": "SIL Open Font License, Version 1.1; see assets/fonts/OFL-Geist.txt",
+        "source": "geist 1.9.2, latin subset",
+    },
+]
 
 CHARACTER_RANGES = [
     (0x0020, 0x007E),  # ASCII
@@ -42,6 +62,8 @@ def outline(glyph_set, glyph_name):
 
 def tabular_substitutions(font):
     substitutions = {}
+    if "GSUB" not in font:
+        return substitutions
     gsub = font["GSUB"].table
     for feature_record in gsub.FeatureList.FeatureRecord:
         if feature_record.FeatureTag != "tnum":
@@ -61,6 +83,8 @@ def first_x_advance(value_record):
 
 def kerning_pairs(font, glyph_names):
     """Horizontal kerning of the kern feature, from pair adjustments of both formats, extensions included."""
+    if "GPOS" not in font:
+        return {}
     gpos = font["GPOS"].table
     wanted = set(glyph_names)
     kerning = {}
@@ -94,8 +118,8 @@ def kerning_pairs(font, glyph_names):
     return {pair: value for pair, value in kerning.items() if value != 0}
 
 
-def extract_weight(weight):
-    font = TTFont(FONT_FOLDER / f"inter-latin-{weight}-normal.woff")
+def extract_weight(face, weight):
+    font = TTFont(FONT_FOLDER / face["file"].format(weight=weight))
     glyph_set = font.getGlyphSet()
     advance_of = font["hmtx"].metrics
     characters = characters_in(font)
@@ -116,28 +140,30 @@ def extract_weight(weight):
     return font, {"glyphs": glyphs, "tabular": tabular_glyphs, "kerning": kerning}
 
 
-def main():
+def extract_face(face):
     weights = {}
-    for weight in WEIGHTS:
-        font, data = extract_weight(weight)
+    for weight in face["weights"]:
+        font, data = extract_weight(face, weight)
         weights[str(weight)] = data
     head, hhea, os2 = font["head"], font["hhea"], font["OS/2"]
     output = {
-        "family": "Inter",
-        "copyright": "Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)",
-        "license": "SIL Open Font License, Version 1.1; see assets/fonts/OFL.txt",
-        "source": "@fontsource/inter 5.3.0, latin subset",
+        "family": face["family"],
+        "copyright": face["copyright"],
+        "license": face["license"],
+        "source": face["source"],
         "units_per_em": head.unitsPerEm,
         "ascender": hhea.ascent,
         "descender": hhea.descent,
         "cap_height": os2.sCapHeight,
         "weights": weights,
     }
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(json.dumps(output, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+    output_path = OUTPUT_FOLDER / face["output"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(output, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     for weight, data in weights.items():
-        print(f"{weight}: {len(data['glyphs'])} glyphs, {len(data['tabular'])} tabular, {len(data['kerning'])} kerning pairs")
-    print(f"wrote {OUTPUT_PATH} ({OUTPUT_PATH.stat().st_size // 1024} KB)")
+        print(f"{face['family']} {weight}: {len(data['glyphs'])} glyphs, {len(data['tabular'])} tabular, {len(data['kerning'])} kerning pairs")
+    print(f"wrote {output_path} ({output_path.stat().st_size // 1024} KB)")
 
 
-main()
+for face in FACES:
+    extract_face(face)

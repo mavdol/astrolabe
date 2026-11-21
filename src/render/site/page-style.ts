@@ -125,7 +125,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 .chip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
 .chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
 
-.micro { display: block; width: 100%; height: auto; overflow: visible; color: var(--secondary); }
+.micro { display: block; width: 100%; max-width: 520px; height: auto; overflow: visible; color: var(--secondary); }
 .micro .band { fill: var(--band); }
 .micro .track { stroke: var(--rule-strong); }
 .micro .zero { stroke: var(--secondary); }
@@ -164,6 +164,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 .chart-data .description { margin: 12px 0; font-size: 13px; color: var(--secondary); }
 .icon-button { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--quiet); opacity: 0; transition: opacity 200ms; }
 .chapter:hover .icon-button, .icon-button:focus-visible, .icon-button.is-done { opacity: 1; }
+@media (hover: none) { .icon-button { opacity: 1; } }
 .icon-button:hover { color: var(--ink); background: var(--surface); }
 .icon-button svg { width: 14px; height: 14px; }
 .icon-button .done, .icon-button.is-done .ready { display: none; }
@@ -192,6 +193,7 @@ th[scope="row"] { font-weight: 500; }
 td:not(.text) { white-space: nowrap; }
 .cell-detail { display: block; color: var(--secondary); font-family: ${MONO}; font-size: 11px; white-space: nowrap; }
 .value-table td, .value-table th { text-align: left; }
+.value-table .cell-detail { white-space: normal; min-width: 160px; }
 .value-table .cell-value { font-family: ${MONO}; font-weight: 500; font-size: 14px; }
 .cell-bar { position: relative; display: block; width: 100%; min-width: 120px; height: 10px; margin: 6px 0 4px; background: linear-gradient(var(--rule-strong), var(--rule-strong)) center / 100% 1px no-repeat; color: var(--ink); }
 .cell-bar.baseline { color: var(--quiet); }

@@ -174,6 +174,7 @@ export function writeSite(
     );
 
   for (const file of FONT_FILES) write(`fonts/${file}`, readFileSync(new URL(`fonts/${file}`, ASSETS)));
+
   write("page.css", pageStyle(benchmark.style));
   write("page.js", readFileSync(new URL("site/page.js", ASSETS)));
   write(".nojekyll", "");

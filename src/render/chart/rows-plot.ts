@@ -347,7 +347,10 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
             : "";
 
         marks.push(
-          growsFrom(zeroX ?? valueX, `${stem}${interval ? intervalAcross(interval[0], interval[1], centreY, row.series.colour, INTERVAL_STROKE + 0.5) : ""}`),
+          growsFrom(
+            zeroX ?? valueX,
+            `${stem}${interval ? intervalAcross(interval[0], interval[1], centreY, row.series.colour, INTERVAL_STROKE + 0.5) : ""}`,
+          ),
         );
         marks.push(poppingMarker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
       }

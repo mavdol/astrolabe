@@ -4,6 +4,7 @@ pnpm-lock.yaml
 examples
 .artifacts
 src/render/fonts/inter.json
+src/render/fonts/geist-mono.json
 tests/fixtures/inspect
 evals
 skills

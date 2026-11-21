@@ -1,3 +1,4 @@
+import monoFont from "./fonts/geist-mono.json" with { type: "json" };
 import interFont from "./fonts/inter.json" with { type: "json" };
 
 export type FontWeight = 400 | 500 | 600 | 700;
@@ -13,13 +14,16 @@ interface WeightData {
   kerning: Record<string, number>;
 }
 
-const FONT = interFont as unknown as {
+interface FaceData {
   units_per_em: number;
   ascender: number;
   descender: number;
   cap_height: number;
   weights: Record<string, WeightData>;
-};
+}
+
+const FONT = interFont as unknown as FaceData;
+const MONO_FONT = monoFont as unknown as FaceData;
 
 export const CAP_HEIGHT_RATIO = FONT.cap_height / FONT.units_per_em;
 
@@ -35,19 +39,17 @@ export interface TextStyle {
   tabular?: boolean;
   /** Letter spacing in em: negative tightens large figures, positive opens small capitals. */
   tracking?: number;
-  /**
-   * Set in the page's monospaced face when the text is real text in a page; a standalone file, drawn
-   * with Inter alone, uses its tabular figures instead.
-   */
+  /** Set in Geist Mono, the face of labels, ticks and figures beside the marks; it has weights 400 and 500. */
   mono?: boolean;
 }
 
 export const MONO_FONT_FAMILY = '"Geist Mono", ui-monospace, monospace';
-/** Every character of Geist Mono advances by the same share of its size. */
-const MONO_ADVANCE = 0.6;
+
+const faceOf = (style: TextStyle) => (style.mono ? MONO_FONT : FONT);
+const weightOf = (style: TextStyle) => (style.mono ? Math.min(style.weight, 500) : style.weight);
 
 /**
- * Draws text as paths with the bundled Inter, so a standalone SVG looks the
+ * Draws text as paths with the bundled Inter and Geist Mono, so a standalone SVG looks the
  * same on every device. Each glyph is defined once in <defs> and reused.
  */
 export class SvgTextRenderer {
@@ -61,14 +63,16 @@ export class SvgTextRenderer {
   }
 
   private glyphFor(character: string, style: TextStyle): { key: string; glyph: Glyph } {
-    const weightData = FONT.weights[String(style.weight)];
+    const weight = weightOf(style);
+    const weightData = faceOf(style).weights[String(weight)];
+    const face = style.mono ? "m" : "";
     const tabularGlyph = style.tabular ? weightData.tabular[character] : undefined;
 
-    if (tabularGlyph) return { key: `${style.weight}t${character.codePointAt(0)}`, glyph: tabularGlyph };
+    if (tabularGlyph) return { key: `${face}${weight}t${character.codePointAt(0)}`, glyph: tabularGlyph };
 
     const glyph = weightData.glyphs[character];
 
-    if (glyph) return { key: `${style.weight}-${character.codePointAt(0)}`, glyph };
+    if (glyph) return { key: `${face}${weight}-${character.codePointAt(0)}`, glyph };
 
     this.missingCharacters.add(character);
 
@@ -76,18 +80,15 @@ export class SvgTextRenderer {
   }
 
   private kerningBetween(left: string, right: string, style: TextStyle): number {
-    return FONT.weights[String(style.weight)].kerning[left + right] ?? 0;
+    return faceOf(style).weights[String(weightOf(style))].kerning[left + right] ?? 0;
   }
 
   measure(text: string, style: TextStyle): number {
     const characters = [...text];
-
-    if (this.realText && style.mono)
-      return (characters.length * MONO_ADVANCE + Math.max(0, characters.length - 1) * (style.tracking ?? 0)) * style.size;
-
+    const face = faceOf(style);
     let widthInFontUnits = 0;
 
-    const trackingInFontUnits = (style.tracking ?? 0) * FONT.units_per_em;
+    const trackingInFontUnits = (style.tracking ?? 0) * face.units_per_em;
 
     characters.forEach((character, index) => {
       widthInFontUnits += this.glyphFor(character, style).glyph.advance;
@@ -96,7 +97,7 @@ export class SvgTextRenderer {
         widthInFontUnits += trackingInFontUnits + (style.tabular ? 0 : this.kerningBetween(characters[index - 1], character, style));
     });
 
-    return (widthInFontUnits * style.size) / FONT.units_per_em;
+    return (widthInFontUnits * style.size) / face.units_per_em;
   }
 
   /** Splits text into lines no wider than maxWidth, breaking between words. */
@@ -112,6 +113,30 @@ export class SvgTextRenderer {
         currentLine = word;
       } else {
         currentLine = candidateLine;
+      }
+    }
+
+    if (currentLine) lines.push(currentLine);
+
+    return lines;
+  }
+
+  /** Joins parts with a separator into lines no wider than maxWidth, breaking only between parts unless one alone is too wide. */
+  wrapParts(parts: string[], style: TextStyle, maxWidth: number, separator = " · "): string[] {
+    const lines: string[] = [];
+    let currentLine = "";
+
+    for (const part of parts) {
+      const candidateLine = currentLine ? `${currentLine}${separator}${part}` : part;
+
+      if (this.measure(candidateLine, style) <= maxWidth) currentLine = candidateLine;
+      else {
+        if (currentLine) lines.push(currentLine);
+
+        const pieces = this.wrap(part, style, maxWidth);
+
+        lines.push(...pieces.slice(0, -1));
+        currentLine = pieces[pieces.length - 1] ?? "";
       }
     }
 
@@ -139,13 +164,13 @@ export class SvgTextRenderer {
   draw(text: string, x: number, y: number, style: TextStyle & { fill: string; anchor?: "start" | "end"; halo?: string }): string {
     if (this.realText) return this.textElement(text, x, y, style);
 
-    const scale = style.size / FONT.units_per_em;
+    const scale = style.size / faceOf(style).units_per_em;
     const characters = [...text];
     let penInFontUnits = 0;
     const placements: string[] = [];
     const startX = style.anchor === "end" ? x - this.measure(text, style) : x;
 
-    const trackingInFontUnits = (style.tracking ?? 0) * FONT.units_per_em;
+    const trackingInFontUnits = (style.tracking ?? 0) * faceOf(style).units_per_em;
 
     characters.forEach((character, index) => {
       if (index > 0)

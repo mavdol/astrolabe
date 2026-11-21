@@ -65,19 +65,29 @@ function playMarks(scope, delay) {
 
     marker.style.transformBox = "fill-box";
     marker.style.transformOrigin = "center";
-    marker.animate([{ transform: "scale(0)" }, { transform: "scale(1)" }], { ...SPRING, delay: delay + 450 + index * 90, fill: "backwards" });
+    marker.animate([{ transform: "scale(0)" }, { transform: "scale(1)" }], {
+      ...SPRING,
+      delay: delay + 450 + index * 90,
+      fill: "backwards",
+    });
   }
 
   for (const line of scope.querySelectorAll("[data-draw]")) {
     const length = line.getTotalLength?.() ?? 0;
 
     if (length > 0)
-      line.animate([{ strokeDasharray: `${length}`, strokeDashoffset: length }, { strokeDasharray: `${length}`, strokeDashoffset: 0 }], {
-        duration: 1400,
-        delay,
-        easing: EASE_OUT,
-        fill: "backwards",
-      });
+      line.animate(
+        [
+          { strokeDasharray: `${length}`, strokeDashoffset: length },
+          { strokeDasharray: `${length}`, strokeDashoffset: 0 },
+        ],
+        {
+          duration: 1400,
+          delay,
+          easing: EASE_OUT,
+          fill: "backwards",
+        },
+      );
   }
 }
 

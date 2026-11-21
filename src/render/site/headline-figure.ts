@@ -1,4 +1,5 @@
 import type { Comparison, Metric, Value } from "../../schema/benchmark.js";
+import { withUnit } from "../chart/chart-content.js";
 import { labelDecimals, type Lookup } from "../describe.js";
 import { formatNumber } from "../number-format.js";
 import { escapeHtml } from "./html.js";
@@ -63,7 +64,7 @@ function valuesFromZero(metric: Metric, rows: { name: string; value: Value; role
   const marks = rows.map((row, index) => {
     const top = 4 + index * BAR_ROW;
     const width = largest > 0 ? (row.value.value / largest) * barRoom : 0;
-    const shown = `${formatNumber(row.value.value, labelDecimals(metric, row.value))} ${metric.unit}`;
+    const shown = withUnit(formatNumber(row.value.value, labelDecimals(metric, row.value)), metric.unit);
 
     return [
       `<text class="name" x="0" y="${top + 11}">${escapeHtml(row.name)}</text>`,

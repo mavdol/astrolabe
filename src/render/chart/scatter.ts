@@ -154,7 +154,9 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
       (point, index) => `${index === 0 ? "M" : "L"}${round(xScale.position(point.x))} ${round(yScale.position(point.y))}`,
     );
 
-    marks.push(`<path d="${path.join("")}" stroke="${colours.secondary}" stroke-width="1.25" stroke-dasharray="4 3" fill="none" data-draw=""/>`);
+    marks.push(
+      `<path d="${path.join("")}" stroke="${colours.secondary}" stroke-width="1.25" stroke-dasharray="4 3" fill="none" data-draw=""/>`,
+    );
   }
 
   const positioned = plot.points.map((point) => ({ point, px: xScale.position(point.x), py: yScale.position(point.y) }));

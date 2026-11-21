@@ -25,10 +25,10 @@ describe("the README card", () => {
 
   it("can be read alone: the question, effects, verdicts, intervals, how to read and the provenance", () => {
     expect(card.textLines).toEqual([
-      "Deno against Node.js",
+      "DENO AGAINST NODE.JS",
       "Which JavaScript runtime runs our short command-line scripts",
       "faster and with less memory: Node.js or Deno?",
-      "Wall time · lower is better",
+      "WALL TIME · LOWER IS BETTER",
       "\u221210%",
       "LIKELY BETTER",
       "\u2190 better",
@@ -36,7 +36,7 @@ describe("the README card", () => {
       "Interval \u221212 to \u22129%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Peak memory · lower is better",
+      "PEAK MEMORY · LOWER IS BETTER",
       "+1.1%",
       "EQUIVALENT",
       "\u2190 better",
@@ -44,7 +44,8 @@ describe("the README card", () => {
       "Interval +1.0 to +1.2%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons. Shaded band: too small to matter.",
+      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons.",
+      "Shaded band: too small to matter.",
       expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
@@ -59,12 +60,14 @@ describe("the README card", () => {
 
   it("fills the badge of a firm verdict and outlines a likely or inconclusive one, in the colour of its verdict", () => {
     expect(card.svg).toContain(`fill="none" stroke="${THEME.light.good}"`);
-    expect(card.svg).toMatch(new RegExp(`<rect x="[\\d.]+" y="[\\d.]+" width="[\\d.]+" height="22" rx="11" fill="${THEME.light.ink}"/>`));
+    expect(card.svg).toMatch(new RegExp(`<rect x="[\\d.]+" y="[\\d.]+" width="[\\d.]+" height="24" rx="5" fill="${THEME.light.ink}"/>`));
   });
 
   it("draws each effect as a dot, its interval as a capped line and the smallest difference that matters as a band", () => {
-    expect(card.svg.match(/<circle /g)).toHaveLength(2);
-    expect(card.svg.match(/stroke-dasharray="2 2"/g)).toHaveLength(2);
+    expect(card.svg.match(/<circle [^>]*r="5"/g)).toHaveLength(2);
+    expect(
+      card.svg.match(new RegExp(`<rect x="[\\d.]+" y="[\\d.]+" width="[\\d.]+" height="28" fill="${THEME.light.band}"/>`, "g")),
+    ).toHaveLength(2);
     expect(card.svg.match(/stroke-width="2.5" stroke-linecap="round"/g)).toHaveLength(2);
   });
 
@@ -110,7 +113,7 @@ describe("what a card shows", () => {
     const lines = renderCard(parsers, content, "light", context).textLines;
 
     expect(content.headlines.map((headline) => headline.comparison.id)).toEqual(["wall_time__fastjson", "peak_rss__fastjson"]);
-    expect(lines).toContain("Wall time · lower is better");
+    expect(lines).toContain("WALL TIME · LOWER IS BETTER");
     expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline blocks/);
   });
 });
@@ -120,9 +123,9 @@ describe("reading a card at a glance", () => {
   const parsersCard = renderCard(parsers, cardContentOf(parsers, ["headline-time", "headline-memory"]), "light", context);
 
   it("shows the direction of a verdict inside its badge: a check for better, a cross for worse", () => {
-    const icons = [...parsersCard.svg.matchAll(new RegExp(`<path d="([^"]+)" fill="none" stroke="${THEME.light.inkOnFill}" stroke-width="1.8"`, "g"))].map(
-      (match) => match[1],
-    );
+    const icons = [
+      ...parsersCard.svg.matchAll(new RegExp(`<path d="([^"]+)" fill="none" stroke="${THEME.light.inkOnFill}" stroke-width="1.8"`, "g")),
+    ].map((match) => match[1]);
 
     expect(icons).toHaveLength(2);
     expect(icons[0].split(/[ML]/).filter(Boolean)).toHaveLength(3);
@@ -130,9 +133,9 @@ describe("reading a card at a glance", () => {
   });
 
   it("never cuts the axis, even when the interval lies far beyond the band", () => {
-    const horizontalRules = parsersCard.svg.match(new RegExp(`H[\\d.]+" stroke="${THEME.light.rule}"`, "g"));
+    const baselines = parsersCard.svg.match(new RegExp(`H[\\d.]+" stroke="${THEME.light.ruleStrong}"`, "g"));
 
-    expect(horizontalRules, "one unbroken baseline per strip, plus the rule above the footer").toHaveLength(3);
+    expect(baselines, "one unbroken baseline per strip").toHaveLength(2);
     expect(parsersCard.textLines).toContain("\u221210%  0  +10%");
   });
 
@@ -166,9 +169,9 @@ describe("reading a card at a glance", () => {
     const suite = loadBenchmark("support-assistant-eval");
     const lines = renderCard(suite, cardContentOf(suite), "light", context).textLines;
 
-    expect(lines).toContain("Accuracy · higher is better");
-    expect(lines.join(" ")).toContain("Accuracy, Coding");
-    expect(lines.join(" ")).not.toContain("Support assistant eval");
+    expect(lines).toContain("ACCURACY · HIGHER IS BETTER");
+    expect(lines.join(" ")).toContain("ACCURACY, CODING");
+    expect(lines.join(" ").toUpperCase()).not.toContain("SUPPORT ASSISTANT EVAL");
   });
 
   it("puts the warning about failures in ink with an icon", () => {

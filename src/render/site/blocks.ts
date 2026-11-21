@@ -164,7 +164,8 @@ function chartLabelOf(block: ChartBlock, lookup: Lookup): string {
   const metricOf = (metricId: string | undefined) => (metricId ? lookup.metricById.get(metricId) : undefined);
   const baseline = lookup.candidateName.get(lookup.results.baseline);
 
-  if (block.chart === "scatter") return `${metricOf(block.y)?.label ?? ""} against ${lowerFirstLetterOfWord(metricOf(block.x)?.label ?? "")}`;
+  if (block.chart === "scatter")
+    return `${metricOf(block.y)?.label ?? ""} against ${lowerFirstLetterOfWord(metricOf(block.x)?.label ?? "")}`;
 
   if (block.chart === "comparison-rows") return `Against ${baseline}`;
 
@@ -334,11 +335,11 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
 
             const details: string[] = [];
 
-            if (show.has("ci") && value.ci) details.push(formatInterval(value.ci, decimals));
+            if (show.has("ci") && value.ci) details.push(escapeHtml(formatInterval(value.ci, decimals)));
 
             if (show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
 
-            if (show.has("failures") && value.source !== "declared") details.push(`${failuresCell(lookup, value)} failed`);
+            if (show.has("failures") && value.source !== "declared") details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
 
             if (show.has("evidence") && value.evidence) details.push(withLinks(value.evidence));
 
@@ -348,7 +349,7 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
               `<td class="value-cell" data-candidate="${escapeHtml(candidate.id)}">`,
               `<span class="cell-value">${escapeHtml(shown)}</span>`,
               `<span class="cell-bar${candidate.id === lookup.results.baseline ? " baseline" : ""}" style="${barPositionsOf(extent, value.value, show.has("ci") ? value.ci : undefined)}" aria-hidden="true"></span>`,
-              details.length > 0 ? `<span class="cell-detail">${details.map((detail) => (detail.startsWith("<a") ? detail : escapeHtml(detail))).join(" · ")}</span>` : "",
+              details.length > 0 ? `<span class="cell-detail">${details.join(" · ")}</span>` : "",
               "</td>",
             ].join("");
           });
@@ -409,9 +410,10 @@ function pipelineOf(lookup: Lookup): PipelineStep[] {
   const judgeStep: PipelineStep[] = judge
     ? [
         {
-          figure: "Judge",
-          unit: judge.type === "model" ? (judge.model ?? "a model") : judge.type === "participants" ? "participants" : `${judge.raters ?? "?"} raters`,
+          figure: judge.type === "model" ? "1" : judge.type === "participants" ? "Self" : String(judge.raters ?? "?"),
+          unit: judge.type === "model" ? "model judge" : judge.type === "participants" ? "ratings by participants" : "human raters",
           note: [
+            judge.type === "model" ? (judge.model ?? "") : "",
             judge.blinded ? "blind" : "not blind",
             judge.validation ? `α ${judge.validation.krippendorff_alpha} against humans` : "",
             judge.agreement ? `α ${judge.agreement.krippendorff_alpha} between raters` : "",
@@ -512,9 +514,10 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
 }
 
 const factBlock = (title: string, lines: string[]) =>
-  [`<h3 class="fact-title">${escapeHtml(title)}</h3>`, `<ul class="fact-lines">\n${lines.map((line) => `<li>${withLinks(line)}</li>`).join("\n")}\n</ul>`].join(
-    "\n",
-  );
+  [
+    `<h3 class="fact-title">${escapeHtml(title)}</h3>`,
+    `<ul class="fact-lines">\n${lines.map((line) => `<li>${withLinks(line)}</li>`).join("\n")}\n</ul>`,
+  ].join("\n");
 
 function provenanceHtml(inputs: PageInputs): string {
   const { benchmark, context } = inputs;

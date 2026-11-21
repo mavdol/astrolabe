@@ -332,12 +332,81 @@ describe("the site", () => {
     expect(withoutCredit.html).not.toContain("Built with Astrolabe");
   });
 
-  it("keeps the colours of a file that fixes its mode, and draws its charts once", () => {
+  it("lets the reader switch between light and dark, and remembers the choice", () => {
+    expect(support.html).toContain(
+      '<button class="theme-switch" type="button" data-theme-switch aria-label="Switch between light and dark">',
+    );
+    expect(support.html).toContain('localStorage.getItem("astrolabe-theme")');
+    expect(support.read("page.js")).toContain('localStorage.setItem("astrolabe-theme", next)');
+    expect(support.css).toContain(`:root[data-theme="dark"] { color-scheme: dark; --background: ${THEME.dark.background};`);
+    expect(support.css).toContain(':root:not([data-theme="light"])');
+  });
+
+  it("brings each part in only when the reader allows motion, and shows everything anyway when the script never runs", () => {
+    expect(support.html).toContain('if (!matchMedia("(prefers-reduced-motion: reduce)").matches) root.classList.add("motion");');
+    expect(support.css).toMatch(/\.motion :is\([^)]+\):not\(\.is-in\) \{[^}]*animation: appear 0s 4s forwards;/);
+    expect(support.html).toMatch(/<g data-grow-from="[\d.]+">/);
+    expect(support.html).toContain("<g data-pop=");
+  });
+
+  it("draws under each headline figure the comparison itself: two values from zero for a change in percent, the effect on its strip for a difference", () => {
+    const headline = (id: string) =>
+      support.html.match(new RegExp(`<article class="block stat headline" id="${id}">[\\s\\S]*?</article>`))![0];
+
+    expect(headline("headline-cost")).toContain('<svg class="micro values"');
+    expect(headline("headline-cost")).toMatch(/<text class="name"[^>]*>Model A<\/text>/);
+    expect(headline("headline-accuracy")).toContain('<svg class="micro strip good"');
+    expect(headline("headline-accuracy")).toContain(
+      '<p class="figure good"><span data-count="6.4" data-decimals="1">+6.4</span><small>points</small></p>',
+    );
+  });
+
+  it("colours a verdict beside its word, never instead of it", () => {
+    const chips = [...support.html.matchAll(/<span class="chip (\w+)[^"]*">([^<]+)<\/span>/g)].map((match) => [match[1], match[2]]);
+
+    expect(chips).toContainEqual(["good", "likely better"]);
+    expect(chips).toContainEqual(["bad", "worse"]);
+    expect(chips).toContainEqual(["neutral", "inconclusive"]);
+  });
+
+  it("draws the key of a chart with its marks, and keeps their names for screen readers", () => {
+    const chapter = support.html.match(/<section class="block chapter chart frame" id="chart-by-category">[\s\S]*?<\/section>/)![0];
+    const key = chapter.match(/<ul class="chart-key">[\s\S]*?<\/ul>/)![0];
+
+    expect(key.match(/<svg class="key-mark"/g)).toHaveLength(3);
+    expect(key).toContain(
+      '<span class="visually-hidden">Each dot: </span>The change of Model A against Model B, in points; higher is better.',
+    );
+    expect(key).toContain('<span class="visually-hidden">Shaded band: </span>Changes under 3 points, too small to matter.');
+  });
+
+  it("writes each detail of a table cell once escaped, with the addresses in its evidence as links", () => {
+    const notes = loadBenchmark("notes-apps-onboarding");
+
+    notes.results.values!.find((value) => value.evidence)!.evidence = "Offline & synced, see https://example.org/run";
+
+    const html = buildSite("notes-apps-onboarding", { benchmark: notes }).html;
+
+    expect(html).toContain('n = 1 · Offline &amp; synced, see <a href="https://example.org/run">https://example.org/run</a>');
+    expect(html).not.toContain("&amp;amp;");
+  });
+
+  it("counts how it was measured as steps: each level observed, the candidates, the judge and the claims", () => {
+    const steps = [...support.html.matchAll(/<p class="step-figure">([^<]+)<small>([^<]+)<\/small><\/p>/g)].map(
+      (match) => `${match[1]} ${match[2]}`,
+    );
+
+    expect(steps).toEqual(["470 items", "× 5 repeats", "2 candidates", "1 model judge", "4 claims"]);
+    expect(support.html).toContain('<section class="trust-section frame" id="method">');
+  });
+
+  it("keeps the colours of a file that fixes its mode, draws its charts once and offers no theme switch", () => {
     const parsers = loadBenchmark("json-cli-parse");
     const dark = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, mode: "dark" } } });
 
     expect(dark.css).toContain(`:root { color-scheme: dark; --background: ${THEME.dark.background};`);
     expect(dark.html).not.toContain("data-mode=");
+    expect(dark.html).not.toContain("data-theme-switch");
   });
 });
 
