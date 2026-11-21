@@ -27,9 +27,10 @@ function starburst(centreX: number, centreY: number, radius: number, strokeWidth
   ];
   const rays = Array.from({ length: RAYS }, (_, index) => {
     const angle = (index / RAYS) * Math.PI * 2 - Math.PI / 2;
-    const [endX, endY] = pointAt(angle, rayLength(index)).split(" ");
+    const [startX, startY] = pointAt(angle, GAP_AROUND_CENTRE);
+    const [endX, endY] = pointAt(angle, rayLength(index));
 
-    return `<path d="M${pointAt(angle, GAP_AROUND_CENTRE)}L${endX} ${endY}"/><circle cx="${endX}" cy="${endY}" r="${rounded(strokeWidth * 1.6)}" stroke="none"/>`;
+    return `<path d="M${startX} ${startY}L${endX} ${endY}"/><circle cx="${endX}" cy="${endY}" r="${rounded(strokeWidth * 1.6)}" stroke="none"/>`;
   });
 
   return `<g fill="${ink}" stroke="${ink}" stroke-width="${rounded(strokeWidth)}" stroke-linecap="round">${rays.join("")}<circle cx="${centreX}" cy="${centreY}" r="${rounded(strokeWidth * 2.6)}" stroke="none"/></g>`;
