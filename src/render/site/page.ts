@@ -2,13 +2,12 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import { TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
-import { blockHtml, type PageInputs } from "./blocks.js";
-import { COLUMN_GAP, PAGE_WIDTH, PANEL_PADDING } from "./page-style.js";
+import { blockHtml, sectionLabel, type PageInputs } from "./blocks.js";
+import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
+import type { AnswerPart } from "./write-site.js";
 import { escapeHtml } from "./html.js";
 
 const ASTROLABE_REPOSITORY = "https://github.com/mavdol/astrolabe";
-
-const HEADLINES_PER_ROW = 2;
 
 function linkedIfAddress(source: string): string {
   const shown = escapeHtml(source.replace(/^https?:\/\//, ""));
@@ -33,7 +32,7 @@ export function pageRowsOf(benchmark: Benchmark): Block[][] {
     for (const block of blocks.filter((entry) => !isTrustBlock(entry))) {
       const lastRow = rows[rows.length - 1];
       const joinsLastRow =
-        block.type === "headline" && lastRow?.every((entry) => entry.type === "headline") && lastRow.length < HEADLINES_PER_ROW;
+        block.type === "headline" && lastRow?.every((entry) => entry.type === "headline") && lastRow.length < MAX_HEADLINES;
 
       if (joinsLastRow) lastRow.push(block);
       else rows.push([block]);
@@ -60,22 +59,21 @@ function defaultBlocksOf(benchmark: Benchmark): Block[] {
     .map((comparison) => ({ id: comparison.id, type: "headline", comparison: comparison.id, title: `{metric:${comparison.metric}}` }));
 }
 
-/** How each kind of block is framed: headlines as stat cells, charts and tables as panels, words in the reading column. */
-function frameOf(block: Block): string {
-  if (block.type === "headline") return "stat";
-
-  if (block.type === "chart" || block.type === "table") return "panel";
-
-  return isTrustBlock(block) ? "trust" : "prose";
-}
-
 export interface PageHead {
   /** The public address of the site, for the canonical link and the link preview. */
   url?: string;
   /** The preview image, relative to the site, with its text alternative. */
   previewImage?: { path: string; alt: string; width: number; height: number };
   description: string;
+  /** The same answer in parts, each claim with the tone of its verdict. */
+  answer: AnswerPart[];
 }
+
+/**
+ * Before the first paint: the theme the reader chose last time, and whether the page may move.
+ * Revealing waits for the script; a stylesheet rule shows everything anyway if the script never runs.
+ */
+const HEAD_SCRIPT = `(() => { const root = document.documentElement; try { const theme = localStorage.getItem("astrolabe-theme"); if (theme === "light" || theme === "dark") root.dataset.theme = theme; } catch {} if (!matchMedia("(prefers-reduced-motion: reduce)").matches) root.classList.add("motion"); })();`;
 
 function headHtml(benchmark: Benchmark, head: PageHead): string {
   const title = benchmark.results.benchmark.goal;
@@ -107,57 +105,145 @@ function headHtml(benchmark: Benchmark, head: PageHead): string {
     `<meta property="og:description" content="${escapeHtml(head.description)}">`,
     ...address,
     ...preview,
+    `<script>${HEAD_SCRIPT}</script>`,
     '<link rel="stylesheet" href="page.css">',
     '<script src="page.js" defer></script>',
     "</head>",
   ].join("\n");
 }
 
-/** The whole page: the question and its answer, the blocks row by row with every filter state rendered in advance, the provenance. */
+/** The width of a chart beside its claim, inside the page's frame. */
+export const CHAPTER_FIGURE_WIDTH = PAGE_WIDTH - CHAPTER_HEAD_WIDTH - 2 * GUTTER - 2;
+
+const SUN_ICON =
+  '<svg class="when-dark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg>';
+const MOON_ICON =
+  '<svg class="when-light" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 9.6A5.5 5.5 0 016.4 2.5a5.5 5.5 0 107.1 7.1z"/></svg>';
+
+function navHtml(benchmark: Benchmark, rows: Block[][], canSwitchTheme: boolean): string {
+  const { results } = benchmark;
+  const firstResult = rows.flat().find((block) => !isTrustBlock(block));
+  const hasTrust = rows.flat().some(isTrustBlock);
+  const links = [
+    ...(firstResult ? [`<a href="#${escapeHtml(firstResult.id)}">Results</a>`] : []),
+    ...(hasTrust ? ['<a href="#method">Method</a>'] : []),
+  ];
+
+  return [
+    '<header class="nav">',
+    '<div class="frame nav-inner">',
+    `<a class="brand" href="#top">${escapeHtml(results.benchmark.id)}<span class="dim">v${escapeHtml(results.benchmark.version)}</span></a>`,
+    links.length > 0 ? `<nav class="nav-links" aria-label="Sections">${links.join("")}</nav>` : "",
+    canSwitchTheme
+      ? `<button class="theme-switch" type="button" data-theme-switch aria-label="Switch between light and dark">${SUN_ICON}${MOON_ICON}</button>`
+      : "",
+    '<a class="button" href="benchmark.json" download>Download data</a>',
+    "</div>",
+    "</header>",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+const answerHtml = (parts: AnswerPart[]) =>
+  parts.map((part) => (part.tone ? `<span class="${part.tone}">${escapeHtml(part.text)}</span>` : escapeHtml(part.text))).join("");
+
+/** The trust blocks that follow one another, as one part: how it was measured, and how to check it. */
+function trustSectionHtml(blocks: Block[], inputs: PageInputs, number: string, isFirst: boolean): string {
+  return [
+    `<section class="trust-section frame"${isFirst ? ' id="method"' : ""}>`,
+    '<header class="chapter-head">',
+    `<div class="chapter-label">${sectionLabel(number, "How it was measured")}</div>`,
+    '<h2>Method and evidence. <span class="reading">What was measured, what was declared, and how to check every number.</span></h2>',
+    "</header>",
+    '<div class="chapter-body trust-body">',
+    ...blocks.map(
+      (block) =>
+        `<div class="block trust ${escapeHtml(block.type)}" id="${escapeHtml(block.id)}">\n${blockHtml(block, inputs, CHAPTER_FIGURE_WIDTH, number)}\n</div>`,
+    ),
+    "</div>",
+    "</section>",
+  ].join("\n");
+}
+
+/** The whole page: the question and its answer, the parts in order with every filter state rendered in advance, the evidence. */
 export function renderPage(inputs: Omit<PageInputs, "lookup">, head: PageHead): string {
   const { benchmark } = inputs;
   const lookup = lookupOf(benchmark.results);
   const pageInputs = { ...inputs, lookup };
   const results = benchmark.results;
   const provenance = provenanceParts(benchmark, inputs.context);
-  const rowsHtml = pageRowsOf(benchmark).map((row) => {
-    const columnWidth = (PAGE_WIDTH - (row.length - 1) * COLUMN_GAP) / row.length;
-    const blocks = row.map(
-      (block) =>
-        `<section class="block ${frameOf(block)} ${escapeHtml(block.type)}" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, Math.floor(columnWidth - 2 - 2 * PANEL_PADDING))}\n</section>`,
-    );
-    const isStatRow = row.every((block) => block.type === "headline");
+  const rows = pageRowsOf(benchmark);
+  let count = 0;
+  const nextNumber = () => String(++count).padStart(2, "0");
+  const sections: string[] = [];
+  let trustRun: Block[] = [];
+  let trustSections = 0;
+  const closeTrustRun = () => {
+    if (trustRun.length === 0) return;
 
-    return `<div class="row${isStatRow ? " stats" : ""}"${row.length > 1 ? ` style="--columns: ${row.length}"` : ""}>\n${blocks.join("\n")}\n</div>`;
-  });
+    sections.push(trustSectionHtml(trustRun, pageInputs, nextNumber(), trustSections++ === 0));
+    trustRun = [];
+  };
+
+  for (const row of rows) {
+    if (row.every(isTrustBlock)) {
+      trustRun.push(...row);
+      continue;
+    }
+
+    closeTrustRun();
+
+    const headlines = row.filter((block) => block.type === "headline");
+
+    if (headlines.length > 0)
+      sections.push(
+        [
+          `<section class="stats frame" style="--columns: ${headlines.length}">`,
+          ...headlines.map(
+            (block) =>
+              `<article class="block stat headline" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, 0, nextNumber())}\n</article>`,
+          ),
+          "</section>",
+        ].join("\n"),
+      );
+
+    for (const block of row.filter((entry) => entry.type !== "headline"))
+      sections.push(
+        `<section class="block chapter ${escapeHtml(block.type)} frame" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, CHAPTER_FIGURE_WIDTH, nextNumber())}\n</section>`,
+      );
+  }
+
+  closeTrustRun();
+
   const ciRun = provenance.continuousIntegration;
   const commit = ciRun ? `commit ${escapeHtml(ciRun.commit)}` : undefined;
   const footer = [
     linkedIfAddress(provenance.source),
+    `results ${escapeHtml(provenance.hash)}`,
     ...(commit ? [ciRun?.runUrl ? `<a href="${escapeHtml(ciRun.runUrl)}">${commit}</a>` : commit] : []),
     '<a href="benchmark.json">Download the data</a>',
     ...(provenance.attribution ? [`<a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a>`] : []),
-  ].join(" · ");
+  ].map((part) => `<span>${part}</span>`);
 
   return [
     "<!doctype html>",
     '<html lang="en">',
     headHtml(benchmark, head),
     "<body>",
-    "<main>",
-    '<section class="hero">',
-    `<p class="label">Version ${escapeHtml(results.benchmark.version)} · updated ${escapeHtml(provenance.date)} · baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
-    `<h1>${escapeHtml(results.benchmark.goal)}</h1>`,
-    results.benchmark.scope ? `<p class="lede">${escapeHtml(results.benchmark.scope)}</p>` : "",
-    `<p class="answer">${escapeHtml(head.description)}</p>`,
+    navHtml(benchmark, rows, inputs.modes.length > 1),
+    '<main id="top">',
+    '<section class="hero frame">',
+    `<p class="mono-label">Benchmark<span class="dim"> · </span>updated ${escapeHtml(provenance.date)}<span class="dim"> · </span>baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</p>`,
+    `<h1><span class="goal">${escapeHtml(results.benchmark.goal)}</span>${results.benchmark.scope ? ` <span class="scope">${escapeHtml(results.benchmark.scope)}</span>` : ""}</h1>`,
+    `<p class="answer">${answerHtml(head.answer)}</p>`,
     "</section>",
-    ...rowsHtml,
+    ...sections,
     "</main>",
-    `<footer><div class="footer-inner"><p class="label">${footer}</p></div></footer>`,
+    `<footer class="footer frame"><p class="mono-label">${footer.join("")}</p></footer>`,
     "</body>",
     "</html>",
   ]
-    .filter((line) => line !== "")
     .join("\n")
     .concat("\n");
 }

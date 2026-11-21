@@ -35,7 +35,16 @@ export interface TextStyle {
   tabular?: boolean;
   /** Letter spacing in em: negative tightens large figures, positive opens small capitals. */
   tracking?: number;
+  /**
+   * Set in the page's monospaced face when the text is real text in a page; a standalone file, drawn
+   * with Inter alone, uses its tabular figures instead.
+   */
+  mono?: boolean;
 }
+
+export const MONO_FONT_FAMILY = '"Geist Mono", ui-monospace, monospace';
+/** Every character of Geist Mono advances by the same share of its size. */
+const MONO_ADVANCE = 0.6;
 
 /**
  * Draws text as paths with the bundled Inter, so a standalone SVG looks the
@@ -72,6 +81,10 @@ export class SvgTextRenderer {
 
   measure(text: string, style: TextStyle): number {
     const characters = [...text];
+
+    if (this.realText && style.mono)
+      return (characters.length * MONO_ADVANCE + Math.max(0, characters.length - 1) * (style.tracking ?? 0)) * style.size;
+
     let widthInFontUnits = 0;
 
     const trackingInFontUnits = (style.tracking ?? 0) * FONT.units_per_em;
@@ -170,12 +183,13 @@ export class SvgTextRenderer {
     const attributes = [
       `x="${round(x)}"`,
       `y="${round(y)}"`,
+      style.mono ? `font-family='${MONO_FONT_FAMILY}'` : "",
       `font-size="${style.size}"`,
       `font-weight="${style.weight}"`,
       `fill="${style.fill}"`,
       style.anchor === "end" ? 'text-anchor="end"' : "",
       style.tracking ? `letter-spacing="${round(style.tracking * style.size, 2)}"` : "",
-      style.tabular ? 'style="font-variant-numeric:tabular-nums"' : "",
+      style.tabular && !style.mono ? 'style="font-variant-numeric:tabular-nums"' : "",
       style.halo ? `stroke="${style.halo}" stroke-width="${HALO_WIDTH}" stroke-linejoin="round" paint-order="stroke"` : "",
     ].filter(Boolean);
     const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

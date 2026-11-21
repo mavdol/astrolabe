@@ -8,8 +8,9 @@ import { cardAltText, cardContentOf, MAX_HEADLINES, measuredOf, pairOf, renderCa
 import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
+import { toneOf } from "./headline-figure.js";
 import { renderPage, type PageHead } from "./page.js";
-import { FONT_WEIGHTS, fontFileOf, pageStyle } from "./page-style.js";
+import { FONT_FILES, pageStyle } from "./page-style.js";
 
 const ASSETS = new URL("../../../assets/", import.meta.url);
 const PREVIEW_IMAGE = "preview.png";
@@ -82,7 +83,13 @@ function namedClaimsOf(benchmark: Benchmark, claims: Comparison[]): Comparison[]
   return (headlined.length > 0 ? [...new Set(headlined)] : claims).slice(0, MAX_HEADLINES);
 }
 
-export function answerOf(benchmark: Benchmark): string {
+/** A piece of the answer: a claim carries the tone of its verdict, so the page can colour it beside its words. */
+export interface AnswerPart {
+  text: string;
+  tone?: "good" | "bad" | "neutral";
+}
+
+export function answerPartsOf(benchmark: Benchmark): AnswerPart[] {
   const lookup = lookupOf(benchmark.results);
   const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
   const named = namedClaimsOf(benchmark, claims);
@@ -91,14 +98,17 @@ export function answerOf(benchmark: Benchmark): string {
 
   for (const comparison of named) byPair.set(pairOf(lookup, comparison), [...(byPair.get(pairOf(lookup, comparison)) ?? []), comparison]);
 
-  const sentences = [...byPair.entries()].map(([pair, comparisons]) => {
-    const phrases = comparisons.map((comparison) => {
+  const parts: AnswerPart[] = [];
+
+  [...byPair.entries()].forEach(([pair, comparisons], index) => {
+    parts.push({ text: `${index > 0 ? " " : ""}${pair}: ` });
+    comparisons.forEach((comparison, position) => {
       const metric = lookup.metricById.get(comparison.metric)!;
 
-      return `${lowerFirstLetterOfWord(measuredOf(lookup, comparison))} ${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}`;
+      parts.push({ text: `${position > 0 ? "; " : ""}${lowerFirstLetterOfWord(measuredOf(lookup, comparison))} ` });
+      parts.push({ text: `${effectAndInterval(metric, comparison).effect}, ${verdictLabel(comparison)}`, tone: toneOf(comparison) });
     });
-
-    return `${pair}: ${phrases.join("; ")}.`;
+    parts.push({ text: "." });
   });
 
   if (others.length > 0) {
@@ -108,11 +118,16 @@ export function answerOf(benchmark: Benchmark): string {
       return count > 0 ? [`${count} ${verdict}`] : [];
     });
 
-    sentences.push(`${others.length} more primary comparison${others.length === 1 ? "" : "s"}: ${counts.join(", ")}.`);
+    parts.push({ text: ` ${others.length} more primary comparison${others.length === 1 ? "" : "s"}: ${counts.join(", ")}.` });
   }
 
-  return sentences.join(" ");
+  return parts;
 }
+
+export const answerOf = (benchmark: Benchmark) =>
+  answerPartsOf(benchmark)
+    .map((part) => part.text)
+    .join("");
 
 /**
  * The site in one folder: the page with every filter state, its style, script and font, a copy of the
@@ -158,9 +173,7 @@ export function writeSite(
       `the site carries ${Math.round(evidenceBytes / 1024 / 1024)} MB of raw data: a host may refuse it, and readers download it whole`,
     );
 
-  for (const weight of FONT_WEIGHTS) write(`fonts/${fontFileOf(weight)}`, readFileSync(new URL(`fonts/${fontFileOf(weight)}`, ASSETS)));
-
-  write("fonts/OFL.txt", readFileSync(new URL("fonts/OFL.txt", ASSETS)));
+  for (const file of FONT_FILES) write(`fonts/${file}`, readFileSync(new URL(`fonts/${file}`, ASSETS)));
   write("page.css", pageStyle(benchmark.style));
   write("page.js", readFileSync(new URL("site/page.js", ASSETS)));
   write(".nojekyll", "");
@@ -172,7 +185,7 @@ export function writeSite(
   }
 
   const description = answerOf(benchmark);
-  const head: PageHead = { url: inputs.url, description };
+  const head: PageHead = { url: inputs.url, description, answer: answerPartsOf(benchmark) };
 
   if (inputs.url) {
     const preview = previewImageOf(benchmark, context, rawFiles);

@@ -7,37 +7,52 @@ export interface Colours {
   ink: string;
   /** Secondary text: at least 4.5:1 against the background. */
   secondary: string;
+  /** Text that steps back, only at large sizes: at least 3:1 against the background. */
+  quiet: string;
   rule: string;
+  /** Rules that carry meaning: the zero line, the frame of a control. */
+  ruleStrong: string;
   /** The zone of effects too small to matter, and other quiet fills. */
   band: string;
   /** Quiet fills on the page: the track of a control, the head of a table, a row under the pointer. */
   surface: string;
   inkOnFill: string;
+  /** The verdicts that say better and worse, always beside their word: at least 4.5:1 against the background. */
+  good: string;
+  bad: string;
   /** Candidates without a colour of their own, in the order of candidates: ink, then greys that keep 3:1 against the background. */
   series: string[];
 }
 
-/** Black on white and white on black, hierarchy by weight and size. */
+/** Ink on white and on near-black, hierarchy by weight and size; colour only for verdicts and a highlighted candidate. */
 export const THEME: Record<Mode, Colours> = {
   light: {
     background: "#ffffff",
-    ink: "#0a0a0a",
-    secondary: "#5c5c5c",
-    rule: "#e5e5e5",
-    band: "#e3e3e3",
+    ink: "#111111",
+    secondary: "#5f5f5f",
+    quiet: "#8c8c8c",
+    rule: "#ebebeb",
+    ruleStrong: "#d4d4d4",
+    band: "#efefef",
     surface: "#f5f5f5",
     inkOnFill: "#ffffff",
-    series: ["#0a0a0a", "#525252", "#7a7a7a", "#949494"],
+    good: "#17804f",
+    bad: "#c0502a",
+    series: ["#111111", "#535353", "#7a7a7a", "#939393"],
   },
   dark: {
-    background: "#0a0a0a",
-    ink: "#fafafa",
-    secondary: "#a3a3a3",
-    rule: "#2a2a2a",
-    band: "#2b2b2b",
+    background: "#0e0e0e",
+    ink: "#f2f2f2",
+    secondary: "#9d9d9d",
+    quiet: "#6a6a6a",
+    rule: "#1f1f1f",
+    ruleStrong: "#303030",
+    band: "#1c1c1c",
     surface: "#171717",
-    inkOnFill: "#0a0a0a",
-    series: ["#fafafa", "#b3b3b3", "#8c8c8c", "#6e6e6e"],
+    inkOnFill: "#0e0e0e",
+    good: "#8fe3b4",
+    bad: "#f4a37d",
+    series: ["#f2f2f2", "#b4b4b4", "#8e8e8e", "#717171"],
   },
 };
 

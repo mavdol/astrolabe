@@ -7,6 +7,7 @@ import { cardContentOf, MAX_HEADLINES, renderCard, STYLE } from "../src/render/c
 import { exportPlanOf, pictureHtml } from "../src/render/exports.js";
 import { pngOf } from "../src/render/png.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
+import { THEME } from "../src/themes/astrolabe.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -56,9 +57,9 @@ describe("the README card", () => {
     );
   });
 
-  it("fills the badge of a firm verdict and outlines a likely or inconclusive one", () => {
-    expect(card.svg).toContain('fill="none" stroke="#5c5c5c"');
-    expect(card.svg).toMatch(/<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="22" rx="11" fill="#0a0a0a"\/>/);
+  it("fills the badge of a firm verdict and outlines a likely or inconclusive one, in the colour of its verdict", () => {
+    expect(card.svg).toContain(`fill="none" stroke="${THEME.light.good}"`);
+    expect(card.svg).toMatch(new RegExp(`<rect x="[\\d.]+" y="[\\d.]+" width="[\\d.]+" height="22" rx="11" fill="${THEME.light.ink}"/>`));
   });
 
   it("draws each effect as a dot, its interval as a capped line and the smallest difference that matters as a band", () => {
@@ -72,7 +73,7 @@ describe("the README card", () => {
 
     expect(dark.textLines).toEqual(card.textLines);
     expect(dark.svg).not.toBe(card.svg);
-    expect(dark.svg).toContain('fill="#0a0a0a"');
+    expect(dark.svg).toContain(`fill="${THEME.dark.background}"`);
   });
 
   it("draws no text below 12 px", () => {
@@ -119,7 +120,7 @@ describe("reading a card at a glance", () => {
   const parsersCard = renderCard(parsers, cardContentOf(parsers, ["headline-time", "headline-memory"]), "light", context);
 
   it("shows the direction of a verdict inside its badge: a check for better, a cross for worse", () => {
-    const icons = [...parsersCard.svg.matchAll(/<path d="([^"]+)" fill="none" stroke="#ffffff" stroke-width="1.8"/g)].map(
+    const icons = [...parsersCard.svg.matchAll(new RegExp(`<path d="([^"]+)" fill="none" stroke="${THEME.light.inkOnFill}" stroke-width="1.8"`, "g"))].map(
       (match) => match[1],
     );
 
@@ -129,7 +130,7 @@ describe("reading a card at a glance", () => {
   });
 
   it("never cuts the axis, even when the interval lies far beyond the band", () => {
-    const horizontalRules = parsersCard.svg.match(/H[\d.]+" stroke="#e5e5e5"/g);
+    const horizontalRules = parsersCard.svg.match(new RegExp(`H[\\d.]+" stroke="${THEME.light.rule}"`, "g"));
 
     expect(horizontalRules, "one unbroken baseline per strip, plus the rule above the footer").toHaveLength(3);
     expect(parsersCard.textLines).toContain("\u221210%  0  +10%");
@@ -178,7 +179,7 @@ describe("reading a card at a glance", () => {
     const card = renderCard(usability, cardContentOf(usability), "light", context);
 
     expect(card.textLines.join(" ")).toContain("The candidates did not fail equally often");
-    expect(card.svg).toContain('stroke="#0a0a0a" stroke-width="1.4" stroke-linejoin="round"');
+    expect(card.svg).toContain(`stroke="${THEME.light.ink}" stroke-width="1.4" stroke-linejoin="round"`);
   });
 });
 

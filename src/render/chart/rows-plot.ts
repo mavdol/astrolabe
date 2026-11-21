@@ -3,10 +3,11 @@ import type { Decimals } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, type SvgTextRenderer } from "../svg-text.js";
 import {
   arrow,
+  growsFrom,
   INTERVAL_STROKE,
   intervalAcross,
-  marker,
   PLOT_STYLE,
+  poppingMarker,
   round,
   widestOf,
   type DrawnPlot,
@@ -68,7 +69,7 @@ export interface RowsPlot {
   legend?: { label: string; colour: string }[];
 }
 
-export const ROW_HEIGHT = { smallest: 22, usual: 30, largest: 44 };
+export const ROW_HEIGHT = { smallest: 22, usual: 38, largest: 48 };
 
 const HEADING_ROWS = 0.9;
 const GAP_BETWEEN_GROUPS_ROWS = 0.5;
@@ -245,7 +246,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
     const labelX = Math.min(Math.max(tickX - labelWidthHere / 2, x), x + width - labelWidthHere);
 
     marks.push(
-      `<path d="${verticalLines(tickX)}" stroke="${isZeroReference || isAxisOrigin ? colours.ink : colours.rule}" stroke-width="1"/>`,
+      `<path d="${verticalLines(tickX)}" stroke="${isZeroReference || isAxisOrigin ? colours.secondary : colours.rule}" stroke-width="1"/>`,
     );
     marks.push(
       text.draw(label, labelX, rowsBottom + 8 + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO, { ...PLOT_STYLE.tick, fill: colours.secondary }),
@@ -295,7 +296,10 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
           const gap = row.segments && from > 0 ? 1.5 : 0;
 
           marks.push(
-            `<rect x="${round(Math.min(start, end) + gap)}" y="${round(centreY - barHeight / 2)}" width="${round(Math.max(0, Math.abs(end - start) - gap))}" height="${round(barHeight)}" fill="${segment.colour}"/>`,
+            growsFrom(
+              scale.position(0),
+              `<rect x="${round(Math.min(start, end) + gap)}" y="${round(centreY - barHeight / 2)}" width="${round(Math.max(0, Math.abs(end - start) - gap))}" height="${round(barHeight)}" rx="1.5" fill="${segment.colour}"/>`,
+            ),
           );
           from += segment.value;
         }
@@ -336,9 +340,16 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
           `<path d="M${round(valueX)} ${round(centreY - tickHalf)}V${round(centreY + tickHalf)}" stroke="${colours.ink}" stroke-width="2.5"/>`,
         );
       } else {
-        if (interval) marks.push(intervalAcross(interval[0], interval[1], centreY, row.series.colour));
+        const zeroX = plot.zeroLine ? scale.position(0) : undefined;
+        const stem =
+          zeroX !== undefined
+            ? `<path d="M${round(zeroX)} ${round(centreY)}H${round(valueX)}" stroke="${row.series.colour}" stroke-opacity="0.4" stroke-width="1"/>`
+            : "";
 
-        marks.push(marker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
+        marks.push(
+          growsFrom(zeroX ?? valueX, `${stem}${interval ? intervalAcross(interval[0], interval[1], centreY, row.series.colour, INTERVAL_STROKE + 0.5) : ""}`),
+        );
+        marks.push(poppingMarker(row.series.shape, valueX, centreY, row.series.colour, colours.background));
       }
 
       if (row.key) marks.push("</g>");

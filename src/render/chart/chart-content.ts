@@ -18,6 +18,8 @@ export interface ChartContent {
   subtitle: string;
   /** How to read the chart: what is measured, its direction, the observations and the intervals. */
   howToRead: string;
+  /** The same, sentence by sentence, each sentence about a mark tagged with it, so a page can draw a key. */
+  howToReadParts?: ReadingPart[];
   table: DataTable;
   /** What is plotted, in words, for the text alternative. */
   kind: string;
@@ -55,14 +57,34 @@ export function levelsOf(entries: { ci?: [number, number]; ci_level?: number }[]
   return levels.length > 0 ? `${levels.join("% and ")}%` : null;
 }
 
-export function intervalSentence(values: { ci?: [number, number]; ci_level?: number; method?: string }[], name = "Lines"): string {
+/** A mark a reader meets on a chart, which a page can draw in the chart's key. */
+export type KeyMark = "dot" | "bar" | "interval" | "band" | "frontier";
+
+/** One sentence of how to read a chart. A sentence about a mark starts with the mark's name, which a key replaces with the mark itself. */
+export interface ReadingPart {
+  text: string;
+  mark?: KeyMark;
+  markName?: string;
+}
+
+export const howToReadOf = (parts: ReadingPart[]) =>
+  parts
+    .filter((part) => part.text)
+    .map((part) => (part.markName ? `${part.markName}: ${part.text}` : part.text))
+    .join(" ");
+
+type WithInterval = { ci?: [number, number]; ci_level?: number; method?: string };
+
+export function intervalPart(values: WithInterval[], name = "Lines"): ReadingPart {
   const levels = levelsOf(values);
   const methods = intervalMethodsOf(values);
 
   return levels
-    ? `${name}: ${levels} confidence intervals${methods.length > 0 ? ` (${methods.join("; ")})` : ""}.`
-    : "No interval: too few observations, or declared values.";
+    ? { mark: "interval", markName: name, text: `${levels} confidence intervals${methods.length > 0 ? ` (${methods.join("; ")})` : ""}.` }
+    : { text: "No interval: too few observations, or declared values." };
 }
+
+export const intervalSentence = (values: WithInterval[], name = "Lines") => howToReadOf([intervalPart(values, name)]);
 
 /** What a reader must weigh beside the chart: failures left out or unequal, judges who were not blind. */
 export function caveatSentences(lookup: Lookup, metric: Metric, comparisons: Comparison[]): string {

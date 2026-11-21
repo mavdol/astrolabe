@@ -4,7 +4,7 @@ import type { ChartBlock } from "../../schema/presentation.js";
 import { THEME, type Mode } from "../../themes/astrolabe.js";
 import { lookupOf, provenanceParts, resolveTemplates, type BuildContext, type Lookup } from "../describe.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "../svg-text.js";
-import { sentence, unionOf, type ChartContent, type ChartInputs, type DataTable } from "./chart-content.js";
+import { sentence, unionOf, type ChartContent, type ChartInputs, type DataTable, type ReadingPart } from "./chart-content.js";
 import { ChartError, filterStatesOf, type FilterState } from "./chart-data.js";
 import { comparisonRowsContent } from "./comparison-rows.js";
 import { lineContent } from "./line.js";
@@ -49,6 +49,8 @@ export interface RenderedChart {
   description: string;
   /** How to read the chart: what is measured, its direction, the observations and the intervals. */
   howToRead: string;
+  /** The same, sentence by sentence, the sentences about a mark tagged with it, when the chart says it that way. */
+  howToReadParts?: ReadingPart[];
   /** The same data as a table, for readers who cannot use the shapes. */
   table: DataTable;
   textLines: string[];
@@ -299,6 +301,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
     altText,
     description,
     howToRead: content.howToRead,
+    howToReadParts: content.howToReadParts,
     table: content.table,
     textLines,
     charactersWithoutGlyph: text.charactersWithoutGlyph(),

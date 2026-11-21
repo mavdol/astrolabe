@@ -94,7 +94,9 @@ describe("the site", () => {
         "site/page.js",
         "site/.nojekyll",
         "site/fonts/inter-latin-400-normal.woff",
+        "site/fonts/geist-mono-latin-400-normal.woff2",
         "site/fonts/OFL.txt",
+        "site/fonts/OFL-Geist.txt",
         "site/benchmark.json",
         "site/data/items.jsonl",
       ]),
@@ -135,16 +137,14 @@ describe("the site", () => {
   });
 
   it("gives every chart its title, how to read it, its description and its data table", () => {
-    const panels = support.html.match(/<section class="block panel chart"[\s\S]*?<\/section>/g)!;
+    const chapters = support.html.match(/<section class="block chapter chart frame"[\s\S]*?<\/section>/g)!;
 
-    expect(panels).toHaveLength(3);
+    expect(chapters).toHaveLength(3);
 
-    for (const panel of panels) {
-      expect(panel).toMatch(/<h2 [^>]*>[^<]*<a [^>]+>[^<]+<\/a><\/h2>/);
-      expect(panel).toMatch(/<figcaption class="panel-foot">[^<]+<\/figcaption>/);
-      expect(panel).toMatch(
-        /<details class="panel-data"><summary class="label">Data and description<\/summary>\n<p class="description">[^<]+<\/p>/,
-      );
+    for (const panel of chapters) {
+      expect(panel).toMatch(/<h2 [^>]*><a [^>]+>[^<]+<\/a>/);
+      expect(panel).toContain('<figcaption class="how-to-read">');
+      expect(panel).toMatch(/<details class="chart-data"><summary>Data and description<\/summary>\n<p class="description">[^<]+<\/p>/);
       expect(panel).toContain("<table>");
     }
   });
@@ -157,11 +157,13 @@ describe("the site", () => {
     expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
   });
 
-  it("answers the question at the top with the comparisons the page leads with, and counts the others by verdict", () => {
+  it("answers the question at the top with the comparisons the page leads with, each in the colour of its verdict, and counts the others", () => {
     const answer =
       "Model A against Model B: accuracy +6.4 points, likely better; cost per item +265%, worse. 2 more primary comparisons: 1 better, 1 inconclusive.";
 
-    expect(support.html).toContain(`<p class="answer">${answer}</p>`);
+    expect(support.html).toContain(
+      '<p class="answer">Model A against Model B: accuracy <span class="good">+6.4 points, likely better</span>; cost per item <span class="bad">+265%, worse</span>. 2 more primary comparisons: 1 better, 1 inconclusive.</p>',
+    );
     expect(support.html).toContain(`<meta name="description" content="${answer}">`);
   });
 
@@ -221,7 +223,7 @@ describe("the site", () => {
   });
 
   it("keys each row and tags each mark with its candidate, so a filter moves rows and a pointer highlights one candidate", () => {
-    const panel = support.html.match(/<section class="block panel chart" id="chart-by-task">[\s\S]*?<\/section>/)![0];
+    const panel = support.html.match(/<section class="block chapter chart frame" id="chart-by-task">[\s\S]*?<\/section>/)![0];
     const keysOf = (state: string) => {
       const view = panel.match(new RegExp(`<div data-state="${state}"[^>]*>[\\s\\S]*?(?=<div data-state=|</figure>)`))![0];
 
@@ -243,7 +245,7 @@ describe("the site", () => {
 
   it("breaks the notes of a narrow chart into lines instead of crushing its plot, and keeps every word", () => {
     const narrow = support.html
-      .match(/<section class="block panel chart" id="chart-by-task">[\s\S]*?<\/section>/)![0]
+      .match(/<section class="block chapter chart frame" id="chart-by-task">[\s\S]*?<\/section>/)![0]
       .match(/<div data-width="narrow"><svg[\s\S]*?<\/svg>/)![0];
     const texts = [...narrow.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
 
@@ -311,9 +313,8 @@ describe("the site", () => {
   });
 
   it("gives each fact of its provenance once: the date at the top, the source and the data at the bottom", () => {
-    const footer = support.html.match(/<footer>[\s\S]*<\/footer>/)![0];
+    const footer = support.html.match(/<footer[\s\S]*<\/footer>/)![0];
 
-    expect(support.html).toContain("<body>\n<main>");
     expect(support.html.match(/2026-11-17/g)).toHaveLength(1);
     expect(footer).toContain('<a href="https://github.com/example/support-assistant-eval">github.com/example/support-assistant-eval</a>');
     expect(footer).toContain('<a href="benchmark.json">Download the data</a>');
@@ -327,7 +328,7 @@ describe("the site", () => {
     const parsers = loadBenchmark("json-cli-parse");
     const withoutCredit = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, attribution: false } } });
 
-    expect(support.html).toContain('<a href="https://github.com/mavdol/astrolabe">Built with Astrolabe</a></p></div></footer>');
+    expect(support.html).toContain('<a href="https://github.com/mavdol/astrolabe">Built with Astrolabe</a></span></p></footer>');
     expect(withoutCredit.html).not.toContain("Built with Astrolabe");
   });
 

@@ -267,6 +267,13 @@ export function isFirmVerdict(comparison: Comparison): boolean {
   return comparison.qualifier === undefined && comparison.verdict !== "inconclusive";
 }
 
+/** The colour of a verdict, always drawn beside its word: better and worse have their own, the others the ink. */
+export function verdictColourOf(comparison: Comparison, colours: Colours): string {
+  if (comparison.verdict === "better") return colours.good;
+
+  return comparison.verdict === "worse" ? colours.bad : colours.ink;
+}
+
 const round = (value: number) => String(Math.round(value * 10) / 10);
 
 /** A check for better, a cross for worse, an equals sign for equivalent; inconclusive has no direction to show. */
@@ -341,7 +348,15 @@ interface StripDrawing {
  * smallest difference that matters as a shaded band: the reader sees why the
  * verdict is what it is. Each strip has its own scale.
  */
-function effectStrip(metric: Metric, comparison: Comparison, x: number, y: number, width: number, colours: Colours): StripDrawing {
+function effectStrip(
+  metric: Metric,
+  comparison: Comparison,
+  x: number,
+  y: number,
+  width: number,
+  colours: Colours,
+  markColour: string,
+): StripDrawing {
   const minimum = metric.minimum_meaningful;
   const measuredInterval = comparison.source === "declared" ? undefined : comparison.ci;
   const interval: [number, number] = measuredInterval
@@ -367,12 +382,12 @@ function effectStrip(metric: Metric, comparison: Comparison, x: number, y: numbe
     const end = positionOf(interval[1]);
 
     marks.push(
-      `<path d="M${round(start)} ${middle}H${round(end)}M${round(start)} ${middle - 5}V${middle + 5}M${round(end)} ${middle - 5}V${middle + 5}" stroke="${colours.ink}" stroke-width="2.5" stroke-linecap="round"/>`,
+      `<path d="M${round(start)} ${middle}H${round(end)}M${round(start)} ${middle - 5}V${middle + 5}M${round(end)} ${middle - 5}V${middle + 5}" stroke="${markColour}" stroke-width="2.5" stroke-linecap="round"/>`,
     );
   }
 
   marks.push(
-    `<circle cx="${round(positionOf(comparison.effect))}" cy="${middle}" r="4.5" fill="${colours.ink}" stroke="${colours.background}" stroke-width="1.5"/>`,
+    `<circle cx="${round(positionOf(comparison.effect))}" cy="${middle}" r="4.5" fill="${markColour}" stroke="${colours.background}" stroke-width="1.5"/>`,
   );
 
   const edges = bandEdgeLabels(metric);
@@ -476,8 +491,10 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     const effectBaseline = baselineOf(effectTop, STYLE.effect);
     const numberWithPercent = unit === "%" ? `${effectNumber}%` : effectNumber;
 
+    const verdictColour = verdictColourOf(comparison, colours);
+
     drawLines(labelLines, STYLE.label, colours.secondary, x, columnsTop);
-    marks.push(text.draw(numberWithPercent, x, effectBaseline, { ...STYLE.effect, fill: colours.ink }));
+    marks.push(text.draw(numberWithPercent, x, effectBaseline, { ...STYLE.effect, fill: verdictColour }));
     textLines.push(unit === "%" ? numberWithPercent : `${numberWithPercent} ${unit.trim()}`);
 
     if (unit !== "%") {
@@ -493,13 +510,13 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     const iconSpace = hasIcon ? BADGE_ICON_SIZE + 6 : 0;
     const badgeWidth = text.measure(verdict, STYLE.badge) + 2 * BADGE_PADDING + iconSpace;
     const firm = isFirmVerdict(comparison);
-    const badgeInk = firm ? colours.inkOnFill : colours.ink;
+    const badgeInk = firm ? colours.inkOnFill : verdictColour;
     const badgeCentreY = badgeTop + BADGE_HEIGHT / 2;
 
     marks.push(
       firm
-        ? `<rect x="${x}" y="${badgeTop}" width="${round(badgeWidth)}" height="${BADGE_HEIGHT}" rx="${BADGE_HEIGHT / 2}" fill="${colours.ink}"/>`
-        : `<rect x="${x + 0.5}" y="${badgeTop + 0.5}" width="${round(badgeWidth - 1)}" height="${BADGE_HEIGHT - 1}" rx="${(BADGE_HEIGHT - 1) / 2}" fill="none" stroke="${colours.secondary}"/>`,
+        ? `<rect x="${x}" y="${badgeTop}" width="${round(badgeWidth)}" height="${BADGE_HEIGHT}" rx="${BADGE_HEIGHT / 2}" fill="${verdictColour}"/>`
+        : `<rect x="${x + 0.5}" y="${badgeTop + 0.5}" width="${round(badgeWidth - 1)}" height="${BADGE_HEIGHT - 1}" rx="${(BADGE_HEIGHT - 1) / 2}" fill="none" stroke="${verdictColour === colours.ink ? colours.secondary : verdictColour}"/>`,
     );
     marks.push(verdictIcon(comparison, x + BADGE_PADDING, badgeCentreY, badgeInk));
     marks.push(
@@ -510,7 +527,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     );
     textLines.push(verdict);
 
-    const strip = effectStrip(metric, comparison, x, stripTop, columnWidth, colours);
+    const strip = effectStrip(metric, comparison, x, stripTop, columnWidth, colours, verdictColour);
     const scaleBaseline = stripTop + STRIP_HEIGHT + 6 + STYLE.scale.size * CAP_HEIGHT_RATIO;
     const betterBaseline = stripTop - 6;
     const betterWidth = text.measure("better", STYLE.scale);

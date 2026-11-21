@@ -1,10 +1,148 @@
-// Everything on the page is already rendered: every filter state, in every mode and width.
-// This script only chooses what to show, moves marks between states, and brings a candidate forward.
-// Without it, the page shows the default state of every filter.
+// Everything on the page is already rendered: every filter state, in every mode and width, in its final place.
+// This script chooses what to show, brings each part in as the reader reaches it, moves marks between
+// states, brings a candidate forward, and switches the theme. Without it, the page shows the default
+// state of every filter, all at once.
 
+const root = document.documentElement;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const moves = () => root.classList.contains("motion") && !reducedMotion.matches;
+const EASE_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
 const MOVE = { duration: 280, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" };
 const FADE = { duration: 200, easing: "ease-out" };
+
+/** A damped spring sampled into a CSS easing: it overshoots a little and settles, as Framer Motion's do. */
+const SPRING = (() => {
+  const [stiffness, damping, duration] = [260, 18, 0.9];
+  const omega = Math.sqrt(stiffness);
+  const zeta = damping / (2 * omega);
+  const omegaDamped = omega * Math.sqrt(1 - zeta * zeta);
+  const at = (t) =>
+    1 - Math.exp(-zeta * omega * t) * (Math.cos(omegaDamped * t) + ((zeta * omega) / omegaDamped) * Math.sin(omegaDamped * t));
+  const samples = Array.from({ length: 41 }, (_, index) => Math.round(at((index / 40) * duration) * 1000) / 1000);
+
+  return { easing: `linear(${samples.join(", ")})`, duration: duration * 1000 };
+})();
+
+// ---- Theme ----
+
+const themeSwitch = document.querySelector("[data-theme-switch]");
+
+if (themeSwitch) {
+  themeSwitch.addEventListener("click", () => {
+    const systemIsDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const isDark = root.dataset.theme ? root.dataset.theme === "dark" : systemIsDark;
+    const next = isDark ? "light" : "dark";
+
+    root.dataset.theme = next;
+
+    try {
+      window.localStorage.setItem("astrolabe-theme", next);
+    } catch {
+      // A page opened from disk may not keep anything; the theme still changes for this visit.
+    }
+  });
+}
+
+// ---- Arrival ----
+
+/** Grows the marks of a drawing into place: lines from zero or from their estimate, markers on a spring, lines drawn. */
+function playMarks(scope, delay) {
+  for (const [index, group] of [...scope.querySelectorAll("[data-grow-from]")].entries()) {
+    if (group.closest("[hidden]")) continue;
+
+    group.style.transformBox = "view-box";
+    group.style.transformOrigin = `${group.dataset.growFrom}px 0px`;
+    group.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
+      duration: 1100,
+      delay: delay + index * 90,
+      easing: EASE_OUT,
+      fill: "backwards",
+    });
+  }
+
+  for (const [index, marker] of [...scope.querySelectorAll("[data-pop]")].entries()) {
+    if (marker.closest("[hidden]")) continue;
+
+    marker.style.transformBox = "fill-box";
+    marker.style.transformOrigin = "center";
+    marker.animate([{ transform: "scale(0)" }, { transform: "scale(1)" }], { ...SPRING, delay: delay + 450 + index * 90, fill: "backwards" });
+  }
+
+  for (const line of scope.querySelectorAll("[data-draw]")) {
+    const length = line.getTotalLength?.() ?? 0;
+
+    if (length > 0)
+      line.animate([{ strokeDasharray: `${length}`, strokeDashoffset: length }, { strokeDasharray: `${length}`, strokeDashoffset: 0 }], {
+        duration: 1400,
+        delay,
+        easing: EASE_OUT,
+        fill: "backwards",
+      });
+  }
+}
+
+/** Counts a figure up to its value, in the format it is written in; the last frame is the text as written. */
+function countUp(element, delay) {
+  const written = element.textContent;
+  const target = Number(element.dataset.count);
+  const decimals = Number(element.dataset.decimals);
+  const signed = /^[+−-]/.test(written.trim());
+  const format = (value) =>
+    `${signed ? (target < 0 ? "−" : "+") : ""}${Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  const start = performance.now() + delay;
+  const step = (now) => {
+    const progress = Math.min(1, Math.max(0, (now - start) / 1300));
+
+    element.textContent = progress < 1 ? format(target * (1 - 2 ** (-10 * progress))) : written;
+
+    if (progress < 1) requestAnimationFrame(step);
+  };
+
+  element.textContent = format(0);
+  requestAnimationFrame(step);
+}
+
+const ARRIVING = ".hero > *, .stat, .chapter-head > *, .chapter-body, .trust-body > .block";
+
+function arrive(section) {
+  const parts = section.matches(ARRIVING) ? [section] : [...section.querySelectorAll(ARRIVING)];
+
+  parts.forEach((part, index) => {
+    part.style.setProperty("--delay", `${index * 90}ms`);
+    part.classList.add("is-in");
+  });
+  playMarks(section, 200);
+
+  for (const [index, figure] of [...section.querySelectorAll("[data-count]")].entries()) countUp(figure, 250 + index * 120);
+}
+
+if (moves() && "IntersectionObserver" in window) {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+
+        observer.unobserve(entry.target);
+        arrive(entry.target);
+      }
+    },
+    { rootMargin: "0px 0px -12% 0px", threshold: 0.08 },
+  );
+
+  for (const section of document.querySelectorAll("main > section")) observer.observe(section);
+} else {
+  for (const part of document.querySelectorAll(ARRIVING)) part.classList.add("is-in");
+}
+
+// ---- Navigation ----
+
+const nav = document.querySelector(".nav");
+const markScrolled = () => nav?.classList.toggle("is-scrolled", window.scrollY > 8);
+
+window.addEventListener("scroll", markScrolled, { passive: true });
+markScrolled();
+
+// ---- Filters ----
 
 const filterInputs = [...document.querySelectorAll("input[data-filter]")];
 const filterIds = [...new Set(filterInputs.map((input) => input.dataset.filter))];
@@ -37,6 +175,7 @@ function moveFrom(before, view) {
 
   if (!hasKeyedRows) {
     view.animate([{ opacity: 0 }, { opacity: 1 }], FADE);
+    playMarks(view, 0);
 
     return;
   }
@@ -49,6 +188,7 @@ function moveFrom(before, view) {
 
       if (!was) {
         row.animate([{ opacity: 0 }, { opacity: 1 }], FADE);
+        playMarks(row, 0);
         continue;
       }
 
@@ -111,6 +251,8 @@ if (filterInputs.length > 0) {
   show(false);
 }
 
+// ---- Highlight ----
+
 // Pointing at a candidate brings it forward on every chart and table, and steps the others back.
 if (window.matchMedia("(hover: hover)").matches) {
   const tagged = () => document.querySelectorAll("[data-candidate]");
@@ -126,6 +268,8 @@ if (window.matchMedia("(hover: hover)").matches) {
     for (const element of tagged()) element.classList.toggle("is-dimmed", candidate !== null && element.dataset.candidate !== candidate);
   });
 }
+
+// ---- Links ----
 
 document.addEventListener("click", (event) => {
   const link = event.target.closest("[data-copy-link]");

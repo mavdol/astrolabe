@@ -8,19 +8,21 @@ import {
   comparisonsOn,
   directionWords,
   caveatSentences,
-  intervalSentence,
+  howToReadOf,
+  intervalPart,
   sentence,
   seriesOf,
   statisticWord,
   type ChartContent,
   type ChartInputs,
+  type ReadingPart,
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
 import {
   arrow,
   intervalAcross,
   intervalUpwards,
-  marker,
+  poppingMarker,
   PLOT_STYLE,
   round,
   taggedWith,
@@ -152,7 +154,7 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
       (point, index) => `${index === 0 ? "M" : "L"}${round(xScale.position(point.x))} ${round(yScale.position(point.y))}`,
     );
 
-    marks.push(`<path d="${path.join("")}" stroke="${colours.secondary}" stroke-width="1.25" stroke-dasharray="4 3" fill="none"/>`);
+    marks.push(`<path d="${path.join("")}" stroke="${colours.secondary}" stroke-width="1.25" stroke-dasharray="4 3" fill="none" data-draw=""/>`);
   }
 
   const positioned = plot.points.map((point) => ({ point, px: xScale.position(point.x), py: yScale.position(point.y) }));
@@ -176,7 +178,7 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
   }
 
   for (const { point, px, py } of positioned)
-    marks.push(taggedWith(marker(point.series.shape, px, py, point.series.colour, colours.background), point.candidate));
+    marks.push(taggedWith(poppingMarker(point.series.shape, px, py, point.series.colour, colours.background), point.candidate));
 
   const taken: Box[] = positioned.map(({ px, py }) => ({ left: px - 6, right: px + 6, top: py - 6, bottom: py + 6 }));
 
@@ -282,18 +284,23 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
   const yDecimals = finestDecimals(yValues.map((value) => valueDecimals(yMetric, value)));
   const titleOf = (metric: Metric) => `${metric.label}, ${statisticWord(metric)} in ${metric.unit} · ${directionWords(metric)}`;
   const towards = (metric: Metric) => `${metric.direction === "lower" ? "lower" : "higher"} ${lowerFirstLetterOfWord(metric.label)}`;
-  const howToRead = [
-    inputs.compact ? "" : `${sentence(xMetric.definition)} ${sentence(yMetric.definition)}`,
-    `Each mark: a candidate, placed by its ${lowerFirstLetterOfWord(xMetric.label)} across and its ${lowerFirstLetterOfWord(yMetric.label)} up.`,
-    intervalSentence([...xValues, ...yValues]),
-    frontier.length >= 2 ? "Dashed line: the candidates that no other candidate beats on both measures." : "",
-    `The marked corner is better: ${towards(xMetric)} and ${towards(yMetric)}.`,
-    startsAtZero ? "" : `The axes do not start at zero: ${sentence(block.scale!.reason!)}`,
-    caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup)),
-    caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const howToReadParts: ReadingPart[] = [
+    { text: inputs.compact ? "" : `${sentence(xMetric.definition)} ${sentence(yMetric.definition)}` },
+    {
+      mark: "dot",
+      markName: "Each mark",
+      text: `a candidate, placed by its ${lowerFirstLetterOfWord(xMetric.label)} across and its ${lowerFirstLetterOfWord(yMetric.label)} up.`,
+    },
+    intervalPart([...xValues, ...yValues]),
+    frontier.length >= 2
+      ? { mark: "frontier", markName: "Dashed line", text: "the candidates that no other candidate beats on both measures." }
+      : { text: "" },
+    { text: `The marked corner is better: ${towards(xMetric)} and ${towards(yMetric)}.` },
+    { text: startsAtZero ? "" : `The axes do not start at zero: ${sentence(block.scale!.reason!)}` },
+    { text: caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup)) },
+    { text: caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)) },
+  ];
+  const howToRead = howToReadOf(howToReadParts);
   const fixedHeight = FIXED_HEIGHT;
   const plot: ScatterPlot = {
     points,
@@ -321,6 +328,7 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
     },
     subtitle: `${yMetric.label} against ${lowerFirstLetterOfWord(xMetric.label)}, one mark per candidate`,
     howToRead,
+    howToReadParts,
     kind: `Scatter chart of ${lowerFirstLetterOfWord(yMetric.label)} against ${lowerFirstLetterOfWord(xMetric.label)}`,
     table: {
       header: [
