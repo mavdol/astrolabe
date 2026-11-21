@@ -13,7 +13,7 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## Colour
 
-The default needs nothing: the `astrolabe` theme, a dark page, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Leave `style` out unless the user asks for something; set `mode` when the user wants the page light, or following the reader's system.
+The default needs nothing: the `astrolabe` theme, a dark page, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Leave `style` out entirely unless the user asks for something, `mode` included: set it only when the user wants the page light, or following the reader's system.
 
 ```json
 {
@@ -47,8 +47,9 @@ A reader remembers the title more than the chart, so a title states the finding,
 
 - **The title is the claim, in a few words**: about 60 characters at most as the reader sees it (a template counts as the text it becomes), no second clause. "The gap comes from coding", not "Model A is more accurate than Model B overall, and most of the difference comes from the coding tasks".
 - **The reading is one sentence**, about 20 words at most, saying what the title does not: where the difference comes from, what to watch, the caveat. Leave out what the chart already labels (the values, the candidates, the unit) and everything the generator writes under it (the direction, how to read the marks, the interval's level, the number of runs).
-- **A headline's title says what the figure is about**, in a few words: the pair and the scope ("{candidate:quickmark} against {candidate:markly}, all pages"). The figure, its unit and its verdict are drawn beside it, and the README card leaves out a title that only restates them.
-- **The first headline is the answer**: the top of the page states its comparison alone, so place first in `layout` the one the goal asks about.
+- **A headline's title says what the figure is about**, in a few words: the scope ("all pages", "large files"), and the pair only when the headlines compare different pairs; when they all compare the same two candidates, the page and the card name them once. The figure, its unit and its verdict are drawn beside it, and the README card leaves out a title that only restates them.
+- **The first headline is the answer**: the top of the page states its comparison alone, so place first in `layout` the one the goal asks about. Three headlines at most: a fourth result goes in the `comparison-rows` chart with the others, where it is still seen.
+- **"Likely" stays in the words**: a verdict that is likely better or likely worse is written with "likely" in the title, or inserted with `{verdict:id}`; `validate` warns when a title asserts the bare verdict without it.
 
 - **Numbers and names by template, never typed**: `{effect:id}` (the effect of a comparison, with its unit), `{verdict:id}`, `{candidate:id}`, `{metric:id}`, `{node:id}`. A digit typed in a title is refused: after a rerun it would be stale.
 - **List in `asserts` the verdicts the title relies on**, comparison id to verdict word (`better`, `worse`, `equivalent`, `inconclusive`, `likely better`, `likely worse`). `validate` fails as soon as a rerun changes one of them, so the title cannot outlive its evidence.

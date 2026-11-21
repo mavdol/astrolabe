@@ -6,6 +6,7 @@ import { buildOutputs } from "../src/render/build.js";
 import { cardContentOf, MAX_HEADLINES, renderCard, STYLE } from "../src/render/card.js";
 import { exportPlanOf, pictureHtml } from "../src/render/exports.js";
 import { pngOf } from "../src/render/png.js";
+import { SvgTextRenderer } from "../src/render/svg-text.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { seriesStylesOf, THEME } from "../src/themes/astrolabe.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
@@ -162,6 +163,34 @@ describe("reading a card at a glance", () => {
 
     expect(dots[0], "+6.4 points sits right of zero").toBeGreaterThan(zeroOf(bands[0]));
     expect(dots[1], "\u22121.5 points sits left of zero").toBeLessThan(zeroOf(bands[1]));
+  });
+
+  it("keeps every figure and verdict inside its cell, even with four headlines and a declared value", () => {
+    const geocoding = loadBenchmark("geocoding-apis");
+    const primary = geocoding.results.comparisons!.filter((comparison) => comparison.role === "primary");
+    const card = renderCard(geocoding, { headlines: primary.map((comparison) => ({ comparison })), omittedCount: 0 }, "light", context);
+    const svg = card.svg;
+    const chips = [...svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="25" rx="6"/g)].map((match) => [
+      Number(match[1]),
+      Number(match[1]) + Number(match[2]),
+    ]);
+
+    expect(primary).toHaveLength(4);
+    expect(card.textLines).toContain("WORSE (DECLARED)");
+    expect(chips).toHaveLength(4);
+    const unitsPerEm = JSON.parse(readFileSync("src/render/fonts/inter.json", "utf8")).units_per_em;
+    const unitScale = String(Math.round((STYLE.effectUnit.size / unitsPerEm) * 1e6) / 1e6).replace(".", "\\.");
+    const unitStarts = [...svg.matchAll(new RegExp(`translate\\(([\\d.]+) [\\d.]+\\) scale\\(${unitScale} `, "g"))].map((match) =>
+      Number(match[1]),
+    );
+    const pointsEnd = unitStarts[2] + new SvgTextRenderer().measure("points", STYLE.effectUnit);
+
+    expect(unitStarts, "one unit per figure").toHaveLength(4);
+    expect(pointsEnd, "the unit after +1.2 ends inside the third cell").toBeLessThanOrEqual(600);
+    chips.forEach(([start, end], index) => {
+      expect(start, `chip ${index + 1} starts inside its cell`).toBeGreaterThanOrEqual(index * 200);
+      expect(end, `chip ${index + 1} ends inside its cell`).toBeLessThanOrEqual((index + 1) * 200);
+    });
   });
 
   it("leaves out a block title that only restates the metric and the effect", () => {

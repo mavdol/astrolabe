@@ -194,7 +194,7 @@ astrolabe build       # the site in dist/site/, dist/benchmark.md, the README ca
 astrolabe preview     # the site on this computer, to read it as a reader would
 ```
 
-Each `validate` error names the block, the rule and what to use instead: fix the file, never `dist/`.
+Each `validate` error names the block, the rule and what to use instead: fix the file, never `dist/`. Warnings are fixed the same way: a page that builds with a warning is not finished, unless you tell the user which warning you kept and why.
 
 ## Step 7: the write-up
 

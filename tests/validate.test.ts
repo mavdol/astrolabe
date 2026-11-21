@@ -146,6 +146,31 @@ describe("claims in the presentation", () => {
     expect(rulesOf(errorsOf(validate(stale, rawFiles).issues))).toEqual(["V25"]);
   });
 
+  it('a title that leaves out the "likely" of its verdict is a warning', () => {
+    const claim = (asserted: string, title = "{candidate:model_a} is more accurate") =>
+      validate(
+        withBlock({
+          id: "claim",
+          type: "chart",
+          chart: "effect",
+          metric: "accuracy",
+          title,
+          asserts: { accuracy__suite__model_a: asserted },
+        }),
+        rawFiles,
+      ).issues.filter((issue) => issue.rule === "V25");
+
+    expect(claim("better").map((issue) => [issue.severity, issue.message])).toEqual([
+      [
+        "warning",
+        'the title relies on "accuracy__suite__model_a" being "better", but the computed verdict is "likely better": say "likely" in the title, and assert "likely better"',
+      ],
+    ]);
+    expect(claim("likely better")).toEqual([]);
+    expect(claim("better", "{candidate:model_a} is likely more accurate")).toEqual([]);
+    expect(claim("better", "Accuracy: {verdict:accuracy__suite__model_a}")).toEqual([]);
+  });
+
   it("a headline on an exploratory comparison is refused", () => {
     const exploratory = withBlock({
       id: "claim",
@@ -246,6 +271,9 @@ describe("charts in the presentation", () => {
       ["warning", "V39", "layout[0]"],
       ["warning", "V39", "blocks"],
     ]);
+    expect(issues.find((issue) => issue.path === "blocks")!.message, "names the headline to move, the last one on the page").toContain(
+      'show "four" (accuracy__suite__model_a) in a comparison-rows chart or a table instead',
+    );
   });
 
   it("an image export its chart does not fit fails the file", () => {

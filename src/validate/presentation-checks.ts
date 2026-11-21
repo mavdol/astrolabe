@@ -57,14 +57,18 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
       if (!blockIds.includes(blockId)) error("V38", `layout[${rowIndex}]`, `"${blockId}" is not the id of a block`);
   });
 
-  const headlineCount = blocks.filter((block) => block.type === "headline").length;
+  const pageOrder = [...new Set([...(benchmark.layout ?? []).flat(), ...blocks.map((block) => block.id)])];
+  const headlines = pageOrder.flatMap((blockId) => blocks.filter((block) => block.id === blockId && block.type === "headline"));
 
-  if (headlineCount > LARGEST_HEADLINE_COUNT)
+  if (headlines.length > LARGEST_HEADLINE_COUNT) {
+    const extra = headlines.slice(LARGEST_HEADLINE_COUNT).map((block) => `"${block.id}" (${block.comparison})`);
+
     warning(
       "V39",
       "blocks",
-      `${headlineCount} headline blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the others as charts or tables`,
+      `${headlines.length} headline blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the first ${LARGEST_HEADLINE_COUNT} and show ${extra.join(", ")} in a comparison-rows chart or a table instead`,
     );
+  }
 
   blocks.forEach((block, blockIndex) => {
     if (block.type !== "table") return;
@@ -154,6 +158,17 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
             `the title relies on "${comparisonId}" being "${String(assertedVerdict)}", but the computed verdict is "${verdictLabel(comparison)}": rewrite the title`,
           );
         }
+
+        const words = `${String(block.title ?? "")} ${String(block.description ?? "")}`;
+        const saysTheQualifier =
+          words.includes(`{verdict:${comparisonId}}`) || new RegExp(`\\b${comparison?.qualifier ?? ""}\\b`, "i").test(words);
+
+        if (comparison?.qualifier && assertionHolds && assertedVerdict === comparison.verdict && !saysTheQualifier)
+          warning(
+            "V25",
+            `${path}.asserts`,
+            `the title relies on "${comparisonId}" being "${comparison.verdict}", but the computed verdict is "${verdictLabel(comparison)}": say "${comparison.qualifier}" in the title, and assert "${verdictLabel(comparison)}"`,
+          );
       }
     }
   });
