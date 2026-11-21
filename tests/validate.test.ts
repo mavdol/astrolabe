@@ -163,10 +163,14 @@ describe("claims in the presentation", () => {
     expect(claim("better").map((issue) => [issue.severity, issue.message])).toEqual([
       [
         "warning",
-        'the title relies on "accuracy__suite__model_a" being "better", but the computed verdict is "likely better": say "likely" in the title, and assert "likely better"',
+        'the title relies on "accuracy__suite__model_a", whose verdict is "likely better", but neither the title nor the reading says "likely": write it, and assert "likely better"',
       ],
     ]);
-    expect(claim("likely better")).toEqual([]);
+    expect(
+      claim("likely better").map((issue) => issue.severity),
+      "the full verdict asserted, the words still firmer",
+    ).toEqual(["warning"]);
+    expect(claim("likely better", "{candidate:model_a} is likely more accurate")).toEqual([]);
     expect(claim("better", "{candidate:model_a} is likely more accurate")).toEqual([]);
     expect(claim("better", "Accuracy: {verdict:accuracy__suite__model_a}")).toEqual([]);
   });

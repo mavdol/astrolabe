@@ -2,7 +2,7 @@ import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark, Comparison } from "../../schema/benchmark.js";
 import type { Block, ChartBlock, HeadlineBlock, TableBlock } from "../../schema/presentation.js";
 import type { Mode } from "../../themes/astrolabe.js";
-import { detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
+import { addsInformation, detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
 import {
   ChartError,
   defaultFilterState,
@@ -107,6 +107,18 @@ function headlineHtml(block: HeadlineBlock, inputs: PageInputs, number: string):
   const details = detailsOf(lookup, comparison, null).map(
     (detail) => `<li${detail.isWarning ? ' class="warning"' : ""}>${detail.isWarning ? "Warning: " : ""}${escapeHtml(detail.text)}</li>`,
   );
+  const headlinePairs = new Set(
+    (inputs.benchmark.blocks ?? []).flatMap((other) =>
+      other.type === "headline"
+        ? (lookup.results.comparisons ?? []).filter((entry) => entry.id === other.comparison).map((entry) => pairOf(lookup, entry))
+        : [],
+    ),
+  );
+  // The top of the page names a pair every headline shares; a title that only restates the figure is left out, as on the card.
+  const pairIsShared = headlinePairs.size <= 1;
+  const titleAddsInformation = addsInformation(title, lookup, comparison);
+  const shownTitle = titleAddsInformation ? title : pairIsShared ? "" : pair;
+  const pairInDetails = !pairIsShared && titleAddsInformation;
 
   return [
     sectionLabel(number, `${measured} · ${directionWords(metric.direction)}`),
@@ -115,8 +127,8 @@ function headlineHtml(block: HeadlineBlock, inputs: PageInputs, number: string):
     `<span class="chip ${tone}${isFirmVerdict(comparison) ? " firm" : ""}">${escapeHtml(verdictLabel(comparison))}</span>`,
     "</div>",
     headlineFigure(lookup, comparison),
-    anchoredTitle(block, title === measured ? pair : title),
-    `<ul class="details">\n${[...(title === measured ? [] : [`<li>${escapeHtml(pair)}</li>`]), ...details].join("\n")}\n</ul>`,
+    shownTitle ? anchoredTitle(block, shownTitle) : "",
+    `<ul class="details">\n${[...(pairInDetails ? [`<li>${escapeHtml(pair)}</li>`] : []), ...details].join("\n")}\n</ul>`,
   ].join("\n");
 }
 

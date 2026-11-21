@@ -139,6 +139,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 .stat h2 { margin: 18px 0 8px; font-size: 15px; line-height: 1.4; }
 .stat h2 a, .chapter-head h2 a { text-decoration: none; }
 .details { font-family: ${MONO}; font-size: 12px; line-height: 18px; color: var(--secondary); }
+.micro + .details { margin-top: 22px; }
 .details .warning { color: var(--ink); }
 .chip { display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 6px; font-family: ${MONO}; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; color: var(--secondary); }
 .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }

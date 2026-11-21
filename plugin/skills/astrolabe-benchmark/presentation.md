@@ -13,7 +13,7 @@ Read before writing any sentence about the results: a title or a description on 
 
 ## Wording a result
 
-- **Use the verdict's own strength.** "Better" is a claim; "likely better" says the direction is clear and the size uncertain; "equivalent" means no difference that matters; "inconclusive" means the data cannot tell. Do not turn the last three into a win: no "slightly faster", "edges out" or "wins" on an equivalent or inconclusive comparison.
+- **Use the verdict's own strength.** "Better" is a claim; "likely better" says the direction is clear and the size uncertain; "equivalent" means no difference that matters; "inconclusive" means the data cannot tell. Do not turn the last three into a win: no "slightly faster", "edges out" or "wins" on an equivalent or inconclusive comparison. Nor the other way: a likely better result whose estimate sits inside the smallest difference that matters is still a direction, never "too small to matter" or "within the noise"; that wording belongs to "equivalent" alone.
 - **An effect comes with its interval and its base.** "csv-b is 12% faster than csv-a (9% to 15%): 1.85 s against 2.10 s, median of 12 runs." A ratio alone hides whether the absolute numbers matter at all.
 - **Units are exact**: ms or s, MiB or MB, requests per second, percentage points for a difference between two shares.
 - **Only primary comparisons carry the conclusion.** An exploratory result is introduced as exploratory and never used for a headline or a recommendation.

@@ -38,11 +38,17 @@ function pagesUnder(folder) {
 
 function measure(page) {
   const html = readFileSync(page, "utf8");
-  const titles = [...html.matchAll(/<h2 id="[^"]+-title"><a [^>]*>([\s\S]*?)<\/a>/g)].map((match) => plain(match[1]));
-  const readings = [...html.matchAll(/<span class="reading">([\s\S]*?)<\/span>/g)].map((match) => plain(match[1]));
-  const prose = [...html.matchAll(/<div class="chapter-body prose">([\s\S]*?)<\/div>/g)].map((match) => plain(match[1]));
   const benchmarkFile = join(dirname(dirname(dirname(page))), "benchmark.json");
   const blocks = existsSync(benchmarkFile) ? (JSON.parse(readFileSync(benchmarkFile, "utf8")).blocks ?? []) : [];
+  const typeOf = (blockId) => blocks.find((block) => block.id === blockId)?.type;
+  // The generator writes a table's title, and the pair a headline shows when its own title adds nothing: not the agent's words.
+  const titles = [...html.matchAll(/<h2 id="([^"]+)-title"><a [^>]*>([\s\S]*?)<\/a>/g)]
+    .filter((match) => typeOf(match[1]) !== "table")
+    .map((match) => ({ type: typeOf(match[1]), text: plain(match[2]) }))
+    .filter((title) => !(title.type === "headline" && /^[^,:]+ against [^,:]+$/.test(title.text)))
+    .map((title) => title.text);
+  const readings = [...html.matchAll(/<span class="reading">([\s\S]*?)<\/span>/g)].map((match) => plain(match[1]));
+  const prose = [...html.matchAll(/<div class="chapter-body prose">([\s\S]*?)<\/div>/g)].map((match) => plain(match[1]));
   // The method's own reading is written by the generator, not the agent.
   const agentReadings = readings.filter((reading) => reading !== "What was measured, what was declared, and how.");
 
@@ -53,11 +59,13 @@ function measure(page) {
     longestReading: Math.max(0, ...agentReadings.map(wordsOf)),
     textBlockWords: sum(prose.map(wordsOf)),
     written: sum(titles.map(wordsOf)) + sum(agentReadings.map(wordsOf)) + sum(prose.map(wordsOf)),
-    // A page with more charts writes more titles: per titled block is the fair comparison.
+    // A page with more charts writes more: per block the agent declared (headline, chart, text) is the fair comparison.
     perBlock:
-      titles.length > 0
-        ? Math.round(((sum(titles.map(wordsOf)) + sum(agentReadings.map(wordsOf)) + sum(prose.map(wordsOf))) / titles.length) * 10) / 10
-        : 0,
+      Math.round(
+        ((sum(titles.map(wordsOf)) + sum(agentReadings.map(wordsOf)) + sum(prose.map(wordsOf))) /
+          Math.max(1, blocks.filter((block) => ["headline", "chart", "text"].includes(block.type)).length || titles.length)) *
+          10,
+      ) / 10,
     charts: blocks.filter((block) => block.type === "chart").map((block) => block.chart),
     textBlocks: blocks.filter((block) => block.type === "text").length,
   };

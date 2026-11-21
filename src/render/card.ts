@@ -47,6 +47,17 @@ const HALO_OPACITY = 0.16;
 
 export const MAX_HEADLINES = 3;
 
+const VERDICTS_IN_READING_ORDER = ["better", "likely better", "equivalent", "inconclusive", "likely worse", "worse"];
+
+/** "1 better, 1 inconclusive": how comparisons left out of a summary came out, so leaving one out hides nothing. */
+export function countsByVerdict(comparisons: Comparison[]): string {
+  return VERDICTS_IN_READING_ORDER.flatMap((verdict) => {
+    const count = comparisons.filter((comparison) => verdictLabel(comparison) === verdict).length;
+
+    return count > 0 ? [`${count} ${verdict}`] : [];
+  }).join(", ");
+}
+
 /**
  * Every size is at least 12 px at the card's own width, the smallest text readable once shown in a README.
  * Labels, verdicts and the small print are in Geist Mono, the question and the figures in Inter, as on the site.
@@ -73,8 +84,8 @@ export interface CardHeadline {
 
 export interface CardContent {
   headlines: CardHeadline[];
-  /** Primary comparisons left out of a default card, which shows at most three. */
-  omittedCount: number;
+  /** Primary comparisons the card does not show, counted by verdict in its footer. */
+  omitted: Comparison[];
 }
 
 interface HeadlineBlock {
@@ -87,9 +98,12 @@ interface HeadlineBlock {
 /**
  * The headlines of a card: the headline blocks an export names, or by default
  * the first primary comparisons. Other kinds of blocks cannot be drawn on a card yet.
+ * Either way the card counts the primary comparisons it leaves out, so a card that shows
+ * only some of the results says so.
  */
 export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardContent {
   const comparisonById = new Map((benchmark.results.comparisons ?? []).map((comparison) => [comparison.id, comparison]));
+  const primary = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
 
   if (blockIds) {
     const blocks = (benchmark.blocks ?? []) as HeadlineBlock[];
@@ -107,14 +121,14 @@ export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardCo
       return { comparison, title: block.title };
     });
 
-    return { headlines, omittedCount: 0 };
-  }
+    const shown = new Set(headlines.map(({ comparison }) => comparison.id));
 
-  const primary = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
+    return { headlines, omitted: primary.filter((comparison) => !shown.has(comparison.id)) };
+  }
 
   return {
     headlines: primary.slice(0, MAX_HEADLINES).map((comparison) => ({ comparison })),
-    omittedCount: Math.max(0, primary.length - MAX_HEADLINES),
+    omitted: primary.slice(MAX_HEADLINES),
   };
 }
 
@@ -153,7 +167,7 @@ const normalizedWords = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{
  * A block title is left out when it only restates what the card already
  * shows: the candidates, the metric, the effect and the verdict.
  */
-function addsInformation(resolvedTitle: string, lookup: Lookup, comparison: Comparison): boolean {
+export function addsInformation(resolvedTitle: string, lookup: Lookup, comparison: Comparison): boolean {
   const metric = lookup.metricById.get(comparison.metric)!;
   const alreadyShown = [
     effectAndInterval(metric, comparison).effect,
@@ -772,15 +786,23 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const legendSentences = [
     `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`,
     ...(columns.some((column) => !column.fromZero) ? ["Shaded band: too small to matter."] : []),
-    ...(content.omittedCount > 0
-      ? [`${content.omittedCount} more primary comparison${content.omittedCount === 1 ? "" : "s"} in the full results.`]
+    ...(content.omitted.length > 0
+      ? [
+          `${content.omitted.length} more primary comparison${content.omitted.length === 1 ? "" : "s"} in the full results: ${countsByVerdict(content.omitted)}.`,
+        ]
       : []),
   ];
   const legend = legendSentences.join(" ");
   const legendLines = text.wrap(legend, STYLE.detail, innerWidth).length === 1 ? [legend] : legendSentences;
 
   for (const sentence of legendLines)
-    cursorY = drawLines(text.wrap(sentence, STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
+    cursorY = drawLines(
+      text.wrapParts(sentence.split(/(?<=,) /), STYLE.detail, innerWidth, " "),
+      STYLE.detail,
+      colours.secondary,
+      PADDING,
+      cursorY,
+    );
 
   cursorY += 6;
 

@@ -163,11 +163,12 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
         const saysTheQualifier =
           words.includes(`{verdict:${comparisonId}}`) || new RegExp(`\\b${comparison?.qualifier ?? ""}\\b`, "i").test(words);
 
-        if (comparison?.qualifier && assertionHolds && assertedVerdict === comparison.verdict && !saysTheQualifier)
+        // Checked on the words, whichever form asserts takes: "likely better" asserted under a title that says "more" is still a firmer claim.
+        if (comparison?.qualifier && assertionHolds && !saysTheQualifier)
           warning(
             "V25",
             `${path}.asserts`,
-            `the title relies on "${comparisonId}" being "${comparison.verdict}", but the computed verdict is "${verdictLabel(comparison)}": say "${comparison.qualifier}" in the title, and assert "${verdictLabel(comparison)}"`,
+            `the title relies on "${comparisonId}", whose verdict is "${verdictLabel(comparison)}", but neither the title nor the reading says "${comparison.qualifier}": write it${assertedVerdict === comparison.verdict ? `, and assert "${verdictLabel(comparison)}"` : ""}`,
           );
       }
     }
