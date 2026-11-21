@@ -6,6 +6,7 @@ import {
   growsFrom,
   INTERVAL_STROKE,
   intervalAcross,
+  BETTER,
   PLOT_STYLE,
   poppingMarker,
   round,
@@ -223,14 +224,14 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
 
   const directionBaseline = directionTop + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO + 2;
   const arrowCentreY = directionBaseline - (PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO) / 2;
-  const wordWidth = text.measure("better", PLOT_STYLE.tick);
+  const wordWidth = text.measure(BETTER, PLOT_STYLE.caption);
   const pointsRight = plot.betterSide === "right";
   const wordX = pointsRight ? plotRight - ARROW_LENGTH - ARROW_GAP - wordWidth : plotLeft + ARROW_LENGTH + ARROW_GAP;
   const arrowStart = pointsRight ? plotRight - ARROW_LENGTH : plotLeft + ARROW_LENGTH;
 
-  marks.push(text.draw("better", wordX, directionBaseline, { ...PLOT_STYLE.tick, fill: colours.secondary }));
+  marks.push(text.draw(BETTER, wordX, directionBaseline, { ...PLOT_STYLE.caption, fill: colours.secondary }));
   marks.push(arrow([arrowStart, arrowCentreY], [pointsRight ? plotRight : plotLeft, arrowCentreY], colours.secondary));
-  textLines.push(pointsRight ? "better →" : "← better");
+  textLines.push(pointsRight ? `${BETTER} →` : `← ${BETTER}`);
 
   if (plot.band) {
     const [from, to] = plot.band.map((value) => Math.min(Math.max(scale.position(value), plotLeft), plotRight));
@@ -250,7 +251,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
     const labelX = Math.min(Math.max(tickX - labelWidthHere / 2, x), x + width - labelWidthHere);
 
     marks.push(
-      `<path d="${verticalLines(tickX)}" stroke="${isZeroReference || isAxisOrigin ? colours.secondary : colours.rule}" stroke-width="1"/>`,
+      `<path d="${verticalLines(tickX)}" stroke="${isZeroReference || isAxisOrigin ? colours.ruleStrong : colours.rule}" stroke-width="1"/>`,
     );
     marks.push(
       text.draw(label, labelX, rowsBottom + 8 + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO, { ...PLOT_STYLE.tick, fill: colours.secondary }),

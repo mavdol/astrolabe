@@ -181,7 +181,7 @@ describe("reading a card at a glance", () => {
     const suite = loadBenchmark("support-assistant-eval");
     const lines = renderCard(suite, cardContentOf(suite), "light", context).textLines;
 
-    expect(lines.slice(lines.indexOf("ACCURACY"), lines.indexOf("ACCURACY") + 2)).toEqual(["ACCURACY", "HIGHER IS BETTER"]);
+    expect(lines).toContain("ACCURACY · HIGHER IS BETTER");
     expect(lines.join(" ")).toContain("ACCURACY, CODING");
     expect(lines.join(" ").toUpperCase()).not.toContain("SUPPORT ASSISTANT EVAL");
   });

@@ -23,6 +23,7 @@ import {
   intervalAcross,
   intervalUpwards,
   poppingMarker,
+  BETTER,
   PLOT_STYLE,
   round,
   taggedWith,
@@ -91,14 +92,18 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
   const xScale = linearScale(plot.xExtent, [plotLeft, plotRight], plotRight - plotLeft < 260 ? 3 : 5);
   const yScale = linearScale(plot.yExtent, [plotBottom, plotTop], yTargetTicks);
 
-  marks.push(text.draw(text.fit(plot.yTitle, PLOT_STYLE.note, area.width), area.x, area.y + capHeight(12) + 4, tickStyle));
-  textLines.push(plot.yTitle);
+  const captionStyle = { ...PLOT_STYLE.caption, fill: colours.secondary };
+  const yTitle = text.fit(`${plot.betterUpwards ? "↑" : "↓"} ${plot.yTitle}`.toUpperCase(), PLOT_STYLE.caption, area.width);
+  const xTitle = text.fit(`${plot.xTitle} ${plot.betterOnTheLeft ? "←" : "→"}`.toUpperCase(), PLOT_STYLE.caption, area.width);
+
+  marks.push(text.draw(yTitle, area.x, area.y + capHeight(12) + 4, captionStyle));
+  textLines.push(yTitle);
 
   for (const tick of yScale.ticks) {
     const tickY = yScale.position(tick);
 
     marks.push(
-      `<path d="M${round(plotLeft)} ${round(tickY)}H${round(plotRight)}" stroke="${tick === 0 ? colours.ink : colours.rule}" stroke-width="1"/>`,
+      `<path d="M${round(plotLeft)} ${round(tickY)}H${round(plotRight)}" stroke="${tick === yScale.ticks[0] ? colours.ruleStrong : colours.rule}" stroke-width="1"/>`,
     );
     marks.push(text.draw(yTickText(tick), plotLeft - 8, tickY + capHeight(12) / 2, { ...tickStyle, anchor: "end" }));
   }
@@ -108,9 +113,6 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
     const label = formatNumber(tick, xScale.tickDecimals);
     const labelWidth = text.measure(label, PLOT_STYLE.tick);
 
-    marks.push(
-      `<path d="M${round(tickX)} ${round(plotTop)}V${round(plotBottom)}" stroke="${tick === 0 ? colours.ink : colours.rule}" stroke-width="1"/>`,
-    );
     marks.push(
       text.draw(
         label,
@@ -125,13 +127,16 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
   textLines.push(xScale.ticks.map((tick) => formatNumber(tick, xScale.tickDecimals)).join("  "));
   marks.push(
     text.draw(
-      text.fit(plot.xTitle, PLOT_STYLE.note, area.width),
-      area.x,
+      xTitle,
+      Math.max(plotRight, area.x + text.measure(xTitle, PLOT_STYLE.caption)),
       area.y + area.height - X_TITLE_HEIGHT + capHeight(12) + 4,
-      tickStyle,
+      {
+        ...captionStyle,
+        anchor: "end",
+      },
     ),
   );
-  textLines.push(plot.xTitle);
+  textLines.push(xTitle);
 
   const corner: [number, number] = [plot.betterOnTheLeft ? plotLeft : plotRight, plot.betterUpwards ? plotTop : plotBottom];
   const inwards: [number, number] = [plot.betterOnTheLeft ? 1 : -1, plot.betterUpwards ? 1 : -1];
@@ -141,13 +146,13 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
 
   marks.push(arrow(tail, tip, colours.secondary));
   marks.push(
-    text.draw("better", tail[0] + inwards[0] * 4, wordBaseline, {
-      ...tickStyle,
+    text.draw(BETTER, tail[0] + inwards[0] * 4, wordBaseline, {
+      ...captionStyle,
       anchor: plot.betterOnTheLeft ? "start" : "end",
       halo: colours.background,
     }),
   );
-  textLines.push("better");
+  textLines.push(BETTER);
 
   if (plot.frontier.length >= 2) {
     const path = plot.frontier.map(

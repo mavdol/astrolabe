@@ -17,7 +17,18 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
-import { arrow, intervalUpwards, PLOT_STYLE, poppingMarker, round, taggedWith, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
+import {
+  arrow,
+  BETTER,
+  intervalUpwards,
+  PLOT_STYLE,
+  poppingMarker,
+  round,
+  taggedWith,
+  widestOf,
+  type DrawnPlot,
+  type PlotArea,
+} from "./plot.js";
 import { linearScale, logScale } from "./scale.js";
 
 interface LinePoint {
@@ -88,7 +99,7 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
     const tickY = yScale.position(tick);
 
     marks.push(
-      `<path d="M${round(plotLeft)} ${round(tickY)}H${round(plotRight)}" stroke="${tick === 0 ? colours.ink : colours.rule}" stroke-width="1"/>`,
+      `<path d="M${round(plotLeft)} ${round(tickY)}H${round(plotRight)}" stroke="${tick === 0 ? colours.ruleStrong : colours.rule}" stroke-width="1"/>`,
     );
     marks.push(
       text.draw(plot.tickText(tick, yScale.tickDecimals), plotLeft - 8, tickY + capHeight(12) / 2, { ...tickStyle, anchor: "end" }),
@@ -101,8 +112,8 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
   const [arrowFrom, arrowTo] = plot.betterUpwards ? [area.y + 16, area.y + 4] : [area.y + 4, area.y + 16];
 
   marks.push(arrow([arrowX, arrowFrom], [arrowX, arrowTo], colours.secondary));
-  marks.push(text.draw("better", arrowX + 8, area.y + 10 + capHeight(12) / 2, tickStyle));
-  textLines.push(plot.betterUpwards ? "better ↑" : "better ↓");
+  marks.push(text.draw(BETTER, arrowX + 8, area.y + 10 + capHeight(12) / 2, { ...PLOT_STYLE.caption, fill: colours.secondary }));
+  textLines.push(plot.betterUpwards ? `${BETTER} ↑` : `${BETTER} ↓`);
 
   const labelEvery = Math.max(1, Math.ceil(SMALLEST_X_LABEL_SPACE / step));
 

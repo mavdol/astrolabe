@@ -155,8 +155,9 @@ describe("a chart of values", () => {
   it("marks which way is better, in words and with an arrow", () => {
     const chart = draw(parsers, memory);
 
-    expect(chart.textLines).toContain("← better");
-    expect(chart.textLines).toContain("Peak memory, median in MiB · lower is better");
+    expect(chart.textLines).toContain("← BETTER");
+    expect(chart.subtitle).toBe("Peak memory, median in MiB · lower is better");
+    expect(chart.textLines, "in capitals, as the page's labels").toContain("PEAK MEMORY, MEDIAN IN MIB · LOWER IS BETTER");
   });
 
   it("says how to read it: what a mark is, how many observations, the level and method of the intervals", () => {
@@ -181,7 +182,7 @@ describe("a chart of values", () => {
     const dots = draw(parsers, chartBlock({ chart: "dot-interval", ...logScaled }));
 
     expect(dots.textLines).toContain("1  2  5  10");
-    expect(dots.textLines).toContain("Wall time, median in s · lower is better · log scale");
+    expect(dots.subtitle).toBe("Wall time, median in s · lower is better · log scale");
     expect(dots.howToRead).toContain("The axis is on a log scale: Run times span orders of magnitude.");
     expect(() => draw(parsers, chartBlock({ chart: "bar", ...logScaled }))).toThrow(/a log scale has no zero, so it cannot carry bars/);
   });
@@ -244,7 +245,7 @@ describe("a chart of effects", () => {
     const support = loadBenchmark("support-assistant-eval");
     const byCategory = draw(support, chartBlockOf(support, "chart-by-category"));
 
-    expect(byCategory.textLines).toContain("Accuracy: change of Model A against Model B, in points · higher is better");
+    expect(byCategory.subtitle).toBe("Accuracy: change of Model A against Model B, in points · higher is better");
     expect(byCategory.textLines).toContain("Reasoning  −1.5 points  inconclusive");
   });
 
@@ -505,7 +506,13 @@ describe("a scatter chart", () => {
     const chart = draw(support, costAccuracy);
 
     expect(chart.textLines).toEqual(
-      expect.arrayContaining(["Model A", "Model B", "better", "Cost per item, mean in USD · lower is better"]),
+      expect.arrayContaining([
+        "Model A",
+        "Model B",
+        "BETTER",
+        "↑ ACCURACY, SHARE IN % · HIGHER IS BETTER",
+        "COST PER ITEM, MEAN IN USD · LOWER IS BETTER ←",
+      ]),
     );
     expect(chart.howToRead).toContain("The marked corner is better: lower cost per item and higher accuracy.");
     expect(chart.table.rows.map((row) => row[5])).toEqual(["no", "no"]);
@@ -537,7 +544,7 @@ describe("a line chart", () => {
     const chart = draw(support, chartBlock({ chart: "line", metric: "accuracy", breakdown: "task" }));
 
     expect(chart.textLines).toEqual(
-      expect.arrayContaining(["better ↑", "Math word problems  Policy questions  Bug fixes", "Model A  73  68  59", "Model B  71  73  45"]),
+      expect.arrayContaining(["BETTER ↑", "Math word problems  Policy questions  Bug fixes", "Model A  73  68  59", "Model B  71  73  45"]),
     );
     expect(chart.table.header).toEqual(["task", "Candidate", "Share (%)", "Interval", "n"]);
   });

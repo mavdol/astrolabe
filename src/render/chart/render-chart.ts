@@ -74,7 +74,7 @@ export interface RenderedChart {
 const STYLE = {
   title: { weight: 500, size: 22, lineHeight: 28, tracking: -0.02 },
   tightTitle: { weight: 500, size: 20, lineHeight: 25, tracking: -0.02 },
-  subtitle: { weight: 400, size: 12, lineHeight: 16, tracking: 0.02, mono: true },
+  subtitle: { weight: 400, size: 12, lineHeight: 16, tracking: 0.04, mono: true },
   foot: { weight: 400, size: 12, lineHeight: 18, mono: true },
 } as const;
 
@@ -256,7 +256,13 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const decorated = !plotOnly;
   const spacing = options.height === undefined ? SPACING.roomy : SPACING.tight;
   const headingStyle = options.height === undefined ? STYLE.title : STYLE.tightTitle;
-  const labelLines = decorated ? text.wrapParts(content.subtitle.split(" · "), STYLE.subtitle, innerWidth - TICK_MARK_WIDTH) : [];
+  const labelLines = decorated
+    ? text.wrapParts(
+        content.subtitle.split(" · ").map((part) => part.toUpperCase()),
+        STYLE.subtitle,
+        innerWidth - TICK_MARK_WIDTH,
+      )
+    : [];
   const claimed = (reading ? asSentence(title) : title).replace(/\s+/g, " ").trim();
   const headingLines = decorated ? text.wrap(reading ? `${claimed} ${reading}` : claimed, headingStyle, innerWidth) : [];
   const readingParts = (content.howToReadParts ?? []).filter((part) => part.text);

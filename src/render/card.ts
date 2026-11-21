@@ -619,7 +619,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     return {
       comparison,
       metric,
-      labelLines: text.wrapParts(labelParts, STYLE.label, columnWidth - TICK_MARK_WIDTH),
+      labelLines: text.wrapParts(labelParts, STYLE.label, columnWidth),
       effectNumber,
       unit: unit.trim(),
       figureWidth: text.measure(effectNumber, STYLE.effect) + unitGapOf(unit.trim()) + text.measure(unit.trim(), STYLE.effectUnit),
@@ -651,8 +651,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     const effectBaseline = baselineOf(effectTop, STYLE.effect);
     const verdictColour = verdictColourOf(comparison, colours);
 
-    marks.push(tickMark(x, centreOfLine(columnsTop, STYLE.label), colours));
-    drawLines(labelLines, STYLE.label, colours.secondary, x + TICK_MARK_WIDTH, columnsTop);
+    drawLines(labelLines, STYLE.label, colours.secondary, x, columnsTop);
     marks.push(text.draw(effectNumber, x, effectBaseline, { ...STYLE.effect, fill: verdictColour }));
     marks.push(
       text.draw(unit, x + text.measure(effectNumber, STYLE.effect) + unitGapOf(unit), effectBaseline, {
