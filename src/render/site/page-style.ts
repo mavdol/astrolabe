@@ -135,6 +135,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 .figure-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin: 28px 0 18px; }
 .figure { margin: 0; font-size: clamp(56px, 7vw, 88px); line-height: 0.9; font-weight: 500; letter-spacing: -0.055em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .figure small { margin-left: 10px; font-size: 22px; letter-spacing: -0.01em; font-weight: 400; color: var(--secondary); }
+.figure small.percent { margin-left: 3px; }
 .stat h2 { margin: 18px 0 8px; font-size: 15px; line-height: 1.4; }
 .stat h2 a, .chapter-head h2 a { text-decoration: none; }
 .details { font-family: ${MONO}; font-size: 12px; line-height: 18px; color: var(--secondary); }

@@ -64,8 +64,19 @@ function trimmed(value: number): string {
   return String(Number(value.toPrecision(6)));
 }
 
+/** How many more decimals an interval may take so that two different ends never print as the same number. */
+const LARGEST_EXTRA_DECIMALS = 3;
+
+/** The two ends with the given decimals, or as few more as it takes for different ends to read differently. */
 export function formatInterval(interval: readonly [number, number], decimals: Decimals | null, options: { signed?: boolean } = {}): string {
-  return `${formatNumber(interval[0], decimals, options)} to ${formatNumber(interval[1], decimals, options)}`;
+  const [low, high] = interval;
+  const endsOf = (shown: Decimals | null) => [formatNumber(low, shown, options), formatNumber(high, shown, options)];
+  let shown = decimals;
+
+  while (shown !== null && low !== high && shown < (decimals ?? 0) + LARGEST_EXTRA_DECIMALS && new Set(endsOf(shown)).size === 1)
+    shown += 1;
+
+  return endsOf(shown).join(" to ");
 }
 
 /** 95 for 0.95, 98.75 for 0.9875. */

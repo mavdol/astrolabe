@@ -67,6 +67,30 @@ export interface ReadingPart {
   markName?: string;
 }
 
+/** How a key mark is painted: a page names classes for its stylesheet, a file that travels alone writes the colours. */
+export type KeyPaint = (role: "fill" | "stroke" | "dashed" | "band") => string;
+
+/** A key mark, drawn as it appears on the chart, in an 18 by 12 box. */
+export function keyMarkOf(mark: KeyMark, paint: KeyPaint): string {
+  switch (mark) {
+    case "dot":
+      return `<circle cx="9" cy="6" r="4" ${paint("fill")}/>`;
+    case "bar":
+      return `<rect x="1" y="2" width="16" height="8" rx="1.5" ${paint("fill")}/>`;
+    case "interval":
+      return `<path d="M2 6H16M2 2.5V9.5M16 2.5V9.5" ${paint("stroke")}/>`;
+    case "band":
+      return `<rect x="1" y="0" width="16" height="12" ${paint("band")}/>`;
+    case "frontier":
+      return `<path d="M1 6H17" ${paint("dashed")}/>`;
+  }
+}
+
+export const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** A claim and the reading after it, read as two sentences. */
+export const asSentence = (text: string) => (/[.!?:…]$/.test(text.trim()) ? text : `${text}.`);
+
 export const howToReadOf = (parts: ReadingPart[]) =>
   parts
     .filter((part) => part.text)

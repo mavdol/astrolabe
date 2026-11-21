@@ -204,7 +204,7 @@ describe("a chart broken down by node", () => {
   });
 
   it("resolves the templates of the author's reading", () => {
-    expect(draw(notes, tasks).textLines).toContain("Overall: inconclusive.");
+    expect(draw(notes, tasks).textLines.join(" ")).toContain("Overall: inconclusive.");
   });
 
   it("is narrowed by the filters it listens to", () => {
@@ -408,7 +408,7 @@ describe("the chart set", () => {
 
   it("draws the interval of every value that has one", () => {
     const notes = loadBenchmark("notes-apps-onboarding");
-    const chart = draw(notes, chartBlockOf(notes, "chart-tasks"));
+    const chart = draw(notes, chartBlockOf(notes, "chart-tasks"), { plotOnly: true });
     const intervalsAcross = chart.svg.match(/<path d="M[\d.]+ [\d.]+H[\d.]+M[\d.]+ [\d.]+V[\d.]+M[\d.]+ [\d.]+V[\d.]+"/g) ?? [];
 
     expect(chart.table.rows.filter((row) => row[3] !== "—")).toHaveLength(6);
@@ -477,7 +477,9 @@ describe("comparison rows", () => {
   });
 
   it("writes the effects of its title and reading as factors too", () => {
-    expect(draw(parsers, fastjson).textLines).toContain("Faster, at the cost of memory: wall time 1.98× faster, peak memory 2.88× more.");
+    expect(draw(parsers, fastjson).textLines.join(" ")).toContain(
+      "Faster, at the cost of memory: wall time 1.98× faster, peak memory 2.88× more.",
+    );
   });
 
   it("refuses a factor on a difference, on another chart type, and comparisons that do not exist", () => {
@@ -516,7 +518,7 @@ describe("a scatter chart", () => {
     beaten.results.values!.find((value) => value.metric === "accuracy" && value.node === "suite" && value.candidate === "model_b")!.value =
       90;
 
-    const chart = draw(beaten, costAccuracy);
+    const chart = draw(beaten, costAccuracy, { plotOnly: true });
 
     expect(chart.table.rows.map((row) => row[5])).toEqual(["yes", "no"]);
     expect(chart.svg).not.toContain("stroke-dasharray");

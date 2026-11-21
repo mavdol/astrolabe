@@ -13,7 +13,7 @@ import {
   optionsOf,
   type FilterState,
 } from "../chart/chart-data.js";
-import type { KeyMark } from "../chart/chart-content.js";
+import { asSentence, capitalised, keyMarkOf, type KeyPaint } from "../chart/chart-content.js";
 import { renderChart, type RenderedChart } from "../chart/render-chart.js";
 import {
   effectAndInterval,
@@ -92,7 +92,7 @@ function figureHtml(effectNumber: string, unit: string, tone: string): string {
   const value = Number(digits) * (/^[−-]/.test(effectNumber) ? -1 : 1);
   const counted = Number.isFinite(value) && /^[+−-]?[\d.,]+$/.test(effectNumber);
 
-  return `<p class="figure ${tone}"><span${counted ? ` data-count="${value}" data-decimals="${decimals}"` : ""}>${escapeHtml(effectNumber)}</span><small>${escapeHtml(unit.trim())}</small></p>`;
+  return `<p class="figure ${tone}"><span${counted ? ` data-count="${value}" data-decimals="${decimals}"` : ""}>${escapeHtml(effectNumber)}</span><small${unit.trim() === "%" ? ' class="percent"' : ""}>${escapeHtml(unit.trim())}</small></p>`;
 }
 
 function headlineHtml(block: HeadlineBlock, inputs: PageInputs, number: string): string {
@@ -234,9 +234,6 @@ export function sectionLabelsOf(blocks: Block[], inputs: Omit<PageInputs, "secti
   return new Map(names.map((name) => [name.id, shortCounts.get(name.short)! > 1 ? name.full : name.short]));
 }
 
-/** A claim and the reading after it, read as two sentences. */
-const asSentence = (text: string) => (/[.!?:…]$/.test(text.trim()) ? text : `${text}.`);
-
 /** The left column of a chapter: its number and subject, its claim with the reading after it, its filters. */
 function chapterHead(block: Block, inputs: PageInputs, number: string, label: string, title: string, reading: string): string {
   return [
@@ -289,15 +286,7 @@ function chartViewsOf(block: ChartBlock, inputs: PageInputs, columnWidth: number
   });
 }
 
-const KEY_MARKS: Record<KeyMark, string> = {
-  dot: '<circle cx="9" cy="6" r="4" class="key-fill"/>',
-  bar: '<rect x="1" y="2" width="16" height="8" rx="1.5" class="key-fill"/>',
-  interval: '<path d="M2 6H16M2 2.5V9.5M16 2.5V9.5" class="key-stroke"/>',
-  band: '<rect x="1" y="0" width="16" height="12" class="key-band"/>',
-  frontier: '<path d="M1 6H17" class="key-stroke key-dashed"/>',
-};
-
-const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const pageKeyPaint: KeyPaint = (role) => (role === "dashed" ? 'class="key-stroke key-dashed"' : `class="key-${role}"`);
 
 /**
  * How to read a chart under it: each mark drawn as it appears, with the few words that say what it is,
@@ -312,7 +301,7 @@ function howToReadHtml(chart: RenderedChart): string {
   const said = parts.filter((part) => !part.mark).map((part) => part.text);
   const entries = keyed.map(
     (part) =>
-      `<li><svg class="key-mark" viewBox="0 0 18 12" aria-hidden="true">${KEY_MARKS[part.mark!]}</svg><span><span class="visually-hidden">${escapeHtml(part.markName!)}: </span>${escapeHtml(capitalised(part.text))}</span></li>`,
+      `<li><svg class="key-mark" viewBox="0 0 18 12" aria-hidden="true">${keyMarkOf(part.mark!, pageKeyPaint)}</svg><span><span class="visually-hidden">${escapeHtml(part.markName!)}: </span>${escapeHtml(capitalised(part.text))}</span></li>`,
   );
 
   return [

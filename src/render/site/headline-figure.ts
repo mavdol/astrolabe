@@ -1,4 +1,5 @@
 import type { Comparison, Metric, Value } from "../../schema/benchmark.js";
+import { valuesDrawnFromZero } from "../card.js";
 import { withUnit } from "../chart/chart-content.js";
 import { labelDecimals, type Lookup } from "../describe.js";
 import { formatNumber } from "../number-format.js";
@@ -82,17 +83,18 @@ function valuesFromZero(metric: Metric, rows: { name: string; candidate: string;
  */
 export function headlineFigure(lookup: Lookup, comparison: Comparison): string {
   const metric = lookup.metricById.get(comparison.metric)!;
-  const valueOf = (candidate: string) =>
-    (lookup.results.values ?? []).find(
-      (value) => value.metric === comparison.metric && value.node === comparison.node && value.candidate === candidate,
-    );
-  const [subject, baseline] = [valueOf(comparison.candidate), valueOf(comparison.vs)];
+  const fromZero = valuesDrawnFromZero(lookup, comparison);
 
-  if (metric.compare_as === "relative" && subject && baseline && subject.value >= 0 && baseline.value >= 0)
-    return valuesFromZero(metric, [
-      { name: lookup.candidateName.get(comparison.candidate)!, candidate: comparison.candidate, value: subject, role: "subject" },
-      { name: lookup.candidateName.get(comparison.vs)!, candidate: comparison.vs, value: baseline, role: "baseline" },
-    ]);
+  if (fromZero)
+    return valuesFromZero(
+      metric,
+      fromZero.map(({ candidate, value }, index) => ({
+        name: lookup.candidateName.get(candidate)!,
+        candidate,
+        value,
+        role: index === 0 ? "subject" : "baseline",
+      })),
+    );
 
   return effectStrip(metric, comparison);
 }
