@@ -58,14 +58,6 @@ It combines a skill and a command-line tool. The skill brings together best prac
 
 Install the skill, then ask your agent to compare options, benchmark a change, or report on results you already have. The agent loads the skill automatically for these requests. If your project doesn't have the `astrolabe` command yet, the agent adds it after asking you. The command requires Node.js 22 or later.
 
-**Claude Code plugin**
-
-```bash
-claude plugin install astrolabe --marketplace mavdol/astrolabe
-```
-
-> Or add the marketplace with `/plugin marketplace add mavdol/astrolabe` and find the plugin under `/plugin`.
-
 **Any agent that implements the [Agent Skills specification](https://agentskills.io)**
 
 ```bash
@@ -85,6 +77,16 @@ Copy [`plugin/skills/astrolabe-benchmark/`](plugin/skills/astrolabe-benchmark) i
 
 > [!TIP]
 > Use a mid-range model or better, such as Claude Sonnet or its equivalent. Smaller models, such as Claude Haiku, load the skill less reliably and may skip steps.
+
+### Preview the site
+
+Once your agent has built a benchmark, open its page on your computer:
+
+```bash
+npx --no-install astrolabe preview
+```
+
+The command builds the site, serves it at http://localhost:4321 and rebuilds it whenever a file of the benchmark changes. It uses the `benchmark.json` in the current folder, or the one under `benchmarks/`; pass a path to use another one, and `--port` to use another port.
 
 ## Open format
 
