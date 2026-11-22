@@ -1,4 +1,5 @@
 import type { Issue } from "../rules/registry.js";
+import { lookupOf, resolveTemplates, type EffectFormat } from "../render/describe.js";
 import type { Benchmark, Comparison } from "../schema/benchmark.js";
 
 const TEMPLATE = /\{(\w+):([^}]+)\}/g;
@@ -14,10 +15,14 @@ interface Block {
   asserts?: unknown;
   metrics?: string[];
   show?: string[];
+  effect_format?: EffectFormat;
 }
 
 const LARGEST_ROW = 2;
 const LARGEST_HEADLINE_COUNT = 3;
+/** A claim read at a glance: one line on the page, the card and the images. */
+const LONGEST_TITLE = 60;
+const BLOCKS_WITH_WRITTEN_TITLES = new Set(["headline", "chart", "text"]);
 
 function verdictLabel(comparison: Comparison): string {
   return comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
@@ -43,6 +48,7 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
     verdict: new Set(comparisonById.keys()),
   };
 
+  const lookup = lookupOf(results);
   const blockIds = blocks.map((block) => block.id);
 
   for (const duplicated of new Set(blockIds.filter((id, index) => blockIds.indexOf(id) !== index))) {
@@ -142,6 +148,17 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
         `${path}.title`,
         "a number is typed in the title: numbers come from {effect:id}, and names that contain a digit from {metric:id}",
       );
+    }
+
+    if (BLOCKS_WITH_WRITTEN_TITLES.has(block.type) && typeof block.title === "string") {
+      const shownTitle = resolveTemplates(block.title, lookup, block.effect_format);
+
+      if (shownTitle.length > LONGEST_TITLE)
+        warning(
+          "V25",
+          `${path}.title`,
+          `the title reads "${shownTitle}", ${shownTitle.length} characters: keep the claim to ${LONGEST_TITLE} at most, and move the rest to the reading in description`,
+        );
     }
 
     if (block.type === "headline") requirePrimary(block.comparison, `${path}.comparison`, "a headline");

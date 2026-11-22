@@ -1,4 +1,4 @@
-# Which model should power our customer-support assistant, given accuracy and running cost?
+# Which model should power our support assistant, given accuracy and cost?
 
 Internal tasks only; does not measure latency or safety.
 
@@ -121,4 +121,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `097eb7662c66` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `7602801ca634` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>

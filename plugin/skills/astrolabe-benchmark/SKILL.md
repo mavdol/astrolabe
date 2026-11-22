@@ -60,7 +60,7 @@ Most benchmarks need two or three measurement files: a speed comparison of two l
 3. The domain researched and a workload that represents the user's real use (F4, F5, U1).
 4. The right baseline, named (F7, S3).
 5. The same effort and a documented configuration for every candidate (F8).
-6. The environment recorded, with timestamps for services you do not control; scripts and raw data published (F11, F15, F16).
+6. The environment recorded, including where it ran (bare metal, a virtual machine, a container, a CI runner), with timestamps for services you do not control; scripts and raw data published (F11, F15, F16).
 7. Repeated runs; variability and sample size beside every value; winners named from effects and their intervals (S1, S7).
 8. Failures checked, counted and kept apart from successes (T8, Q5).
 9. Every variant tried is reported, not only the best (P4, S9).
@@ -114,7 +114,7 @@ Decide everything else yourself from the defaults in statistics.md and the measu
 
 Two answers shape the whole result, so they are worth a question:
 
-- **The goal** is the user's decision, phrased neutrally: "which parser should the nightly import use?", never "show that X is faster". When the user owns or sells a candidate, or asks for one to win, the goal stays neutral and the protocol stays the same for everyone; see the table below.
+- **The goal** is the user's decision, phrased neutrally as one short question: "which parser should the nightly import use?", never "show that X is faster". The page and the README card show it as their title, so keep it to 80 characters; `validate` warns past that. When the user owns or sells a candidate, or asks for one to win, the goal stays neutral and the protocol stays the same for everyone; see the table below.
 - **The smallest difference that matters** (`minimum_meaningful`, per metric) is what separates "better" from "a real difference too small to care about". It is set before measuring. If the user has none, propose one (10% is a common choice for a run time) and say so.
 
 ## Step 2: research, and read the terms
@@ -240,7 +240,7 @@ The rules behind steps 1 to 4. Must rules apply to every benchmark; Should rules
 | Rule | Level | Instruction | Pitfall it prevents | Proved by |
 | --- | --- | --- | --- | --- |
 | F1 | Must | Ask the user which decision the benchmark must inform before designing anything. | Measuring first and choosing the conclusion after | benchmark.goal |
-| F2 | Must | Phrase the goal neutrally ("which option fits this case"), never "show that X wins". | Biased goals steer workload and metric choices | benchmark.goal |
+| F2 | Must | Phrase the goal neutrally ("which option fits this case"), never "show that X wins", as one short question of 80 characters at most: the page and the README card show it as their title. | Biased goals steer workload and metric choices | benchmark.goal |
 | F3 | Must | Derive candidate metrics from what the system delivers; the user picks and weights them, the agent proposes and challenges. | Irrelevant or convenient metrics | metrics[] (label, kind, unit, direction, statistic, weight) |
 | F4 | Must | Before designing, research the domain: existing reference benchmarks or suites, standard metrics and units, and known pitfalls, from your own knowledge first, then a web search when available. Prefer reusing a reference suite; if it is subset, justify each omission and never report an overall score for the subset. Record what was found, or that nothing was found. | Ignoring what the domain already knows; cherry-picked subsets | domain_research (reference suites, metrics, pitfalls, sources; may be empty) |
 | F5 | Must | Use a workload representative of the user's real use: the input ranges that matter and the way the system is actually called (one request or many, batch or sequential), since the usage pattern can change cost and speed by an order of magnitude (Kapoor et al.). | Input ranges chosen to make one option look good | workload |
@@ -249,7 +249,7 @@ The rules behind steps 1 to 4. Must rules apply to every benchmark; Should rules
 | F8 | Must | Give every competitor the same tuning effort, document every configuration, disable debug defaults, and enable the features a production user would turn on. | Unfairly configured competitors | candidates[].config |
 | F9 | Should | Keep tuning or calibration data disjoint from evaluation data, and hold out items at the level of generality you claim: new tasks for a general claim, not just new examples (Kapoor et al.). | Results that only show fit to known data | — |
 | F10 | Should | Benchmark actively: observe the system during runs and answer the sanity checklist (why not double, was it tuned, did it break limits, did it error, does it reproduce, does it matter, did it even happen). | Measuring the wrong bottleneck or a run that never happened | — |
-| F11 | Must | Record hardware, software versions and configuration, and write down assumptions and limitations. | Results nobody can interpret or reproduce | environment, limitations[] |
+| F11 | Must | Record hardware, software versions, configuration and where the measurements ran (bare metal, a virtual machine, a container, a CI runner), and write down assumptions and limitations. | Results nobody can interpret or reproduce | environment, limitations[] |
 | F12 | Should | State what the benchmark tests and how its scores should be interpreted. | Scores read as broader claims than they support | benchmark.scope |
 | F13 | Should | Run a sensitivity check: vary the parameters most likely to matter (input size, concurrency, settings) and say whether the conclusion holds. | Conclusions that only hold at one setting | limitations[] |
 | F14 | Must | Before publishing, look for clauses restricting benchmark publication ("DeWitt clauses") in each candidate's licence or terms of service, quote and link any clause found, and tell the user before anything is published. Offer the options (ask the vendor for permission, keep that candidate private, or decide knowingly), say that enforceability varies by jurisdiction (a New York court struck down one such clause), and state plainly that this is not legal advice. Record the address of the terms read and the date, also when nothing was found. | Publishing results a licence forbids, or silently dropping inconvenient candidates | candidates[].publication_terms |

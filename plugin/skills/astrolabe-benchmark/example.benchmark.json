@@ -21,7 +21,7 @@
     "benchmark": {
       "id": "markdown-renderers",
       "version": "1.0.0",
-      "goal": "Should the documentation build keep markly or move to quickmark, given build time, memory on the CI runner and identical HTML?",
+      "goal": "Keep markly or move to quickmark, given build time, memory and identical HTML?",
       "scope": "One process rendering the 480 pages of docs/, start-up included, on the CI runner image. Says nothing about rendering in the browser or about other documents.",
       "conditions": []
     },
@@ -117,6 +117,7 @@
     "environment": {
       "hardware": "CI runner, 4 vCPU x86-64, 16 GB RAM",
       "os": "Ubuntu 24.04",
+      "host": "A virtual machine of the CI service, shared with no other job",
       "software": { "node": "22.14.0", "markly": "4.2.1", "quickmark": "1.8.0", "hyperfine": "1.19.0" },
       "background": "Nothing else scheduled on the runner during the measurement",
       "tools": ["hyperfine"]

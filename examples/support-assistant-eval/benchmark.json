@@ -4,7 +4,7 @@
     "benchmark": {
       "id": "support-assistant-eval",
       "version": "1.2.0",
-      "goal": "Which model should power our customer-support assistant, given accuracy and running cost?",
+      "goal": "Which model should power our support assistant, given accuracy and cost?",
       "scope": "Internal tasks only; does not measure latency or safety.",
       "conditions": ["non_deterministic", "trained_or_tuned"]
     },

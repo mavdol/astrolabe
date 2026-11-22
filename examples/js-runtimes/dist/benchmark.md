@@ -1,4 +1,4 @@
-# Which JavaScript runtime runs our short command-line scripts faster and with less memory: Node.js or Deno?
+# Node.js or Deno: which runs our short scripts faster and with less memory?
 
 One process per run, start-up included, on a short CPU-bound script; not a measure of long-running servers.
 
@@ -69,6 +69,7 @@ Declared by the author.
 
 - Hardware: Apple M2, 8 cores, 8 GB RAM
 - Os: macOS 26.6.2
+- Host: Bare metal: a developer laptop
 - Software: node 22.14.0, deno 2.5.6, hyperfine 2.0.0
 - Background: Not controlled: a developer laptop with its usual background processes
 - Tools: hyperfine
@@ -81,4 +82,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `e2c4fb0f3d76` · 2026-11-16 · source https://github.com/mavdol/astrolabe · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `ee3e6113b9cf` · 2026-11-16 · source https://github.com/mavdol/astrolabe · built with astrolabe-bench 0.1.0</sub>
