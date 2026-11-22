@@ -27,9 +27,9 @@ describe("the README card", () => {
   it("can be read alone: the question, effects, verdicts, intervals, how to read and the provenance", () => {
     expect(card.textLines).toEqual([
       "js-runtimes v1.0.0 · DENO AGAINST NODE.JS",
-      "Which JavaScript runtime runs our short command-line scripts",
-      "faster and with less memory: Node.js or Deno?",
-      "WALL TIME · LOWER IS BETTER",
+      "Node.js or Deno: which runs our short scripts faster and with less",
+      "memory?",
+      "WALL TIME",
       "\u221210%",
       "LIKELY BETTER",
       "Deno  0.241 s",
@@ -37,7 +37,7 @@ describe("the README card", () => {
       "Interval \u221212 to \u22129%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "PEAK MEMORY · LOWER IS BETTER",
+      "PEAK MEMORY",
       "+1.1%",
       "EQUIVALENT",
       "Deno  215 MiB",
@@ -45,7 +45,8 @@ describe("the README card", () => {
       "Interval +1.0 to +1.2%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons.",
+      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons. Lower is better.",
+      "Machine: Apple M2, 8 cores, 8 GB RAM · macOS 26.6.2 · Bare metal: a developer laptop",
       expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
@@ -133,7 +134,7 @@ describe("what a card shows", () => {
     const lines = renderCard(parsers, content, "light", context).textLines;
 
     expect(content.headlines.map((headline) => headline.comparison.id)).toEqual(["wall_time__fastjson", "peak_rss__fastjson"]);
-    expect(lines).toContain("WALL TIME · LOWER IS BETTER");
+    expect(lines).toContain("WALL TIME");
     expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline blocks/);
   });
 
@@ -208,6 +209,20 @@ describe("reading a card at a glance", () => {
     expect(parsersCard.textLines).not.toContain("fastjson: \u221250% wall time");
   });
 
+  it("leaves out a block title that only says the verdict again in its own words", () => {
+    const parsers = structuredClone(loadBenchmark("json-cli-parse"));
+    const headline = (parsers.blocks as { id: string; title?: string }[]).find((block) => block.id === "headline-memory")!;
+
+    headline.title = "{candidate:fastjson} likely uses less memory: {effect:peak_rss__fastjson}";
+    const restating = renderCard(parsers, cardContentOf(parsers, ["headline-memory"]), "light", context).textLines.join(" ");
+
+    headline.title = "{candidate:fastjson} stays under the CI runner's limit";
+    const adding = renderCard(parsers, cardContentOf(parsers, ["headline-memory"]), "light", context).textLines.join(" ");
+
+    expect(restating).not.toContain("uses less memory");
+    expect(adding).toContain("under the CI runner's limit");
+  });
+
   it("keeps a block title that adds information", () => {
     const usability = loadBenchmark("notes-apps-onboarding");
     const content = cardContentOf(usability, ["headline-sus", "headline-features"]);
@@ -221,9 +236,38 @@ describe("reading a card at a glance", () => {
     const suite = loadBenchmark("support-assistant-eval");
     const lines = renderCard(suite, cardContentOf(suite), "light", context).textLines;
 
-    expect(lines).toContain("ACCURACY · HIGHER IS BETTER");
+    expect(lines).toContain("ACCURACY");
     expect(lines.join(" ")).toContain("ACCURACY, CODING");
     expect(lines.join(" ").toUpperCase()).not.toContain("SUPPORT ASSISTANT EVAL");
+  });
+
+  it("says the direction once when every cell shares it, and in each cell when they differ", () => {
+    const suite = loadBenchmark("support-assistant-eval");
+    const sharedLines = renderCard(suite, cardContentOf(suite), "light", context).textLines;
+
+    expect(sharedLines).toContain("Higher is better.");
+    expect(sharedLines.join(" ")).not.toContain("HIGHER IS BETTER");
+
+    const geocoding = loadBenchmark("geocoding-apis");
+    const mixedLines = renderCard(geocoding, cardContentOf(geocoding), "light", context).textLines;
+
+    expect(mixedLines.filter((line) => line.endsWith("LOWER IS BETTER"))).toHaveLength(2);
+    expect(mixedLines.filter((line) => line.endsWith("HIGHER IS BETTER"))).toHaveLength(1);
+    expect(mixedLines.join(" ")).not.toMatch(/(Lower|Higher) is better\./);
+  });
+
+  it("names the machine where its numbers were measured, only for measurements on your own machines", () => {
+    const parsers = loadBenchmark("json-cli-parse");
+    const card = renderCard(parsers, cardContentOf(parsers), "light", context);
+
+    expect(card.textLines).toContain("Machine: 8-core x86-64 laptop, 32 GB RAM, NVMe · Linux 6.8 · Bare metal: a laptop");
+    expect(card.svg).toContain("Machine: 8-core x86-64 laptop, 32 GB RAM, NVMe · Linux 6.8 · Bare metal: a laptop.");
+
+    for (const id of ["geocoding-apis", "support-assistant-eval", "notes-apps-onboarding"]) {
+      const benchmark = loadBenchmark(id);
+
+      expect(renderCard(benchmark, cardContentOf(benchmark), "light", context).textLines.join(" "), id).not.toContain("Machine:");
+    }
   });
 
   it("puts the warning about failures in ink with an icon", () => {

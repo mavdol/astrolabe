@@ -92,6 +92,7 @@
     "environment": {
       "hardware": "8-core x86-64 laptop, 32 GB RAM, NVMe",
       "os": "Linux 6.8",
+      "host": "Bare metal: a laptop",
       "software": {"hyperfine": "1.19"},
       "background": "No other user process; checked with top before each batch",
       "tools": ["hyperfine"]

@@ -1,4 +1,4 @@
-import type { Benchmark, Comparison, Metric, Value } from "../schema/benchmark.js";
+import { KINDS_MEASURED_ON_YOUR_MACHINES, type Benchmark, type Comparison, type Metric, type Value } from "../schema/benchmark.js";
 import { withUnit } from "./chart/chart-content.js";
 import {
   effectAndInterval,
@@ -161,7 +161,37 @@ function sharedPairOf(lookup: Lookup, content: CardContent): string | null {
 
 const directionWords = (metric: Metric) => (metric.direction === "lower" ? "lower is better" : "higher is better");
 
+/** The direction every headline of the card shares, said once under the cells; undefined when they differ, so each cell says its own. */
+function sharedDirectionOf(lookup: Lookup, content: CardContent): Metric["direction"] | undefined {
+  const directions = new Set(content.headlines.map(({ comparison }) => lookup.metricById.get(comparison.metric)!.direction));
+
+  return directions.size === 1 ? [...directions][0] : undefined;
+}
+
+/**
+ * The machine, its system and where it ran, when a headline was measured on the author's own machines: a time or a
+ * memory read on its own would seem to hold anywhere. Undefined for other benchmarks (an API, a model, people).
+ */
+function machineOf(benchmark: Benchmark, content: CardContent): string[] | undefined {
+  const { results } = benchmark;
+  const measuredOnYourMachines = content.headlines.some(({ comparison }) =>
+    KINDS_MEASURED_ON_YOUR_MACHINES.has(results.metrics.find((metric) => metric.id === comparison.metric)!.kind),
+  );
+  const parts = ["hardware", "os", "host"]
+    .map((key) => results.environment[key])
+    .filter((setting): setting is string => typeof setting === "string" && setting !== "");
+
+  return measuredOnYourMachines && parts.length > 0 ? parts : undefined;
+}
+
 const normalizedWords = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}%+−.]+/gu, " ");
+
+/** Words that only say the verdict again, in the comparison's own terms: the chip beside the figure already says it. */
+const VERDICT_WORDS = new Set(
+  "is are was likely better worse faster slower quicker more less fewer higher lower larger smaller uses use needs takes same equivalent inconclusive than".split(
+    " ",
+  ),
+);
 
 /**
  * A block title is left out when it only restates what the card already
@@ -183,7 +213,10 @@ export function addsInformation(resolvedTitle: string, lookup: Lookup, compariso
     remaining = remaining.split(` ${normalizedWords(shown).trim()} `).join(" ");
   }
 
-  const otherWords = remaining.split(/\s+/).filter((word) => word.length > 2 && !["vs", "against", "and"].includes(word));
+  const metricWords = new Set(normalizedWords(metric.label).split(/\s+/));
+  const otherWords = remaining
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !["vs", "against", "and"].includes(word) && !VERDICT_WORDS.has(word) && !metricWords.has(word));
 
   return otherWords.length > 1;
 }
@@ -618,13 +651,15 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   );
   const sharedLevel = levels.size === 1 ? ([...levels][0] as string) : null;
 
+  const sharedDirection = sharedDirectionOf(lookup, content);
+
   // Laid out in rows, each as tall as its tallest column, so labels, figures, verdicts and drawings line up across columns.
   const columns = content.headlines.map(({ comparison, title }) => {
     const metric = lookup.metricById.get(comparison.metric)!;
     const labelParts = [
       measuredOf(lookup, comparison),
       ...(sharedPair ? [] : [lookup.candidateName.get(comparison.candidate)!]),
-      directionWords(metric),
+      ...(sharedDirection ? [] : [directionWords(metric)]),
     ].map((part) => part.toUpperCase());
     const { effectNumber, unit } = effectAndInterval(metric, comparison);
     const verdict = verdictOf(comparison);
@@ -785,6 +820,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         : `${possessive} ${intervalNoun}`;
   const legendSentences = [
     `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`,
+    ...(sharedDirection ? [sharedDirection === "lower" ? "Lower is better." : "Higher is better."] : []),
     ...(columns.some((column) => !column.fromZero) ? ["Shaded band: too small to matter."] : []),
     ...(content.omitted.length > 0
       ? [
@@ -798,6 +834,18 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   for (const sentence of legendLines)
     cursorY = drawLines(
       text.wrapParts(sentence.split(/(?<=,) /), STYLE.detail, innerWidth, " "),
+      STYLE.detail,
+      colours.secondary,
+      PADDING,
+      cursorY,
+    );
+
+  const machine = machineOf(benchmark, content);
+  const machineText = machine ? `Machine: ${machine.join(" · ")}` : "";
+
+  if (machine)
+    cursorY = drawLines(
+      text.wrapParts([`Machine: ${machine[0]}`, ...machine.slice(1)], STYLE.detail, innerWidth),
       STYLE.detail,
       colours.secondary,
       PADDING,
@@ -820,7 +868,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
   const height = Math.ceil(cursorY + 24);
   const altText = cardAltText(benchmark, content);
-  const longDescription = [altText, legend, provenanceText].join(" ");
+  const longDescription = [altText, legend, machine ? `${machineText}.` : "", provenanceText].filter(Boolean).join(" ");
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" role="img" aria-labelledby="title description"`,
     ` data-results-sha256="${provenance.hash}" data-build-date="${provenance.date}" data-generator="astrolabe-bench ${context.generatorVersion}">`,

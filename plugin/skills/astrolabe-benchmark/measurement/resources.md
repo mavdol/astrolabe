@@ -22,6 +22,7 @@ Kinds `memory`, `cpu` and `energy`. The main trap is comparing numbers that do n
 - Peak memory of a command: hyperfine reports it and `astrolabe import hyperfine` writes it as `peak_rss` (MiB). Otherwise `/usr/bin/time -v` on Linux or `/usr/bin/time -l` on macOS (mind the units: kilobytes on Linux, bytes on macOS), or `process.resourceUsage().maxRSS` inside Node.js; the script converts and writes the row.
 - One snapshot at the end misses the peak. To see growth or a leak, sample during the run and write the samples as rows of a raw file declared with `"kind": "timeseries"`.
 - Start from a quiet machine and say what else was running in `environment.background`. A laptop with a browser open is a limitation to write down.
+- `validate` asks for `environment.hardware`, `os`, `software` and `host` here as for time: `host` is where it ran (bare metal, a virtual machine, a container, a CI runner), found as time.md says, since a container's memory limit or a shared runner changes the numbers.
 - Runtimes with a garbage collector or a JIT (JVM, Node.js, Go, .NET, Python): heap size and collector settings change both memory and time, sometimes the ranking. Declare the condition `managed_runtime` in `benchmark.conditions`, record the settings in `environment.runtime_settings`, and when memory matters compare at more than one heap size.
 - Check the result against what is possible: a process cannot use more memory than the machine has, or more CPU than its cores. A number beyond a hard limit is a measurement error.
 

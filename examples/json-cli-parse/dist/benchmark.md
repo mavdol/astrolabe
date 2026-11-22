@@ -77,6 +77,7 @@ Declared by the author.
 
 - Hardware: 8-core x86-64 laptop, 32 GB RAM, NVMe
 - Os: Linux 6.8
+- Host: Bare metal: a laptop
 - Software: hyperfine 1.19
 - Background: No other user process; checked with top before each batch
 - Tools: hyperfine
@@ -88,4 +89,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `be6ce37668e2` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `9eb30c078181` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>

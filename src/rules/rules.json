@@ -154,7 +154,7 @@
   {
     "id": "F2",
     "level": "must",
-    "text": "Phrase the goal neutrally (\"which option fits this case\"), never \"show that X wins\".",
+    "text": "Phrase the goal neutrally (\"which option fits this case\"), never \"show that X wins\", as one short question of 80 characters at most: the page and the README card show it as their title.",
     "pitfall": "Biased goals steer workload and metric choices",
     "proved_by": "benchmark.goal",
     "explained_in": "SKILL.md"
@@ -223,7 +223,7 @@
   {
     "id": "F11",
     "level": "must",
-    "text": "Record hardware, software versions and configuration, and write down assumptions and limitations.",
+    "text": "Record hardware, software versions, configuration and where the measurements ran (bare metal, a virtual machine, a container, a CI runner), and write down assumptions and limitations.",
     "pitfall": "Results nobody can interpret or reproduce",
     "proved_by": "environment, limitations[]",
     "explained_in": "SKILL.md"
@@ -968,7 +968,7 @@
   {
     "id": "V25",
     "level": "must",
-    "text": "Write titles that state the finding, and list in `asserts` the verdicts the title relies on. Use \"better\" words only for a better verdict, \"same\" only for equivalent, and say inconclusive when it is. Rely only on primary comparisons (S11); an exploratory one never makes a headline or a claim in a title.",
+    "text": "Write titles that state the finding in 60 characters at most as the reader sees them, and list in `asserts` the verdicts the title relies on. Use \"better\" words only for a better verdict, \"same\" only for equivalent, and say inconclusive when it is. Rely only on primary comparisons (S11); an exploratory one never makes a headline or a claim in a title.",
     "pitfall": "A slanted title that readers remember instead of the data, and that survives a rerun that no longer supports it",
     "proved_by": "blocks[].asserts",
     "explained_in": "visualization/style.md"

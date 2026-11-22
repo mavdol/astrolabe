@@ -1,4 +1,4 @@
-# Which geocoding API should replace our current one, given latency, match rate and price?
+# Which geocoding API should replace ours, given latency, match rate and price?
 
 Benchmark `geocoding-apis`, version 1.0.0. Baseline: Geo A.
 
@@ -94,4 +94,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `defc3fad9c94` · 2026-11-16 · source https://github.com/example/geocoding-apis · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `c0706f89a5b7` · 2026-11-16 · source https://github.com/example/geocoding-apis · built with astrolabe-bench 0.1.0</sub>

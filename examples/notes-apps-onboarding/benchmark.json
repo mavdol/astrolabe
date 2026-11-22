@@ -4,7 +4,7 @@
     "benchmark": {
       "id": "notes-apps-onboarding",
       "version": "1.0.0",
-      "goal": "Which note-taking app should the team adopt, judged on first-week tasks and the three features we need?",
+      "goal": "Which notes app should we adopt, judged on first-week tasks and needed features?",
       "conditions": []
     },
     "domain_research": {

@@ -21,6 +21,8 @@ export const METRIC_KINDS = [
   "usability",
   "feature",
 ] as const;
+/** Measured on the author's own machines, so the numbers depend on the hardware, the system and where it ran. */
+export const KINDS_MEASURED_ON_YOUR_MACHINES: ReadonlySet<string> = new Set(["run_time", "throughput", "memory", "cpu", "energy"]);
 export const STATISTICS = ["mean", "median", "p50", "p95", "p99", "rate", "share", "total"] as const;
 export const CONDITIONS = ["non_deterministic", "trained_or_tuned", "managed_runtime", "load_test", "gathered_before_plan"] as const;
 

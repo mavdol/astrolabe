@@ -4,7 +4,7 @@
     "benchmark": {
       "id": "geocoding-apis",
       "version": "1.0.0",
-      "goal": "Which geocoding API should replace our current one, given latency, match rate and price?",
+      "goal": "Which geocoding API should replace ours, given latency, match rate and price?",
       "conditions": []
     },
     "domain_research": {

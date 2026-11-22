@@ -1,4 +1,4 @@
-# Which note-taking app should the team adopt, judged on first-week tasks and the three features we need?
+# Which notes app should we adopt, judged on first-week tasks and needed features?
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="exports/readme-card-light.svg">
@@ -131,4 +131,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `20ce6c97868d` · 2026-11-16 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `cbccb5eedf5a` · 2026-11-16 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>

@@ -106,7 +106,7 @@ Use a filter only when one view cannot hold the content: a breakdown that fits i
 
 - `mode`: `light`, `dark` or `both`. A card defaults to both, so it matches the reader's README; images default to light.
 - `filter_state` freezes a filter for one export, written as filter id to option. Left out, the export shows the default state. Never pick by hand the slice that flatters a candidate: an export travels without the page around it.
-- Every export carries its title, the candidate names, the unit, the direction, the interval and a provenance line (where the full results are, a short hash, the date). Nothing to add.
+- Every export carries its title, the candidate names, the unit, the direction, the interval and a provenance line (where the full results are, a short hash, the date). Nothing to add. The card's title is the goal, so a short goal keeps it to two lines; when its numbers were measured on your own machine (time, memory, CPU, energy), the card also names the machine from `environment.hardware`, `os` and `host`.
 
 ## Check the page
 

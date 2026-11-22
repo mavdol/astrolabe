@@ -3,12 +3,13 @@ import { ALPHA, declaredInputs } from "../compute/compute.js";
 import { PARTICIPANTS_TO_RANK } from "../compute/verdict.js";
 import { nodeTreeOf } from "../compute/structure.js";
 import type { Issue } from "../rules/registry.js";
-import type { Metric, Results } from "../schema/benchmark.js";
+import { KINDS_MEASURED_ON_YOUR_MACHINES, type Metric, type Results } from "../schema/benchmark.js";
 
-const KINDS_MEASURED_ON_AUTHOR_MACHINES = new Set(["run_time", "throughput", "memory", "cpu", "energy"]);
 const KINDS_NEEDING_WARMUP = new Set(["run_time", "latency", "throughput"]);
 const KINDS_NEEDING_SCOPE = new Set(["cpu", "memory", "energy"]);
 const KINDS_ALLOWED_WITHOUT_RAW_DATA = new Set(["cost", "feature"]);
+/** The page's hero and the README card show the goal as their title: two lines of the card at most. */
+const LONGEST_GOAL = 80;
 const QUANTILE_OF_STATISTIC: Record<string, number> = { median: 0.5, p50: 0.5, p95: 0.95, p99: 0.99 };
 
 export function checkPlan(results: Results): Issue[] {
@@ -23,7 +24,7 @@ export function checkPlan(results: Results): Issue[] {
   const nodeIds = (results.structure?.nodes ?? []).map((node) => node.id);
   const conditions = new Set(results.benchmark.conditions);
   const metricKinds = new Set(results.metrics.map((metric) => metric.kind));
-  const hasKindIn = (kinds: Set<string>) => [...metricKinds].some((kind) => kinds.has(kind));
+  const hasKindIn = (kinds: ReadonlySet<string>) => [...metricKinds].some((kind) => kinds.has(kind));
 
   const reportDuplicates = (ids: string[], path: string) => {
     const duplicated = ids.filter((id, index) => ids.indexOf(id) !== index);
@@ -38,6 +39,7 @@ export function checkPlan(results: Results): Issue[] {
 
   if (!candidateIds.includes(results.baseline)) error("F7", "baseline", `"${results.baseline}" is not the id of a candidate`);
 
+  checkGoal();
   checkCandidates();
   checkStructure();
   checkMetrics();
@@ -50,6 +52,17 @@ export function checkPlan(results: Results): Issue[] {
   checkPlannedRunsGiveAnInterval();
 
   return issues;
+
+  function checkGoal() {
+    const { goal } = results.benchmark;
+
+    if (goal.length > LONGEST_GOAL)
+      warning(
+        "F2",
+        "benchmark.goal",
+        `the goal is ${goal.length} characters: the page and the README card show it as their title, so keep it to one question of ${LONGEST_GOAL} characters at most`,
+      );
+  }
 
   function checkCandidates() {
     const configKeysOfFirst = Object.keys(results.candidates[0].config).sort().join(", ");
@@ -253,11 +266,18 @@ export function checkPlan(results: Results): Issue[] {
   function checkEnvironmentAndRuns() {
     if (Object.keys(results.environment).length === 0) error("F11", "environment", "describe the environment the measurements ran in");
 
-    if (hasKindIn(KINDS_MEASURED_ON_AUTHOR_MACHINES)) {
+    if (hasKindIn(KINDS_MEASURED_ON_YOUR_MACHINES)) {
       for (const required of ["hardware", "os", "software"]) {
         if (results.environment[required] === undefined)
           error("F11", `environment.${required}`, `measurements on your own machines need environment.${required}`);
       }
+
+      if (results.environment.host === undefined)
+        error(
+          "F11",
+          "environment.host",
+          "measurements on your own machines need environment.host: where they ran (bare metal, a virtual machine, a container, a CI runner)",
+        );
     }
 
     if (hasKindIn(KINDS_NEEDING_WARMUP)) {
@@ -296,7 +316,7 @@ export function checkPlan(results: Results): Issue[] {
     const topNodes = nodeIds.filter((node) => tree.parentOf.get(node) === undefined);
 
     results.metrics.forEach((metric, metricIndex) => {
-      if (!KINDS_MEASURED_ON_AUTHOR_MACHINES.has(metric.kind) || !metric.from) return;
+      if (!KINDS_MEASURED_ON_YOUR_MACHINES.has(metric.kind) || !metric.from) return;
 
       const declared = results.analysis?.primary;
       const primaries = declared

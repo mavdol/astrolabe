@@ -146,6 +146,25 @@ describe("claims in the presentation", () => {
     expect(rulesOf(errorsOf(validate(stale, rawFiles).issues))).toEqual(["V25"]);
   });
 
+  it("a title longer than 60 characters as the reader sees it is a warning", () => {
+    const titleIssues = (title: string) =>
+      validate(withBlock({ id: "claim", type: "chart", chart: "effect", metric: "accuracy", title }), rawFiles).issues.filter(
+        (issue) => issue.rule === "V25",
+      );
+    const longOnlyAsTyped = "{candidate:model_a} or {candidate:model_b}: the same on {metric:accuracy}";
+    const longAsShown = "{candidate:model_a} is more accurate than {candidate:model_b} on coding, reasoning and writing";
+
+    expect(longOnlyAsTyped.length).toBeGreaterThan(60);
+    expect(titleIssues(longOnlyAsTyped)).toEqual([]);
+    expect(titleIssues(longAsShown).map((issue) => [issue.severity, issue.path, issue.message])).toEqual([
+      [
+        "warning",
+        "blocks[0].title",
+        'the title reads "Model A is more accurate than Model B on coding, reasoning and writing", 70 characters: keep the claim to 60 at most, and move the rest to the reading in description',
+      ],
+    ]);
+  });
+
   it('a title that leaves out the "likely" of its verdict is a warning', () => {
     const claim = (asserted: string, title = "{candidate:model_a} is more accurate") =>
       validate(
@@ -335,6 +354,22 @@ describe("plan checks", () => {
 
     plan.metrics[0].minimum_meaningful = 0;
     expect(rulesOf(planIssues(plan))).toEqual(["S7"]);
+  });
+
+  it("measurements on your own machines say where they ran: bare metal, a virtual machine, a container or a CI runner", () => {
+    const { benchmark } = loadExample("js-runtimes");
+    const { host: _host, ...environment } = benchmark.results.environment;
+    const issues = validate({ ...benchmark, results: { ...benchmark.results, environment } }, {}).issues;
+
+    expect(errorsOf(issues).map((issue) => [issue.rule, issue.path])).toEqual([["F11", "results.environment.host"]]);
+  });
+
+  it("a goal longer than the card's two lines is a warning", () => {
+    const goal = "Which of these two parsers should the nightly import of our customer records use from now on?";
+    const issues = planIssues({ ...planOf(), benchmark: { ...planOf().benchmark, goal } });
+
+    expect(goal.length).toBeGreaterThan(80);
+    expect(issues.map((issue) => [issue.severity, issue.rule, issue.path])).toEqual([["warning", "F2", "results.benchmark.goal"]]);
   });
 
   describe("planned runs must be able to give an interval", () => {
