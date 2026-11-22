@@ -1120,7 +1120,7 @@
   {
     "id": "V44",
     "level": "must",
-    "text": "In Markdown, put the intervals and the number of runs in the table, since the Mermaid chart cannot show them; skip the chart when it would mislead without them.",
+    "text": "In the Markdown report, give every value its interval, its number of runs and its failures in the table: the report draws no chart, so its tables carry the uncertainty.",
     "pitfall": "A Markdown export that silently drops the uncertainty",
     "proved_by": "enforced by the generator",
     "explained_in": "visualization/page.md"
