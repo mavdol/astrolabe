@@ -1,7 +1,7 @@
 ---
 name: astrolabe-benchmark
 description: Design, run and report an honest benchmark or comparison with the astrolabe command. Scripts write raw data and `astrolabe compute` produces every number and verdict. Use this skill whenever the user wants to compare or benchmark anything (libraries, tools, APIs, services, models, prompts, apps, configurations, recipes, designs), or asks which option is better, faster, cheaper, lighter, more accurate or easier to use, even with nobody to test. Use it too when the data is already gathered (scores, ratings, survey answers, a tool's pasted output, figures already measured) and the user wants the answer, a results section or a report, asks for a winner, or asks to change a finished benchmark (drop failed runs, remove outliers, add runs, make a difference stand out, favour one candidate). Also for a benchmark's page, chart or README card, and to put it online (GitHub Pages, Netlify, a docs site). Use it even when they never say "benchmark". Not for profiling one program or explaining someone else's chart.
-compatibility: Needs Node.js 22 or later and the astrolabe-bench npm package, version 0.2.2 or later, which provides the astrolabe command.
+compatibility: Needs Node.js 22 or later and the astrolabe-bench npm package, version 0.2.3 or later, which provides the astrolabe command.
 ---
 
 # Astrolabe benchmark
@@ -76,7 +76,7 @@ Check that it is there before anything else:
 npx --no-install astrolabe --version
 ```
 
-This skill is written for astrolabe 0.2.2 or later. If the check fails, the project does not have it: add the package `astrolabe-bench` to the project's development dependencies (ask first if installing is not yours to decide), then run the check again. If it prints an older version, that copy may refuse what this skill writes: update `astrolabe-bench` the same way, asking first likewise. Do not run a bare `npx astrolabe`: on npm that name belongs to an unrelated package. In the rest of this skill `astrolabe` stands for `npx --no-install astrolabe`. Write it in full in anything a reader will run (a README, a write-up, `artifacts.command`): `npx --no-install astrolabe build`, never `npx astrolabe build`. A CI workflow pins the version instead (deploy.md).
+This skill is written for astrolabe 0.2.3 or later. If the check fails, the project does not have it: add the package `astrolabe-bench` to the project's development dependencies (ask first if installing is not yours to decide), then run the check again. If it prints an older version, that copy may refuse what this skill writes: update `astrolabe-bench` the same way, asking first likewise. Do not run a bare `npx astrolabe`: on npm that name belongs to an unrelated package. In the rest of this skill `astrolabe` stands for `npx --no-install astrolabe`. Write it in full in anything a reader will run (a README, a write-up, `artifacts.command`): `npx --no-install astrolabe build`, never `npx astrolabe build`. A CI workflow pins the version instead (deploy.md).
 
 | Command | Use |
 | --- | --- |
