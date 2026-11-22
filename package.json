@@ -1,6 +1,6 @@
 {
   "name": "astrolabe-bench",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Benchmarks authored by agents, verifiable by humans: schema, validate and compute.",
   "license": "MIT",
   "homepage": "https://github.com/mavdol/astrolabe",
