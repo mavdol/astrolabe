@@ -179,7 +179,7 @@ Compute prints each primary verdict. Read them as they are (statistics.md explai
 
 The presentation sections of `benchmark.json` (`style`, `filters`, `layout`, `blocks`, `exports`) say what the page, the README card and the images show; `build` draws them. They never touch `results`, so changing them never changes a number or the hash. Read visualization/page.md and presentation.md, then propose the page as a short outline (headlines, charts, table, exports) and let the user amend it before writing anything. Seven things hold on every page:
 
-1. Each chart answers a question the reader brings and fits the shape of the data (visualization/charts.md); what can be drawn is drawn, not written.
+1. Each chart answers a question the reader brings: the one visualization/charts.md recommends for the shape of the results, or an alternative it names, with your reason; what can be drawn is drawn, not written.
 2. Honest scales: bars from zero, no axis breaks, compared charts on one scale, the direction marked.
 3. Every value that has an interval is drawn with it, and the interval is named.
 4. Titles are short claims and readings one sentence: numbers by template, the verdicts they rely on listed in `asserts`, the headline or summary that answers the goal first.

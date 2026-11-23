@@ -1557,6 +1557,21 @@
                   "type": "string",
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
                 }
+              },
+              "chart": {
+                "type": "string",
+                "enum": [
+                  "diverging-bar",
+                  "stacked-bar",
+                  "grouped-bar"
+                ]
+              },
+              "sort": {
+                "type": "string",
+                "enum": [
+                  "value",
+                  "declared"
+                ]
               }
             },
             "required": [
@@ -1684,7 +1699,8 @@
                 "type": "string",
                 "enum": [
                   "value",
-                  "declared"
+                  "declared",
+                  "effect"
                 ]
               },
               "annotations": {

@@ -224,7 +224,7 @@ describe("reading a card at a glance", () => {
     expect(adding).toContain("under the CI runner's limit");
   });
 
-  it("counts a pattern in summary cells: a legend, a stacked bar per candidate, the range, then what a bar holds", () => {
+  it("counts a pattern in summary cells: a legend, a diverging bar per candidate, the range, then what a bar holds", () => {
     const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
 
     suite.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...suite.blocks!];
@@ -233,10 +233,31 @@ describe("reading a card at a glance", () => {
 
     expect(content.charts!.map((chart) => chart.summaries.map((summary) => summary.comparisons.length))).toEqual([[3]]);
     expect(content.omitted.map((comparison) => comparison.metric)).toEqual(["cost_per_item"]);
-    expect(card.textLines).toContain("Better  About the same  Worse  Unclear");
+    expect(card.textLines).toContain("Worse  About the same  Better  Unclear");
     expect(card.textLines).toContain("Model A  1 better  0 about the same  0 worse  2 unclear");
-    expect(card.textLines.join(" ")).toContain("Each bar: the 3 tasks, by their result against Model B.");
+    expect(card.textLines.join(" ")).toContain(
+      "Each bar: the 3 tasks, by their result against Model B; better to the right of the line, worse to the left.",
+    );
+    expect(card.svg, "the line between worse and better").toMatch(/<line x1="[\d.]+" y1="[\d.]+" x2="[\d.]+"/);
     expect(card.altText).toBe("Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2.");
+  });
+
+  it("draws the summary a card names as its block asks: stacked from the left, or grouped by result", () => {
+    const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    suite.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy", chart: "grouped-bar" }, ...suite.blocks!];
+    const grouped = renderCard(suite, cardContentOf(suite, ["summary-accuracy"]), "light", context);
+
+    expect(grouped.textLines).toEqual(
+      expect.arrayContaining(["Better", "Model A  1", "About the same", "Model A  0", "Unclear", "Model A  2"]),
+    );
+    expect(grouped.textLines.join(" ")).toContain("Each bar: how many of the 3 tasks had that result against Model B.");
+
+    suite.blocks[0] = { id: "summary-accuracy", type: "summary", metric: "accuracy", chart: "stacked-bar" };
+    const stacked = renderCard(suite, cardContentOf(suite, ["summary-accuracy"]), "light", context);
+
+    expect(stacked.textLines).toContain("Better  About the same  Worse  Unclear");
+    expect(stacked.svg).not.toMatch(/<line x1/);
   });
 
   it("draws summary cells by default when the comparisons are too many for headlines and share one level", () => {

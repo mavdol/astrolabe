@@ -21,7 +21,10 @@ import {
   effectRangeOf,
   likelyPartOf,
   pluralOf,
-  stacksKeyOf,
+  summaryKeyOf,
+  legendOf,
+  barLayoutOf,
+  countGroupsOf,
   summaryChartOf,
   summaryChartsOf,
   summaryClaimOf,
@@ -29,6 +32,8 @@ import {
   type BarSide,
   type Summary,
   type SummaryChart,
+  type SummaryDrawing,
+  type VerdictBar,
 } from "./summary.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "./svg-text.js";
 
@@ -109,6 +114,8 @@ interface HeadlineBlock {
   title?: string;
   metric?: string;
   candidates?: string[];
+  chart?: SummaryDrawing;
+  sort?: "value" | "declared";
 }
 
 /** Every comparison the card's cells stand for: one per headline, all those a summary counts. */
@@ -141,7 +148,7 @@ export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardCo
     });
 
     if (named.every((block) => block.type === "summary")) {
-      const charts = named.map((block) => summaryChartOf(benchmark.results, { metric: block.metric ?? "", candidates: block.candidates }));
+      const charts = named.map((block) => summaryChartOf(benchmark.results, { ...block, metric: block.metric ?? "" }));
       const counted = new Set(charts.flatMap(comparisonsOfChart));
 
       return { headlines: [], charts, omitted: primary.filter((comparison) => !counted.has(comparison)) };
@@ -857,19 +864,61 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     const cellWidth = WIDTH / columnCount;
     const columnWidth = cellWidth - 2 * CELL_PADDING;
     const sideColourOf = (side: BarSide) => (side === "better" ? colours.good : side === "worse" ? colours.bad : colours.secondary);
+    const nameOf = (summary: Summary) => lookup.candidateName.get(summary.candidate) ?? summary.candidate;
+
+    /** One segment from x, `width` wide: firm filled, likely faded, unclear outlined, the count centred in its larger part. */
+    const drawSegment = (
+      bar: VerdictBar,
+      left: number,
+      width: number,
+      top: number,
+      height: number,
+      likelyFirst: boolean,
+      withCount: boolean,
+    ) => {
+      const colour = sideColourOf(bar.side);
+      const inner = Math.max(width - 2, 0);
+      const firm = bar.side === "unclear" ? 0 : bar.count - bar.likely;
+      const firmWidth = (inner * firm) / bar.count;
+      const [firmX, likelyX] = likelyFirst ? [left + 1 + inner - firmWidth, left + 1] : [left + 1, left + 1 + firmWidth];
+      const countInFirm = firm >= bar.count - firm;
+
+      if (bar.side === "unclear")
+        marks.push(
+          `<rect x="${round(left + 1.75)}" y="${round(top + 0.75)}" width="${round(Math.max(inner - 1.5, 0))}" height="${height - 1.5}" fill="none" stroke="${colour}" stroke-width="1.5"/>`,
+        );
+      else {
+        if (firmWidth > 0)
+          marks.push(`<rect x="${round(firmX)}" y="${round(top)}" width="${round(firmWidth)}" height="${height}" fill="${colour}"/>`);
+
+        if (inner - firmWidth > 0)
+          marks.push(
+            `<rect x="${round(likelyX)}" y="${round(top)}" width="${round(inner - firmWidth)}" height="${height}" fill="${colour}" fill-opacity="${LIKELY_OPACITY}"/>`,
+          );
+      }
+
+      if (!withCount) return;
+
+      const [holderX, holderWidth] =
+        bar.side === "unclear" ? [left + 1, inner] : countInFirm ? [firmX, firmWidth] : [likelyX, inner - firmWidth];
+      const countWidth = text.measure(String(bar.count), STYLE.counts);
+
+      marks.push(
+        text.draw(
+          String(bar.count),
+          holderX + (holderWidth - countWidth) / 2,
+          top + height / 2 + (STYLE.counts.size * CAP_HEIGHT_RATIO) / 2,
+          {
+            ...STYLE.counts,
+            fill: countInFirm && bar.side !== "unclear" ? colours.background : colours.ink,
+          },
+        ),
+      );
+    };
+
     const cells = charts.map((chart) => {
       const metric = lookup.metricById.get(chart.metric)!;
-      const barsOf = (summary: Summary) => verdictBarsOf(metric, summary.comparisons);
-      const everyBar = chart.summaries.flatMap(barsOf);
-      const sides = barsOf(chart.summaries[0]).filter(
-        (bar) => bar.side !== "unclear" || everyBar.some((other) => other.side === "unclear" && other.count > 0),
-      );
-      const legend = [
-        ...sides.map((bar) => ({ side: bar.side as BarSide | "likely", words: capitalised(bar.words) })),
-        ...(everyBar.some((bar) => bar.likely > 0 && bar.side !== "unclear")
-          ? [{ side: "likely" as const, words: "Lighter: likely, not certain yet" }]
-          : []),
-      ];
+      const legend = legendOf(metric, chart).map((item) => ({ ...item, words: capitalised(item.words) }));
       const legendLines: (typeof legend)[] = [[]];
       let lineWidth = 0;
 
@@ -887,17 +936,17 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
       return {
         chart,
-        barsOf,
+        metric,
         labelLines: text.wrapParts(
           [metric.label, ...(sharedDirection ? [] : [directionWords(metric)])].map((part) => part.toUpperCase()),
           STYLE.label,
           columnWidth,
         ),
-        legendLines,
+        legendLines: legendLines.filter((line) => line.length > 0),
         details: chart.summaries.flatMap((summary) =>
           text.wrap(
             chart.summaries.length > 1
-              ? `${lookup.candidateName.get(summary.candidate)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
+              ? `${nameOf(summary)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
               : effectRangeOf(lookup, summary),
             STYLE.detail,
             columnWidth,
@@ -905,26 +954,128 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         ),
       };
     });
-    const total = (cell: (typeof cells)[number]) => cell.chart.summaries[0].comparisons.length;
-    // The counts of segments too narrow to hold them, said in a line under their bar.
-    const saidUnder = (cell: (typeof cells)[number], summary: Summary) =>
-      cell
-        .barsOf(summary)
-        .filter((bar) => bar.count > 0)
-        .filter(
-          (bar) =>
-            (Math.max(bar.count - bar.likely, bar.likely) / total(cell)) * columnWidth < text.measure(String(bar.count), STYLE.counts) + 8,
-        )
-        .map((bar) => `${bar.count} ${bar.words}`);
-    const rowHeightOf = (cell: (typeof cells)[number], summary: Summary) =>
-      STYLE.name.lineHeight + 6 + STACK_HEIGHT + (saidUnder(cell, summary).length > 0 ? STYLE.detail.lineHeight + 2 : 0) + STACK_GAP;
+
+    type Cell = (typeof cells)[number];
+
+    /** Stacked or diverging bars, the name above each; a count with no room in its segment said under the bar. Returns the height drawn. */
+    const drawPlacedBars = (cell: Cell, x: number, top: number, draw: boolean) => {
+      const layout = barLayoutOf(cell.metric, cell.chart);
+      const scale = columnWidth / layout.span;
+      const fits = (bar: VerdictBar) =>
+        Math.max(bar.count - bar.likely, bar.likely) * scale >= text.measure(String(bar.count), STYLE.counts) + 8;
+      let rowTop = top;
+      const barTops: number[] = [];
+      const firstMark = marks.length;
+
+      for (const { summary, segments } of layout.bars) {
+        const barTop = rowTop + STYLE.name.lineHeight + 6;
+        const under = segments.filter(({ bar }) => !fits(bar)).map(({ bar }) => `${bar.count} ${bar.words}`);
+
+        barTops.push(barTop);
+
+        if (draw) {
+          marks.push(text.draw(nameOf(summary), x, baselineOf(rowTop + 2, STYLE.name), { ...STYLE.name, fill: colours.ink }));
+
+          for (const { bar, start, likelyFirst } of segments)
+            drawSegment(bar, x + start * scale, bar.count * scale, barTop, STACK_HEIGHT, likelyFirst, fits(bar));
+
+          if (under.length > 0) drawLines([under.join(" · ")], STYLE.detail, colours.secondary, x, barTop + STACK_HEIGHT + 4);
+
+          textLines.push(
+            `${nameOf(summary)}  ${verdictBarsOf(cell.metric, summary.comparisons)
+              .map((bar) => `${bar.count} ${bar.words}${likelyPartOf(bar)}`)
+              .join("  ")}`,
+          );
+        }
+
+        rowTop = barTop + STACK_HEIGHT + (under.length > 0 ? STYLE.detail.lineHeight + 2 : 0) + STACK_GAP;
+      }
+
+      if (draw && layout.zero !== undefined && barTops.length > 0) {
+        const lineX = round(x + layout.zero * scale);
+
+        // Under the bars, so that a part centred on it is not cut in two.
+        marks.splice(
+          firstMark,
+          0,
+          `<line x1="${lineX}" y1="${round(barTops[0] - 6)}" x2="${lineX}" y2="${round(barTops[barTops.length - 1] + STACK_HEIGHT + 6)}" stroke="${colours.secondary}" stroke-width="1"/>`,
+        );
+      }
+
+      return rowTop - top;
+    };
+
+    /** One group per result under its heading, a bar per candidate from zero with its count after it. Returns the height drawn. */
+    const drawCountGroups = (cell: Cell, x: number, top: number, draw: boolean) => {
+      const groups = countGroupsOf(cell.metric, cell.chart);
+      const nameWidth = Math.max(...cell.chart.summaries.map((summary) => text.measure(nameOf(summary), STYLE.name))) + 12;
+      const countRoom = Math.max(
+        ...groups.flatMap((group) => group.bars.map(({ bar }) => text.measure(`${bar.count}${likelyPartOf(bar)}`, STYLE.counts))),
+      );
+      const barRoom = Math.max(columnWidth - nameWidth - countRoom - 8, 0);
+      const largest = Math.max(1, ...groups.flatMap((group) => group.bars.map(({ bar }) => bar.count)));
+      const barHeight = 18;
+      let rowTop = top;
+
+      for (const group of groups) {
+        if (draw) {
+          const swatchTop = rowTop + (STYLE.detail.lineHeight - LEGEND_SWATCH) / 2;
+
+          marks.push(
+            group.side === "unclear"
+              ? `<rect x="${round(x + 0.75)}" y="${round(swatchTop + 0.75)}" width="${LEGEND_SWATCH - 1.5}" height="${LEGEND_SWATCH - 1.5}" rx="2" fill="none" stroke="${colours.secondary}" stroke-width="1.5"/>`
+              : `<rect x="${round(x)}" y="${round(swatchTop)}" width="${LEGEND_SWATCH}" height="${LEGEND_SWATCH}" rx="2" fill="${sideColourOf(group.side)}"/>`,
+          );
+          marks.push(
+            text.draw(capitalised(group.words), x + LEGEND_SWATCH + 6, baselineOf(rowTop + 3, STYLE.detail), {
+              ...STYLE.detail,
+              fill: colours.secondary,
+            }),
+          );
+          textLines.push(capitalised(group.words));
+        }
+
+        rowTop += STYLE.detail.lineHeight + 6;
+
+        for (const { summary, bar } of group.bars) {
+          const width = (barRoom * bar.count) / largest;
+          const count = `${bar.count}${likelyPartOf(bar)}`;
+
+          if (draw) {
+            marks.push(
+              text.draw(nameOf(summary), x, rowTop + barHeight / 2 + (STYLE.name.size * CAP_HEIGHT_RATIO) / 2, {
+                ...STYLE.name,
+                fill: colours.ink,
+              }),
+            );
+
+            if (bar.count > 0) drawSegment(bar, x + nameWidth - 1, width + 2, rowTop, barHeight, false, false);
+
+            marks.push(
+              text.draw(count, x + nameWidth + width + 8, rowTop + barHeight / 2 + (STYLE.counts.size * CAP_HEIGHT_RATIO) / 2, {
+                ...STYLE.counts,
+                fill: colours.ink,
+              }),
+            );
+            textLines.push(`${nameOf(summary)}  ${count}`);
+          }
+
+          rowTop += barHeight + 8;
+        }
+
+        rowTop += 6;
+      }
+
+      return rowTop - top;
+    };
+
+    const drawBars = (cell: Cell, x: number, top: number, draw: boolean) =>
+      cell.chart.drawing === "grouped-bar" ? drawCountGroups(cell, x, top, draw) : drawPlacedBars(cell, x, top, draw);
     const columnsTop = headerRuleY + 28;
     const legendTop = columnsTop + Math.max(...cells.map((cell) => cell.labelLines.length)) * STYLE.label.lineHeight + 16;
-    const rowsTop = legendTop + Math.max(...cells.map((cell) => cell.legendLines.length)) * STYLE.detail.lineHeight + 18;
-    const detailsTop =
-      rowsTop +
-      Math.max(...cells.map((cell) => cell.chart.summaries.reduce((height, summary) => height + rowHeightOf(cell, summary), 0))) +
-      2;
+    const legendHeight = Math.max(...cells.map((cell) => cell.legendLines.length)) * STYLE.detail.lineHeight;
+    const rowsTop = legendTop + legendHeight + (legendHeight > 0 ? 18 : 0);
+    const detailsTop = rowsTop + Math.max(...cells.map((cell) => drawBars(cell, 0, rowsTop, false))) + 2;
 
     cells.forEach((cell, index) => {
       const x = index * cellWidth + CELL_PADDING;
@@ -967,69 +1118,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         textLines.push(line.map((item) => item.words).join("  "));
       });
 
-      let rowTop = rowsTop;
-
-      for (const summary of cell.chart.summaries) {
-        const name = lookup.candidateName.get(summary.candidate) ?? summary.candidate;
-        const barTop = rowTop + STYLE.name.lineHeight + 6;
-        let segmentX = x;
-
-        marks.push(text.draw(name, x, baselineOf(rowTop + 2, STYLE.name), { ...STYLE.name, fill: colours.ink }));
-
-        for (const bar of cell.barsOf(summary).filter((entry) => entry.count > 0)) {
-          const width = (columnWidth * bar.count) / total(cell);
-          const firm = bar.side === "unclear" ? 0 : bar.count - bar.likely;
-          const firmWidth = (width * firm) / bar.count;
-          const colour = sideColourOf(bar.side);
-          const countInFirm = firm >= bar.count - firm;
-          const [holderX, holderWidth] = countInFirm ? [segmentX, firmWidth] : [segmentX + firmWidth, width - firmWidth];
-          const countWidth = text.measure(String(bar.count), STYLE.counts);
-
-          if (bar.side === "unclear")
-            marks.push(
-              `<rect x="${round(segmentX + 0.75)}" y="${round(barTop + 0.75)}" width="${round(Math.max(width - 2.5, 0))}" height="${STACK_HEIGHT - 1.5}" fill="none" stroke="${colour}" stroke-width="1.5"/>`,
-            );
-          else {
-            if (firmWidth > 0)
-              marks.push(
-                `<rect x="${round(segmentX)}" y="${round(barTop)}" width="${round(Math.max(firmWidth - (firm === bar.count ? 2 : 0), 0))}" height="${STACK_HEIGHT}" fill="${colour}"/>`,
-              );
-
-            if (width - firmWidth > 0)
-              marks.push(
-                `<rect x="${round(segmentX + firmWidth)}" y="${round(barTop)}" width="${round(Math.max(width - firmWidth - 2, 0))}" height="${STACK_HEIGHT}" fill="${colour}" fill-opacity="${LIKELY_OPACITY}"/>`,
-              );
-          }
-
-          if (holderWidth >= countWidth + 8)
-            marks.push(
-              text.draw(
-                String(bar.count),
-                holderX + (holderWidth - countWidth) / 2,
-                barTop + STACK_HEIGHT / 2 + (STYLE.counts.size * CAP_HEIGHT_RATIO) / 2,
-                {
-                  ...STYLE.counts,
-                  fill: countInFirm && bar.side !== "unclear" ? colours.background : colours.ink,
-                },
-              ),
-            );
-
-          segmentX += width;
-        }
-
-        const under = saidUnder(cell, summary);
-
-        if (under.length > 0) drawLines([under.join(" · ")], STYLE.detail, colours.secondary, x, barTop + STACK_HEIGHT + 4);
-
-        textLines.push(
-          `${name}  ${cell
-            .barsOf(summary)
-            .map((bar) => `${bar.count} ${bar.words}${likelyPartOf(bar)}`)
-            .join("  ")}`,
-        );
-        rowTop += rowHeightOf(cell, summary);
-      }
-
+      drawBars(cell, x, rowsTop, true);
       drawLines(cell.details, STYLE.detail, colours.secondary, x, detailsTop);
     });
 
@@ -1066,7 +1155,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     content.charts && content.charts.length > 0
       ? [
           `Compared with ${lookup.candidateName.get(results.baseline)}; each verdict is read from ${intervalPhrase}.`,
-          stacksKeyOf(lookup, content.charts[0]),
+          ...new Set(content.charts.map((chart) => summaryKeyOf(lookup, chart))),
         ]
       : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`];
   const legendSentences = [

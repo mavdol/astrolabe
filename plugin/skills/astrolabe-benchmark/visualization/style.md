@@ -93,7 +93,7 @@ A reader remembers the title more than the chart, so a title states the finding,
 | `cells` | `values` (the default): each candidate's value. `effects`: each compared candidate's change against the baseline, with its verdict in its colour and a bar from zero |
 | `show` | What sits under each value: `n`, `ci`, `failures`, and `evidence` (a link to the raw file). `n` always, `ci` when values have intervals, `failures` when any attempt failed: `validate` refuses a table without them. A table of effects needs only `ci` |
 
-A **table of effects** is how a long breakdown is shown: one row per node, one column per compared candidate and metric, so thirty files compared on two metrics fit in thirty rows. Use it instead of an `effect` chart beyond 8 rows; `validate` warns past that.
+A **table of effects** is the recommended way to show a long breakdown: one row per node, one column per compared candidate and metric, so thirty files compared on two metrics fit in thirty rows. Past about 8 rows it reads faster than an `effect` chart (charts.md). Without a title, a table is headed by what it holds ("Build time and identical pages compared with markly, size by size"), so two tables on the same metrics never share a heading.
 
 ```json
 {

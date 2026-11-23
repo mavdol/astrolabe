@@ -23,7 +23,12 @@ import {
   partsOf,
   plainVerdictOf,
   pluralOf,
-  stacksKeyOf,
+  summaryKeyOf,
+  legendOf,
+  barLayoutOf,
+  countGroupsOf,
+  likelyPartOf,
+  type BarLayout,
   summaryChartOf,
   verdictBarsOf,
   type BarSide,
@@ -157,56 +162,100 @@ const SHARE_PER_DIGIT = 4;
 
 const percentOf = (share: number) => `${Math.round(share * 1000) / 10}%`;
 
-/** One side of a stacked bar: its firm part filled, its likely part lighter (unclear outlined), the count in the larger part when it fits. */
-function segmentHtml(bar: VerdictBar, total: number): { html: string; fits: boolean } {
+/** The parts of one segment: firm filled, likely faded (unclear outlined), in the order the layout gives, the count in the larger part. */
+function segmentPartsHtml(bar: VerdictBar, likelyFirst: boolean, withCount: boolean): string {
   const firm = bar.count - bar.likely;
   const countIn = firm >= bar.likely ? "firm" : "likely";
-  const fits = (Math.max(firm, bar.likely) / total) * 100 >= SHARE_PER_DIGIT * String(bar.count).length;
   const part = (kind: string, count: number) =>
     count > 0
-      ? `<i class="${kind}" style="width: ${percentOf(count / bar.count)}">${fits && (kind === countIn || kind === "open") ? `<b>${bar.count}</b>` : ""}</i>`
+      ? `<i class="${kind}" style="width: ${percentOf(count / bar.count)}">${withCount && (kind === countIn || kind === "open") ? `<b>${bar.count}</b>` : ""}</i>`
       : "";
-  const inside = bar.side === "unclear" ? part("open", bar.count) : part("firm", firm) + part("likely", bar.likely);
 
-  return { html: `<span class="segment ${SIDE_TONES[bar.side]}" style="width: ${percentOf(bar.count / total)}">${inside}</span>`, fits };
+  if (bar.side === "unclear") return part("open", bar.count);
+
+  return likelyFirst ? part("likely", bar.likely) + part("firm", firm) : part("firm", firm) + part("likely", bar.likely);
+}
+
+const legendHtml = (legend: ReturnType<typeof legendOf>) =>
+  legend.length === 0
+    ? ""
+    : `<ul class="stack-legend">${legend
+        .map((item) =>
+          item.side === "likely"
+            ? `<li class="likely"><i></i>${escapeHtml(item.words)}</li>`
+            : `<li class="${SIDE_TONES[item.side]}${item.side === "unclear" ? " unclear" : ""}"><i></i>${escapeHtml(capitalised(item.words))}</li>`,
+        )
+        .join("")}</ul>`;
+
+const nameOf = (lookup: Lookup, summary: Summary) => escapeHtml(lookup.candidateName.get(summary.candidate) ?? summary.candidate);
+
+/** Stacked or diverging bars, one row per candidate, every bar on one span; the line between worse and better when they diverge. */
+function placedBarsHtml(layout: BarLayout, lookup: Lookup): string[] {
+  return layout.bars.map(({ summary, segments }) => {
+    const fitting = segments.map(({ bar }) => {
+      const larger = Math.max(bar.count - bar.likely, bar.likely);
+
+      return (larger / layout.span) * 100 >= SHARE_PER_DIGIT * String(bar.count).length;
+    });
+    const saidUnder = segments.filter((_segment, index) => !fitting[index]).map(({ bar }) => `${bar.count} ${bar.words}`);
+    const zero = layout.zero === undefined ? "" : `<span class="stack-zero" style="left: ${percentOf(layout.zero / layout.span)}"></span>`;
+    const placed = segments.map(
+      ({ bar, start, likelyFirst }, index) =>
+        `<span class="segment ${SIDE_TONES[bar.side]}" style="left: ${percentOf(start / layout.span)}; width: ${percentOf(bar.count / layout.span)}">${segmentPartsHtml(bar, likelyFirst, fitting[index])}</span>`,
+    );
+
+    return [
+      '<div class="stack-row">',
+      `<span class="stack-name">${nameOf(lookup, summary)}</span>`,
+      `<span class="stack-bar">${zero}${placed.join("")}</span>`,
+      saidUnder.length > 0 ? `<span class="stack-rest">${escapeHtml(saidUnder.join(" · "))}</span>` : "",
+      "</div>",
+    ].join("");
+  });
+}
+
+/** One group per result, a bar per candidate in it from zero, its count after it. */
+function countGroupsHtml(groups: ReturnType<typeof countGroupsOf>, lookup: Lookup): string[] {
+  const largest = Math.max(1, ...groups.flatMap((group) => group.bars.map(({ bar }) => bar.count)));
+  // Room after the longest bar for the longest count, in characters of the monospaced figures.
+  const countRoom = Math.max(...groups.flatMap((group) => group.bars.map(({ bar }) => `${bar.count}${likelyPartOf(bar)}`.length))) + 2;
+
+  return groups.map((group) =>
+    [
+      `<p class="count-heading ${SIDE_TONES[group.side]}${group.side === "unclear" ? " unclear" : ""}"><i></i>${escapeHtml(capitalised(group.words))}</p>`,
+      '<div class="stacks">',
+      ...group.bars.map(({ summary, bar }) =>
+        [
+          '<div class="stack-row">',
+          `<span class="stack-name">${nameOf(lookup, summary)}</span>`,
+          '<span class="count-bar">',
+          bar.count > 0
+            ? `<span class="segment ${SIDE_TONES[bar.side]}" style="width: calc((100% - ${countRoom}ch) * ${Math.round((bar.count / largest) * 1000) / 1000})">${segmentPartsHtml(bar, false, false)}</span>`
+            : "",
+          `<b>${bar.count}${likelyPartOf(bar)}</b>`,
+          "</span>",
+          "</div>",
+        ].join(""),
+      ),
+      "</div>",
+    ].join("\n"),
+  );
 }
 
 /**
- * The answer when it is a pattern: one stacked bar per candidate, its primary comparisons on the metric split into
- * better, about the same and worse in the metric's own words, under one legend; then what a bar holds and the range of the changes.
+ * The answer when it is a pattern: each candidate's primary comparisons on the metric, counted as better, about the
+ * same and worse in the metric's own words, drawn as the block asks (diverging, stacked or grouped bars); then what
+ * a bar holds and the range of the changes.
  */
 function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): string {
   const { lookup } = inputs;
   const chart = summaryChartOf(lookup.results, block);
   const metric = lookup.metricById.get(block.metric)!;
-  const total = chart.summaries[0].comparisons.length;
   const barsOf = (summary: Summary) => verdictBarsOf(metric, summary.comparisons);
-  const everyBar = chart.summaries.flatMap(barsOf);
-  const sides = barsOf(chart.summaries[0]).filter(
-    (bar) => bar.side !== "unclear" || everyBar.some((other) => other.side === "unclear" && other.count > 0),
-  );
-  const legend = [
-    ...sides.map(
-      (bar) =>
-        `<li class="${SIDE_TONES[bar.side]}${bar.side === "unclear" ? " unclear" : ""}"><i></i>${escapeHtml(capitalised(bar.words))}</li>`,
-    ),
-    ...(everyBar.some((bar) => bar.likely > 0 && bar.side !== "unclear")
-      ? ['<li class="likely"><i></i>Lighter: likely, not certain yet</li>']
-      : []),
-  ];
-  const rows = chart.summaries.map((summary) => {
-    const shown = barsOf(summary).filter((bar) => bar.count > 0);
-    const segments = shown.map((bar) => ({ bar, ...segmentHtml(bar, total) }));
-    const saidUnder = segments.filter((segment) => !segment.fits).map(({ bar }) => `${bar.count} ${bar.words}`);
-
-    return [
-      '<div class="stack-row">',
-      `<span class="stack-name">${escapeHtml(lookup.candidateName.get(summary.candidate) ?? summary.candidate)}</span>`,
-      `<span class="stack-bar">${segments.map((segment) => segment.html).join("")}</span>`,
-      saidUnder.length > 0 ? `<span class="stack-rest">${escapeHtml(saidUnder.join(" · "))}</span>` : "",
-      "</div>",
-    ].join("");
-  });
+  const drawn =
+    chart.drawing === "grouped-bar"
+      ? countGroupsHtml(countGroupsOf(metric, chart), lookup)
+      : placedBarsHtml(barLayoutOf(metric, chart), lookup);
   const label = (summary: Summary) =>
     chart.summaries.length > 1
       ? `${lookup.candidateName.get(summary.candidate)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
@@ -219,15 +268,18 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
           .join(", ")}`,
     )
     .join(". ");
+  const imageLabel = `aria-label="${escapeHtml(`${ariaLabel}; out of ${partsOf(lookup, chart.summaries[0])}`)}"`;
 
   return [
     sectionLabel(number, `${metric.label} · ${directionWords(metric.direction)}`),
     chartPairOf(lookup, chart) === inputs.titlePair ? "" : anchoredTitle(block, chartPairOf(lookup, chart)),
-    `<ul class="stack-legend">${legend.join("")}</ul>`,
-    `<div class="stacks" role="img" aria-label="${escapeHtml(`${ariaLabel}; out of ${partsOf(lookup, chart.summaries[0])}`)}">`,
-    ...rows,
+    legendHtml(legendOf(metric, chart)),
+    chart.drawing === "grouped-bar"
+      ? `<div class="count-groups" role="img" ${imageLabel}>`
+      : `<div class="stacks ${chart.drawing}" role="img" ${imageLabel}>`,
+    ...drawn,
     "</div>",
-    `<ul class="details">\n${[stacksKeyOf(lookup, chart), ...chart.summaries.map(label)].map((line) => `<li>${escapeHtml(line)}</li>`).join("\n")}\n</ul>`,
+    `<ul class="details">\n${[summaryKeyOf(lookup, chart), ...chart.summaries.map(label)].map((line) => `<li>${escapeHtml(line)}</li>`).join("\n")}\n</ul>`,
   ].join("\n");
 }
 
@@ -658,9 +710,7 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
       })
       .join("\n");
   const body = viewsOf(block, inputs, block.cells === "effects" ? (state) => effectsTableView(block, inputs, state) : view);
-  const title = block.title
-    ? resolveTemplates(block.title, lookup)
-    : block.metrics.map((metricId) => lookup.metricById.get(metricId)!.label).join(", ");
+  const title = block.title ? resolveTemplates(block.title, lookup) : defaultTableTitleOf(block, lookup);
   const reading = block.description ? resolveTemplates(block.description, lookup) : "";
 
   return [
@@ -669,6 +719,22 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
     body,
     "</div>",
   ].join("\n");
+}
+
+/**
+ * What an untitled table holds, so that two tables on the same metrics never share a heading: "Build time and
+ * identical pages, size by size", or "… compared with markly, size by size" for a table of effects.
+ */
+function defaultTableTitleOf(block: TableBlock, lookup: Lookup): string {
+  const labels = block.metrics.map((metricId, index) => {
+    const label = lookup.metricById.get(metricId)!.label;
+
+    return index === 0 ? label : lowerFirstLetterOfWord(label);
+  });
+  const listed = labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}` : labels[0];
+  const compared = block.cells === "effects" ? ` compared with ${lookup.candidateName.get(lookup.results.baseline)}` : "";
+
+  return `${listed}${compared}${block.rows ? `, ${block.rows} by ${block.rows}` : ""}`;
 }
 
 function textHtml(block: Extract<Block, { type: "text" }>, inputs: PageInputs, number: string): string {

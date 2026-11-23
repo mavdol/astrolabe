@@ -1,9 +1,7 @@
 import type { Issue } from "../rules/registry.js";
 import { lookupOf, resolveTemplates, type EffectFormat } from "../render/describe.js";
 import type { Benchmark, Comparison } from "../schema/benchmark.js";
-import { isAnswerBlock } from "../schema/presentation.js";
 import { levelsOf, summaryChartOf } from "../render/summary.js";
-import { defaultFilterState, nodesOf } from "../render/chart/chart-data.js";
 
 const TEMPLATE = /\{(\w+):([^}]+)\}/g;
 const TRUST_BLOCK_TYPES = new Set(["methodology", "environment", "limitations", "provenance"]);
@@ -28,12 +26,8 @@ interface Block {
   effect_format?: EffectFormat;
 }
 
-const LARGEST_ROW = 2;
-const LARGEST_HEADLINE_COUNT = 3;
 /** A claim read at a glance: one line on the page, the card and the images. */
 const LONGEST_TITLE = 60;
-/** An effect chart's rows (nodes times compared candidates): beyond them, the rows look alike and a table reads faster. */
-const LONGEST_EFFECT_CHART = 8;
 const BLOCKS_WITH_WRITTEN_TITLES = new Set(["headline", "chart", "text"]);
 
 function verdictLabel(comparison: Comparison): string {
@@ -68,40 +62,9 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
   }
 
   (benchmark.layout ?? []).forEach((row, rowIndex) => {
-    const rowOfAnswers = row.every((blockId) => blocks.some((block) => block.id === blockId && isAnswerBlock(block)));
-
-    if (row.length > (rowOfAnswers ? LARGEST_HEADLINE_COUNT : LARGEST_ROW))
-      warning("V39", `layout[${rowIndex}]`, `${row.length} blocks side by side: beyond ${LARGEST_ROW}, each is too narrow to read`);
-
     for (const blockId of row)
       if (!blockIds.includes(blockId)) error("V38", `layout[${rowIndex}]`, `"${blockId}" is not the id of a block`);
   });
-
-  const pageOrder = [...new Set([...(benchmark.layout ?? []).flat(), ...blocks.map((block) => block.id)])];
-  const answers = pageOrder.flatMap((blockId) => blocks.filter((block) => block.id === blockId && isAnswerBlock(block)));
-
-  if (answers.length > LARGEST_HEADLINE_COUNT) {
-    const extra = answers
-      .slice(LARGEST_HEADLINE_COUNT)
-      .map((block) => `"${block.id}" (${block.type === "summary" ? String(block.metric) : String(block.comparison)})`);
-
-    warning(
-      "V39",
-      "blocks",
-      `${answers.length} headline and summary blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the first ${LARGEST_HEADLINE_COUNT} and show ${extra.join(", ")} in a comparison-rows chart or a table instead`,
-    );
-  }
-
-  const primaryComparisons = (results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
-
-  if (blocks.length > 0 && answers.length === 0 && primaryComparisons.length > 0)
-    warning(
-      "V38",
-      "blocks",
-      primaryComparisons.length > LARGEST_HEADLINE_COUNT
-        ? `no headline or summary block: the top of the page would state one of ${primaryComparisons.length} primary comparisons alone; add a summary block on the metric the goal names, so the answer reads as the pattern it is`
-        : "no headline block: the top of the page would state the first primary comparison alone; add the headline that answers the goal",
-    );
 
   blocks.forEach((block, blockIndex) => {
     if (block.type !== "table") return;
@@ -187,23 +150,6 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
         `${path}.title`,
         "a number is typed in the title: numbers come from {effect:id}, and names that contain a digit from {metric:id}",
       );
-    }
-
-    if (block.type === "chart" && block.chart === "effect") {
-      const nodes = nodesOf(
-        { id: block.id, node: block.node, breakdown: block.breakdown, filters: block.filters },
-        benchmark,
-        lookup,
-        defaultFilterState(benchmark),
-      );
-      const rows = nodes.length * (results.candidates.length - 1);
-
-      if (rows > LONGEST_EFFECT_CHART)
-        warning(
-          "V40",
-          path,
-          `the effect chart draws ${rows} rows: beyond ${LONGEST_EFFECT_CHART}, a table of effects reads better, one row per ${block.breakdown ?? "node"}: a table block with ${block.breakdown ? `"rows": "${block.breakdown}", ` : ""}"cells": "effects"`,
-        );
     }
 
     if (BLOCKS_WITH_WRITTEN_TITLES.has(block.type) && typeof block.title === "string") {

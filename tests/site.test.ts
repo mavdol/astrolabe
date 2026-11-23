@@ -223,30 +223,97 @@ describe("the site", () => {
     );
   });
 
-  it("draws a summary as a stacked bar per candidate under one legend, the count inside each part, then the range of its effects", () => {
+  it("draws a summary as a diverging bar per candidate: worse left of the line, better right of it, unclear set apart", () => {
     const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
 
     benchmark.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...benchmark.blocks!];
     benchmark.layout = undefined;
     const { html } = buildSite("support-assistant-eval", { benchmark });
     const legend = /<ul class="stack-legend">(.*?)<\/ul>/.exec(html)![1];
-    const stacks = /<div class="stacks" role="img" aria-label="([^"]*)">([\s\S]*?)\n<\/div>/.exec(html)!;
+    const stacks = /<div class="stacks diverging-bar" role="img" aria-label="([^"]*)">([\s\S]*?)\n<\/div>/.exec(html)!;
 
     expect([...legend.matchAll(/<li class="([^"]+)"><i><\/i>([^<]+)<\/li>/g)].map((match) => match.slice(1))).toEqual([
-      ["good", "Better"],
-      ["neutral", "About the same"],
       ["bad", "Worse"],
+      ["neutral", "About the same"],
+      ["good", "Better"],
       ["neutral unclear", "Unclear"],
     ]);
     expect(stacks[1]).toBe("Model A: better 1, about the same 0, worse 0, unclear 2; out of 3 tasks");
     expect(stacks[2]).toContain('<span class="stack-name">Model A</span>');
-    expect(stacks[2]).toContain('<span class="segment good" style="width: 33.3%"><i class="firm" style="width: 100%"><b>1</b></i></span>');
+    expect(stacks[2]).toContain('<span class="stack-zero" style="left: 0%"></span>');
     expect(stacks[2]).toContain(
-      '<span class="segment neutral" style="width: 66.7%"><i class="open" style="width: 100%"><b>2</b></i></span>',
+      '<span class="segment good" style="left: 0%; width: 32.8%"><i class="firm" style="width: 100%"><b>1</b></i></span>',
     );
-    expect(html).toContain("<li>Each bar: the 3 tasks, by their result against Model B.</li>");
+    expect(stacks[2]).toContain(
+      '<span class="segment neutral" style="left: 34.4%; width: 65.6%"><i class="open" style="width: 100%"><b>2</b></i></span>',
+    );
+    expect(html).toContain(
+      "<li>Each bar: the 3 tasks, by their result against Model B; better to the right of the line, worse to the left.</li>",
+    );
     expect(html).toMatch(/<li>From −?[\d.]+ to \+?[\d.]+ points<\/li>/);
     expect(html, "the title already names the pair").not.toContain('id="summary-accuracy-title"');
+  });
+
+  it("draws a summary stacked from the left, or grouped by result, when the block asks", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(4),
+      blocks: [{ id: "summary-time", type: "summary", metric: "wall_time", chart: "stacked-bar" }],
+    } as Benchmark;
+    const htmlOf = (benchmark: Benchmark) => {
+      const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+      buildOutputs(benchmark, ["site"], folder, context, { rawFiles: {} });
+
+      return readFileSync(join(folder, "site", "index.html"), "utf8");
+    };
+    const stacked = htmlOf(scripts);
+
+    expect(stacked).toContain(
+      '<li class="good"><i></i>Faster</li><li class="neutral"><i></i>About the same</li><li class="bad"><i></i>Slower</li>',
+    );
+    expect(stacked).toContain('<span class="segment good" style="left: 0%; width: 50%">');
+    expect(stacked).toContain('<span class="segment bad" style="left: 50%; width: 50%">');
+    expect(stacked).not.toContain("stack-zero");
+    expect(stacked).toContain("<li>Each bar: the 4 scripts, by their result against base.</li>");
+
+    scripts.blocks = [{ id: "summary-time", type: "summary", metric: "wall_time", chart: "grouped-bar" }];
+    const grouped = htmlOf(scripts);
+
+    expect([...grouped.matchAll(/<p class="count-heading ([^"]+)"><i><\/i>([^<]+)<\/p>/g)].map((match) => match.slice(1))).toEqual([
+      ["good", "Faster"],
+      ["neutral", "About the same"],
+      ["bad", "Slower"],
+    ]);
+    expect(grouped).toContain('<span class="segment good" style="width: calc((100% - 3ch) * 1)">');
+    expect(grouped).toContain("<b>0</b>");
+    expect(grouped).not.toContain('class="stack-legend"');
+    expect(grouped).toContain("<li>Each bar: how many of the 4 scripts had that result against base.</li>");
+  });
+
+  it("puts first the candidate with most better results, unless the summary keeps the declared order", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+    const third = { ...benchmark.results.candidates[0], id: "model_c", name: "Model C" };
+
+    benchmark.results.candidates = [third, ...benchmark.results.candidates];
+    benchmark.results.comparisons = [
+      ...benchmark.results.comparisons!,
+      ...benchmark.results
+        .comparisons!.filter((comparison) => comparison.candidate === "model_a")
+        .map((comparison) => ({ ...comparison, id: `${comparison.id}-c`, candidate: "model_c", verdict: "worse" as const })),
+    ];
+    benchmark.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }];
+    benchmark.layout = undefined;
+    benchmark.exports = undefined;
+    const names = () =>
+      [...buildSite("support-assistant-eval", { benchmark }).html.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map(
+        (match) => match[1],
+      );
+
+    expect(names()).toEqual(["Model A", "Model C"]);
+
+    benchmark.blocks[0] = { id: "summary-accuracy", type: "summary", metric: "accuracy", sort: "declared" };
+
+    expect(names()).toEqual(["Model C", "Model A"]);
   });
 
   it("draws every candidate compared with the baseline in one summary, or those it names, each said with its range", () => {
@@ -299,13 +366,15 @@ describe("the site", () => {
 
     expect(answerOf(scripts)).toBe("new compared with base, wall time on 4 scripts: faster on 2, slower on 2.");
     expect(html).toContain(
-      '<li class="good"><i></i>Faster</li><li class="neutral"><i></i>About the same</li><li class="bad"><i></i>Slower</li>',
+      '<li class="bad"><i></i>Slower</li><li class="neutral"><i></i>About the same</li><li class="good"><i></i>Faster</li>',
     );
     expect(html).toContain("<li>From 20% faster to 20% slower</li>");
-    expect(html).toContain("<li>Each bar: the 4 scripts, by their result against base.</li>");
+    expect(html).toContain(
+      "<li>Each bar: the 4 scripts, by their result against base; faster to the right of the line, slower to the left.</li>",
+    );
   });
 
-  it("draws the part of a bar that is only likely lighter, its count in the larger part, and says so in the legend", () => {
+  it("draws the part of a bar that is only likely lighter, next to the line, its count in the larger part, and says so in the legend", () => {
     const scripts = {
       ...scriptsBenchmarkOf(6),
       blocks: [{ id: "summary-time", type: "summary", metric: "wall_time" }],
@@ -320,9 +389,9 @@ describe("the site", () => {
 
     expect(answerOf(scripts)).toBe("new compared with base, wall time on 6 scripts: faster on 3 (1 likely), slower on 3.");
     expect(html).toContain(
-      '<span class="segment good" style="width: 50%"><i class="firm" style="width: 66.7%"><b>3</b></i><i class="likely" style="width: 33.3%"></i></span>',
+      '<span class="segment good" style="left: 50%; width: 50%"><i class="likely" style="width: 33.3%"></i><i class="firm" style="width: 66.7%"><b>3</b></i></span>',
     );
-    expect(html).toContain('<li class="likely"><i></i>Lighter: likely, not certain yet</li>');
+    expect(html).toContain('<li class="likely"><i></i>Faded: likely, not certain yet</li>');
   });
 
   it("says under the bar a count its part has no room for", () => {
@@ -337,7 +406,25 @@ describe("the site", () => {
     const html = readFileSync(join(folder, "site", "index.html"), "utf8");
 
     expect(html).toContain('<span class="stack-rest">1 slower</span>');
-    expect(html).toContain('<span class="segment bad" style="width: 2.5%"><i class="firm" style="width: 100%"></i></span>');
+    expect(html).toContain('<span class="segment bad" style="left: 0%; width: 2.5%"><i class="firm" style="width: 100%"></i></span>');
+  });
+
+  it("heads two untitled tables on the same metrics by what each holds", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(3),
+      blocks: [
+        { id: "table-effects", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] },
+        { id: "table-values", type: "table", metrics: ["wall_time"], rows: "script", show: ["n", "ci", "failures"] },
+      ],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const headingOf = (id: string) => new RegExp(`<h2 id="${id}-title"><a href="#${id}">([^<]+)</a>`).exec(html)?.[1];
+
+    expect(headingOf("table-effects")).toBe("Wall time compared with base, script by script");
+    expect(headingOf("table-values")).toBe("Wall time, script by script");
   });
 
   it("lists the described parts in the method, each opening to what it does, and links the rows of a table to them", () => {
