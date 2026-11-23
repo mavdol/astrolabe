@@ -152,20 +152,31 @@ main > section + section { border-top: 1px solid var(--rule); }
 .stacks { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 12px 16px; margin: 0 0 24px; }
 .stack-row { display: contents; }
 .stack-name { font-size: 14px; color: var(--ink); }
-.stack-bar { display: flex; gap: 2px; height: 30px; }
+.stack-bar { position: relative; height: 30px; }
+.stack-zero { position: absolute; top: -6px; bottom: -6px; width: 1px; margin-left: -0.5px; background: var(--rule-strong); }
 .stack-rest { grid-column: 2; margin-top: -6px; font-family: ${MONO}; font-size: 12px; color: var(--secondary); }
-.segment { display: flex; flex: 0 1 auto; min-width: 0; color: var(--secondary); }
+.segment { display: flex; min-width: 0; color: var(--secondary); }
+.stack-bar .segment { position: absolute; top: 0; height: 100%; box-sizing: border-box; padding: 0 1px; }
 .segment.good { color: var(--good); }
 .segment.bad { color: var(--bad); }
 .segment i { display: flex; align-items: center; justify-content: center; height: 100%; overflow: hidden; }
+.segment i:first-child { border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
+.segment i:last-child { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
 .segment .firm { background: currentColor; }
 .segment .likely { background: color-mix(in srgb, currentColor 38%, transparent); }
 .segment .open { box-sizing: border-box; border: 1.5px solid currentColor; }
 .segment b { font-family: ${MONO}; font-size: 13px; font-style: normal; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink); }
 .segment .firm b { color: var(--background); }
-.stack-bar > .segment:first-child { border-radius: 3px 0 0 3px; overflow: hidden; }
-.stack-bar > .segment:last-child { border-radius: 0 3px 3px 0; overflow: hidden; }
-.stack-bar > .segment:only-child { border-radius: 3px; }
+.count-groups { margin: 0 0 24px; }
+.count-heading { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; font-size: 13px; line-height: 18px; color: var(--secondary); }
+.count-heading i { width: 12px; height: 12px; border-radius: 2px; background: var(--secondary); }
+.count-heading.good i { background: var(--good); }
+.count-heading.bad i { background: var(--bad); }
+.count-heading.unclear i { box-sizing: border-box; background: none; border: 1.5px solid var(--secondary); }
+.count-groups .stacks { gap: 8px 16px; margin: 0; }
+.count-bar { display: flex; align-items: center; gap: 8px; height: 20px; font-family: ${MONO}; font-size: 13px; }
+.count-bar .segment { height: 100%; flex: none; }
+.count-bar > b { font-family: ${MONO}; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
 .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .chip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
 .chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }

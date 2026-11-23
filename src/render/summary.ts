@@ -1,4 +1,5 @@
 import type { Comparison, Metric, Results } from "../schema/benchmark.js";
+import type { SUMMARY_CHARTS } from "../schema/presentation.js";
 import { effectAndInterval, lowerFirstLetterOfWord, verdictLabel, type Lookup } from "./describe.js";
 
 export const VERDICTS_IN_READING_ORDER = ["better", "likely better", "equivalent", "inconclusive", "likely worse", "worse"];
@@ -36,10 +37,32 @@ export function summaryOf(results: Results, candidate: string, metric: string): 
   return { candidate, metric, comparisons };
 }
 
-/** What one summary block draws: a stacked bar per candidate, each counting its primary comparisons on one metric. */
+export type SummaryDrawing = (typeof SUMMARY_CHARTS)[number];
+
+/** What one summary block draws: a bar per candidate, each counting its primary comparisons on one metric. */
 export interface SummaryChart {
   metric: string;
+  drawing: SummaryDrawing;
   summaries: Summary[];
+}
+
+interface SummaryRequest {
+  metric: string;
+  candidates?: string[];
+  chart?: SummaryDrawing;
+  sort?: "value" | "declared";
+}
+
+const countOf = (summary: Summary, verdict: string) => summary.comparisons.filter((comparison) => comparison.verdict === verdict).length;
+
+/** The candidate with most better results first, then the one with fewest worse; ties keep the declared order. */
+const byResults = (summaries: Summary[]) =>
+  [...summaries].sort(
+    (first, second) => countOf(second, "better") - countOf(first, "better") || countOf(first, "worse") - countOf(second, "worse"),
+  );
+
+function chartOf(metric: string, summaries: Summary[], request: { chart?: SummaryDrawing; sort?: "value" | "declared" }): SummaryChart {
+  return { metric, drawing: request.chart ?? "diverging-bar", summaries: request.sort === "declared" ? summaries : byResults(summaries) };
 }
 
 /** The candidates a summary block draws: those it names, or every candidate compared with the baseline. */
@@ -47,11 +70,12 @@ export function summaryCandidatesOf(results: Results, block: { candidates?: stri
   return block.candidates ?? results.candidates.map((candidate) => candidate.id).filter((candidate) => candidate !== results.baseline);
 }
 
-export function summaryChartOf(results: Results, block: { metric: string; candidates?: string[] }): SummaryChart {
-  return {
-    metric: block.metric,
-    summaries: summaryCandidatesOf(results, block).map((candidate) => summaryOf(results, candidate, block.metric)),
-  };
+export function summaryChartOf(results: Results, block: SummaryRequest): SummaryChart {
+  return chartOf(
+    block.metric,
+    summaryCandidatesOf(results, block).map((candidate) => summaryOf(results, candidate, block.metric)),
+    block,
+  );
 }
 
 /** The levels of the structure a summary's comparisons sit on: one, so that a total is never counted with its own parts. */
@@ -73,7 +97,7 @@ export function summaryChartsOf(results: Results): SummaryChart[] {
       .map((candidate) => summaryOf(results, candidate.id, metric.id))
       .filter((summary) => isCountable(results, summary));
 
-    return summaries.length > 0 ? [{ metric: metric.id, summaries }] : [];
+    return summaries.length > 0 ? [chartOf(metric.id, summaries, {})] : [];
   });
 }
 
@@ -219,7 +243,135 @@ export function summaryClaimOf(lookup: Lookup, summary: Summary): string {
   return `${pair}, ${lowerFirstLetterOfWord(metric.label)} on ${partsOf(lookup, summary)}: ${counts.join(", ")}.`;
 }
 
-/** "Each bar: the 12 files, by their result against markly.": what a bar of a summary chart stands for. */
-export function stacksKeyOf(lookup: Lookup, chart: SummaryChart): string {
-  return `Each bar: the ${partsOf(lookup, chart.summaries[0])}, by their result against ${lookup.candidateName.get(lookup.results.baseline)}.`;
+/** What a bar of a summary chart stands for, and on a diverging chart which side is which. */
+export function summaryKeyOf(lookup: Lookup, chart: SummaryChart): string {
+  const parts = partsOf(lookup, chart.summaries[0]);
+  const baseline = lookup.candidateName.get(lookup.results.baseline);
+  const words = directionWordsOf(lookup.metricById.get(chart.metric)!);
+
+  switch (chart.drawing) {
+    case "diverging-bar":
+      return `Each bar: the ${parts}, by their result against ${baseline}; ${words.better} to the right of the line, ${words.worse} to the left.`;
+    case "stacked-bar":
+      return `Each bar: the ${parts}, by their result against ${baseline}.`;
+    case "grouped-bar":
+      return `Each bar: how many of the ${parts} had that result against ${baseline}.`;
+  }
+}
+
+/** The legend of a summary chart, in the order its bars read from left to right; "likely" when some part only likely is. */
+export function legendOf(metric: Metric, chart: SummaryChart): { side: BarSide | "likely"; words: string }[] {
+  const everyBar = chart.summaries.flatMap((summary) => verdictBarsOf(metric, summary.comparisons));
+  const present = verdictBarsOf(metric, chart.summaries[0].comparisons).filter(
+    (bar) => bar.side !== "unclear" || everyBar.some((other) => other.side === "unclear" && other.count > 0),
+  );
+  const order: BarSide[] =
+    chart.drawing === "diverging-bar" ? ["worse", "same", "better", "unclear"] : ["better", "same", "worse", "unclear"];
+  const sides = order.flatMap((side) => present.filter((bar) => bar.side === side).map((bar) => ({ side, words: bar.words })));
+
+  return [
+    ...(chart.drawing === "grouped-bar" ? [] : sides),
+    ...(everyBar.some((bar) => bar.likely > 0 && bar.side !== "unclear")
+      ? [{ side: "likely" as const, words: "Faded: likely, not certain yet" }]
+      : []),
+  ];
+}
+
+/** One part of a bar, placed on the chart's span in counts from its left edge; its likely part first when that is nearer the line. */
+export interface PlacedSegment {
+  bar: VerdictBar;
+  start: number;
+  likelyFirst: boolean;
+}
+
+/** The bars of a stacked or diverging summary on one span; `zero` is where the line between worse and better sits. */
+export interface BarLayout {
+  span: number;
+  zero?: number;
+  bars: { summary: Summary; segments: PlacedSegment[] }[];
+}
+
+/** The space left between a diverging bar and its unclear part, as a share of the bar's span. */
+const UNCLEAR_GAP_SHARE = 0.05;
+
+/**
+ * Where each part of each bar sits. Stacked: better, about the same, worse, unclear, from the left. Diverging: worse to
+ * the left of a line and better to its right, so that both start from it; about the same centred on the line; unclear
+ * set apart after the bar. A likely part sits next to the line and its firm part outside, as the stronger answers do.
+ */
+export function barLayoutOf(metric: Metric, chart: SummaryChart): BarLayout {
+  const barsBySide = chart.summaries.map(
+    (summary) => new Map(verdictBarsOf(metric, summary.comparisons).map((bar) => [bar.side, bar] as const)),
+  );
+  const countOn = (bars: Map<BarSide, VerdictBar>, side: BarSide) => bars.get(side)?.count ?? 0;
+
+  if (chart.drawing !== "diverging-bar") {
+    return {
+      span: Math.max(...chart.summaries.map((summary) => summary.comparisons.length)),
+      bars: chart.summaries.map((summary, index) => {
+        let start = 0;
+
+        return {
+          summary,
+          segments: [...barsBySide[index].values()]
+            .filter((bar) => bar.count > 0)
+            .map((bar) => {
+              const placed = { bar, start, likelyFirst: false };
+
+              start += bar.count;
+
+              return placed;
+            }),
+        };
+      }),
+    };
+  }
+
+  const left = Math.max(...barsBySide.map((bars) => countOn(bars, "worse") + countOn(bars, "same") / 2));
+  const right = Math.max(...barsBySide.map((bars) => countOn(bars, "better") + countOn(bars, "same") / 2));
+  const unclear = Math.max(...barsBySide.map((bars) => countOn(bars, "unclear")));
+  const gap = unclear > 0 ? (left + right) * UNCLEAR_GAP_SHARE : 0;
+  const startOf = (bars: Map<BarSide, VerdictBar>, side: BarSide) =>
+    side === "worse"
+      ? left - countOn(bars, "same") / 2 - countOn(bars, "worse")
+      : side === "same"
+        ? left - countOn(bars, "same") / 2
+        : side === "better"
+          ? left + countOn(bars, "same") / 2
+          : left + right + gap;
+
+  return {
+    span: left + right + gap + unclear,
+    zero: left,
+    bars: chart.summaries.map((summary, index) => ({
+      summary,
+      segments: (["worse", "same", "better", "unclear"] as const).flatMap((side) => {
+        const bar = barsBySide[index].get(side);
+
+        return bar && bar.count > 0 ? [{ bar, start: startOf(barsBySide[index], side), likelyFirst: side === "better" }] : [];
+      }),
+    })),
+  };
+}
+
+/** The bars of a grouped summary: one group per result, a bar per candidate in it, all on one scale from zero. */
+export function countGroupsOf(
+  metric: Metric,
+  chart: SummaryChart,
+): { side: BarSide; words: string; bars: { summary: Summary; bar: VerdictBar }[] }[] {
+  const sides = legendOf(metric, { ...chart, drawing: "stacked-bar" }).filter((item) => item.side !== "likely");
+
+  return sides.map(({ side, words }) => ({
+    side: side as BarSide,
+    words,
+    bars: chart.summaries.map((summary) => ({
+      summary,
+      bar: verdictBarsOf(metric, summary.comparisons).find((bar) => bar.side === side) ?? {
+        side: side as BarSide,
+        words,
+        count: 0,
+        likely: 0,
+      },
+    })),
+  }));
 }

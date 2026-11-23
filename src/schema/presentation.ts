@@ -16,6 +16,11 @@ export const CHART_TYPES = [
   "stacked-bar",
   "comparison-rows",
 ] as const;
+/**
+ * How a summary draws its counts: bars diverging from a line, better on one side and worse on the other, so that both
+ * start from it; bars stacked from the left; or bars grouped by result, to compare one result across candidates.
+ */
+export const SUMMARY_CHARTS = ["diverging-bar", "stacked-bar", "grouped-bar"] as const;
 export const TRUST_BLOCK_TYPES = ["methodology", "environment", "limitations", "provenance"] as const;
 export const EXPORT_SIZES = ["banner", "wide", "square"] as const;
 export const VERDICT_WORDS = ["better", "worse", "equivalent", "inconclusive", "likely better", "likely worse"] as const;
@@ -59,10 +64,18 @@ const blockText = {
 
 const headlineBlock = z.strictObject({ id, type: z.literal("headline"), comparison: text, ...blockText, title: text });
 /**
- * The answer when it is a pattern: the primary comparisons of each candidate on one metric, counted by verdict, one
- * stacked bar per candidate. Every candidate compared with the baseline unless `candidates` names some. Its words are generated.
+ * The answer when it is a pattern: the primary comparisons of each candidate on one metric, counted by verdict.
+ * Every candidate compared with the baseline unless `candidates` names some, the one with most better results first
+ * unless `sort` is "declared". Its words are generated.
  */
-const summaryBlock = z.strictObject({ id, type: z.literal("summary"), metric: id, candidates: z.array(id).min(1).optional() });
+const summaryBlock = z.strictObject({
+  id,
+  type: z.literal("summary"),
+  metric: id,
+  candidates: z.array(id).min(1).optional(),
+  chart: z.enum(SUMMARY_CHARTS).optional(),
+  sort: z.enum(["value", "declared"]).optional(),
+});
 
 const chartBlock = z.strictObject({
   id,
@@ -78,7 +91,8 @@ const chartBlock = z.strictObject({
   series: z.literal("candidate").optional(),
   uncertainty: z.literal("ci").optional(),
   scale: scale.optional(),
-  sort: z.enum(["value", "declared"]).optional(),
+  /** "effect" also orders the parts of an effect chart with a breakdown, largest gain first. */
+  sort: z.enum(["value", "declared", "effect"]).optional(),
   annotations: z.array(z.strictObject({ candidate: id.optional(), node: id.optional(), text })).optional(),
   comparisons: z.array(text).min(1).optional(),
   effect_format: z.enum(["percent", "times"]).optional(),

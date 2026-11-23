@@ -261,37 +261,36 @@ describe("summaries in the presentation", () => {
     ]);
   });
 
-  it("warns when a page states no answer, and lets a row hold three answers", () => {
+  it("leaves the page's choices to the agent: no answer at the top, four blocks in a row, a long effect chart", () => {
     const { benchmark } = loadExample("support-assistant-eval");
     const withoutAnswers = { ...benchmark, blocks: benchmark.blocks!.filter((block) => block.type !== "headline"), layout: undefined };
-    const headlineIds = benchmark.blocks!.filter((block) => block.type === "headline").map((block) => block.id);
+    const headline = (id: string) => ({
+      id,
+      type: "headline",
+      comparison: "accuracy__suite__model_a",
+      title: "{effect:accuracy__suite__model_a}",
+    });
+    const ids = ["one", "two", "three", "four"];
+    const crowded = benchmarkSchema.parse({ ...copyOf(benchmark), blocks: ids.map(headline), layout: [ids], exports: undefined });
+    const longChart = {
+      id: "chart",
+      type: "chart",
+      chart: "effect",
+      metric: "wall_time",
+      breakdown: "script",
+      title: "Wall time by script",
+    };
+    const long = benchmarkSchema.parse({ ...scriptsBenchmarkOf(20), blocks: [longChart] });
 
-    expect(checkPresentation(withoutAnswers).map((issue) => [issue.severity, issue.rule])).toEqual([["warning", "V38"]]);
-    const summary = { id: "summary", type: "summary", metric: "cost_per_item" } as never;
-
-    expect(headlineIds).toHaveLength(2);
-    expect(
-      rulesOf(checkPresentation({ ...benchmark, blocks: [...benchmark.blocks!, summary], layout: [[...headlineIds, "summary"]] })),
-    ).not.toContain("V39");
+    expect(checkPresentation(withoutAnswers)).toEqual([]);
+    expect(checkPresentation(crowded)).toEqual([]);
+    expect(checkPresentation(long)).toEqual([]);
   });
 });
 
 describe("tables of effects", () => {
   const withBlocks = (scriptCount: number, blocks: Record<string, unknown>[]) =>
     checkPresentation(benchmarkSchema.parse({ ...scriptsBenchmarkOf(scriptCount), blocks }));
-
-  it("an effect chart longer than eight rows is a warning that points to a table of effects", () => {
-    const chart = { id: "chart", type: "chart", chart: "effect", metric: "wall_time", breakdown: "script", title: "Wall time by script" };
-
-    expect(
-      withBlocks(9, [chart])
-        .filter((issue) => issue.rule === "V40")
-        .map((issue) => issue.message),
-    ).toEqual([
-      'the effect chart draws 9 rows: beyond 8, a table of effects reads better, one row per script: a table block with "rows": "script", "cells": "effects"',
-    ]);
-    expect(rulesOf(withBlocks(8, [chart]))).not.toContain("V40");
-  });
 
   it("a table of effects shows each effect's interval, and needs neither n nor failures", () => {
     const table = (show: string[]) => ({ id: "table", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show });
@@ -355,25 +354,6 @@ describe("charts in the presentation", () => {
 
     expect(checked([table])).toEqual([{ rule: "V31", path: "blocks[0].show" }]);
     expect(checked([{ ...table, show: ["n", "ci", "failures"] }])).toEqual([]);
-  });
-
-  it("more than two blocks in a row, more than three answers in a row, or more than three headlines, is a warning", () => {
-    const headline = (id: string) => ({
-      id,
-      type: "headline",
-      comparison: "accuracy__suite__model_a",
-      title: "{effect:accuracy__suite__model_a}",
-    });
-    const blocks = ["one", "two", "three", "four"].map(headline);
-    const issues = checkPresentation(benchmarkSchema.parse(withPresentation({ blocks, layout: [["one", "two", "three", "four"]] })));
-
-    expect(issues.map((issue) => [issue.severity, issue.rule, issue.path])).toEqual([
-      ["warning", "V39", "layout[0]"],
-      ["warning", "V39", "blocks"],
-    ]);
-    expect(issues.find((issue) => issue.path === "blocks")!.message, "names the headline to move, the last one on the page").toContain(
-      'show "four" (accuracy__suite__model_a) in a comparison-rows chart or a table instead',
-    );
   });
 
   it("an image export its chart does not fit fails the file", () => {

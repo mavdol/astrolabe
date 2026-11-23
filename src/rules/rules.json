@@ -777,7 +777,7 @@
   {
     "id": "V1",
     "level": "must",
-    "text": "Choose the chart from the data shape in the table above, and encode the compared quantity as a position on a common scale before any other encoding.",
+    "text": "Choose the chart from the recommendation tables above, the recommended one or an alternative whose reason fits the message, and encode the compared quantity as a position on a common scale before any other encoding.",
     "pitfall": "A chart picked for looks that readers judge less accurately",
     "proved_by": "blocks[].chart (checked against the shape)",
     "explained_in": "visualization/charts.md"
@@ -1088,7 +1088,7 @@
   {
     "id": "V40",
     "level": "should",
-    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, or show it as a table: an effect chart of more than 8 rows becomes a table of effects.",
+    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, sort it by effect, or show it as a table of effects.",
     "pitfall": "A chart that shows everything and says nothing",
     "proved_by": "blocks[]",
     "explained_in": "visualization/page.md"

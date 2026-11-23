@@ -27,9 +27,10 @@ The framing step already asked what the benchmark decides. Ask at most two more 
 1. Is the page about one candidate in particular (the user's own project), or a neutral comparison?
 2. Is there a colour or theme to follow, and where will it be shared first: a README, a site, a social post?
 
-Then propose the page as a short outline, before writing any block: one line per block, each chart with the reader's question it answers (charts.md), and no text block unless no chart can carry it:
+Then propose the page as a short outline, before writing any block: first the shape of the results (charts.md), then one line per block, each chart with the reader's question it answers, and the reason when you take an alternative rather than the recommended chart. No text block unless no chart can carry it:
 
 ```
+Shape       1 candidate against markly, 2 criteria, the whole benchmark, 12 runs per candidate
 Headlines   build time first (the answer), then identical pages; quickmark against markly, both primary
 Chart       "Is it faster, and by how much?": the effect on build time, with the band too small to matter
 Chart       "What will one run look like?": every run, build time (12 runs per candidate)
@@ -37,16 +38,16 @@ Table       both metrics by file size, with n, intervals and failures (explorato
 Exports     the README card (light and dark), a wide image of the effect chart
 ```
 
-The user amends it; then write the sections, run `astrolabe validate`, and build. Running unattended, choose with the defaults below and list the choices in the final reply.
+The user amends it; then write the sections, run `astrolabe validate`, and build. Running unattended, choose with the recommendations in charts.md, and list in the final reply each alternative you took and why.
 
 ## Blocks and their order
 
-`blocks` lists every block once; `layout` places them, one array per row, at most two per row (three when the row holds only headlines and summaries). Order the rows from the answer to the evidence:
+`blocks` lists every block once; `layout` places them, one array per row. Two blocks per row read well, three when they are all headlines or summaries; more and each gets too narrow. Order the rows from the answer to the evidence:
 
 1. **Headlines**: one per primary comparison the goal rests on, three at most, the one that answers the goal first: the top of the page names its pair ("quickmark compared with markly"). A headline names its `comparison` and a `title` (templates, style.md); the figure, interval, verdict, failures and a small drawing of the comparison are added by the generator.
-   When the answer is a pattern across more than three primary comparisons on one level (a script, a task or a file each), a **summary** states it instead: `{ "id": "summary-time", "type": "summary", "metric": "wall_time" }`. It draws a stacked bar per candidate under one legend: the candidate's primary comparisons on that metric split into better, about the same and worse (in the metric's own words: faster, lower, cheaper), the count in each part, the part only likely lighter; then the range of the changes. It shows every candidate compared with the baseline; `candidates` names fewer. One summary per metric the reader asks about; every word is generated, so it has no title. `validate` warns when the page states neither a headline nor a summary.
+   When the answer is a pattern across many parts (more than three primary comparisons on one level, a task or a file each), a **summary** usually states it better than headlines: `{ "id": "summary-time", "type": "summary", "metric": "wall_time" }`. It counts each candidate's primary comparisons on that metric as better, about the same or worse, in the metric's own words (faster, lower, cheaper), the part only likely faded, then gives the range of the changes. `chart` says how the counts are drawn: `diverging-bar` (the default), `stacked-bar` or `grouped-bar`; charts.md says what each reads best. It shows every candidate compared with the baseline, the one with most better results first: `candidates` names fewer, and `"sort": "declared"` keeps the order of `candidates[]`. Every word is generated, so it has no title.
 2. **The chart that backs them**: usually an `effect` or `comparison-rows` chart (charts.md).
-3. **Breakdowns**: where the difference comes from, labelled exploratory unless declared primary. Beyond 8 rows (nodes times compared candidates), a breakdown is a table of effects rather than an `effect` chart (style.md): one row per node reads faster than many chart rows that look alike.
+3. **Breakdowns**: where the difference comes from, labelled exploratory unless declared primary. Past about 8 rows (nodes times compared candidates), a table of effects (style.md) is recommended: one row per node reads faster than many chart rows that look alike. An `effect` chart with `"sort": "effect"` is the alternative when the spread of the changes is the message.
 4. **The full table**, with n, intervals and failures.
 5. **Trust blocks**: `methodology`, `environment`, `limitations`, `provenance`, each a block with only an `id` and its `type`.
 
@@ -128,7 +129,7 @@ Open it and read it as the user's reader would: does the first screen answer the
 | V37 | Should | Use a filter only when one view cannot hold the content; a breakdown that fits on the page is shown, not filtered. | Controls added for their own sake | filters[] |
 | V38 | Should | Order the page from the answer to the evidence: headline or summary blocks, the chart that backs them, the breakdowns, the full table, then the trust blocks. | A reader who has to scroll past method to find the result, or who never reaches the evidence | layout |
 | V39 | Should | Put at most two blocks in a row, three when they are all headline or summary blocks, and at most three headline and summary blocks on a page; rows stack into one column on narrow screens. | Charts too small to read; a headline row where nothing stands out | layout |
-| V40 | Should | Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, or show it as a table: an effect chart of more than 8 rows becomes a table of effects. | A chart that shows everything and says nothing | blocks[] |
+| V40 | Should | Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, sort it by effect, or show it as a table of effects. | A chart that shows everything and says nothing | blocks[] |
 | V41 | Must | Make every export readable alone: title, candidate names, unit, direction, and the interval note are inside the image. | A chart shared on a social site with no way to know what it measures | enforced by the generator |
 | V42 | Must | Print a provenance line in every export: where the full page is, the short hash of `results`, the date. | A number that cannot be traced back to its data | exports[] (generated) |
 | V43 | Must | An export shows the default state of the filters, or a state named in its preset; never a state picked by hand at export time. | The most flattering slice exported without saying it is a slice | exports[].filter_state |

@@ -12,6 +12,7 @@ import { loadRaw } from "../src/compute/files.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { blockSchema, CHART_TYPES, type ChartBlock } from "../src/schema/presentation.js";
 import { contrastRatio, MARK_CONTRAST, seriesStylesOf, TEXT_CONTRAST, THEME, visibleOn } from "../src/themes/astrolabe.js";
+import { scriptsBenchmarkOf } from "./helpers.js";
 import { decodePng } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -209,6 +210,22 @@ describe("a chart broken down by node", () => {
       "Find a note from last week",
     ]);
     expect(chart.table.rows.map((row) => row[1])).toEqual(["Notes B", "Notes A", "Notes B", "Notes A", "Notes B", "Notes A"]);
+  });
+
+  it("orders the parts of an effect chart by their effect when its sort is effect, and keeps the declared order otherwise", () => {
+    const scripts = scriptsBenchmarkOf(4);
+    const block = {
+      id: "chart-scripts",
+      type: "chart",
+      chart: "effect",
+      metric: "wall_time",
+      breakdown: "script",
+      title: "By script",
+    } as ChartBlock;
+    const groupsOf = (sorted: ChartBlock) => [...new Set(draw(scripts, sorted).table.rows.map((row) => row[0]))];
+
+    expect(groupsOf(block)).toEqual(["Script 1", "Script 2", "Script 3", "Script 4"]);
+    expect(groupsOf({ ...block, sort: "effect" })).toEqual(["Script 1", "Script 3", "Script 2", "Script 4"]);
   });
 
   it("resolves the templates of the author's reading", () => {

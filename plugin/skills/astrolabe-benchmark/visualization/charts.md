@@ -1,46 +1,78 @@
 # Charts: which one, and drawn honestly
 
-Read at the presentation step, before writing a chart block. You choose the chart from the shape of the results; `validate` refuses a chart that does not fit its data, names the rule it breaks, and says what to use instead.
+Read at the presentation step, before writing a chart or summary block. You choose the chart from the shape of the results and the message, with the recommendations below; `validate` refuses only a chart that does not fit its data or would mislead, names the rule it breaks, and says what to use instead.
 
 The examples continue example.benchmark.json: `quickmark` against the baseline `markly`, with `wall_time` and `identical_pages` as primary metrics. Where an example needs a level of `structure`, the pages are grouped by `size`.
 
 ## Contents
 
-- Which chart for which question
+- Which chart: recommended, then alternatives
 - The fields of a chart block
 - Scales
 - Uncertainty
 - Rules
 
-## Which chart for which question
+## Which chart: recommended, then alternatives
 
-Start from the question the reader brings, not from the data you have: write it down, then take its row. A reader understands a drawing faster than a sentence, so whatever can be drawn is drawn, and the words only say what the drawing cannot.
+You choose every chart. For each shape of results, the tables below give the recommended chart, the alternatives that are just as honest, and what each reads better. Take the one that carries the message you want the reader to take: the same numbers arranged another way put another message forward (bars sorted from the largest put the largest values first; a stack puts the whole forward, bars side by side one part). `validate` refuses only what would mislead, such as a bar that does not start at zero, a paired result left to two intervals, or a missing interval; it never asks for one chart over another. A reader understands a drawing faster than a sentence, so whatever can be drawn is drawn.
 
-| The reader asks | `chart` | Fields it needs | Not when |
+Start from the question the reader brings, then count the shape from `results` and write it in the outline (page.md):
+
+| Count | What it is |
+| --- | --- |
+| Candidates | Candidates compared with the baseline: 1, 2 to 4, or 5 or more. Four is what the theme tells apart without added colours |
+| Criteria | Metrics the reader's question is about: 1, 2 or 3, or 4 or more |
+| Parts | Nodes of the level the comparisons sit on (files, tasks, sizes): 1 when the whole benchmark is compared; a few up to about 8 chart rows (parts times candidates); many beyond |
+| Order | Whether that level has an order (input size, concurrency, version) |
+
+Two more facts change the choice: a **paired** comparison (the same items or runs measured for both candidates) is never left to two separate intervals, so show the effect itself; and with about 10 runs or fewer per candidate, show every run beside the summary.
+
+### The answer, at the top of the page
+
+| Candidates | Criteria | Parts | Recommended | Alternatives, and what they read better |
+| --- | --- | --- | --- | --- |
+| 1 | 1 | 1 | A headline (page.md) | — |
+| 1 | 2 or 3 | 1 | A headline per criterion, the one the goal names first | `comparison-rows`, when the criteria are read together, each on its own scale (a release against the previous one) |
+| 1 | 4 or more | 1 | The headline on the criterion the goal names, then `comparison-rows` with every criterion (up to 10 rows) | A table past 10 rows |
+| 2 to 4 | 1 | 1 | A headline per candidate, three at most | An `effect` chart with a row per candidate, when the reader asks for a ranking |
+| 5 or more | 1 | 1 | An `effect` chart, a row per candidate | `dot-interval`, or `bar` for a quantity with a true zero, when the comparison is not paired and the reader wants the values rather than the changes; `highlight` the subject (style.md) |
+| Any | Any | Many | A summary per criterion: the pattern across the parts (page.md), drawn as the next table says | Headlines, when only one to three of the comparisons are primary |
+
+### A pattern across many parts: how to draw the summary
+
+A summary counts each candidate's results as better, about the same or worse. Its `chart` says how they are drawn:
+
+| Candidates | Criteria | Recommended `chart` | Alternatives, and what they read better |
 | --- | --- | --- | --- |
-| "So which one?": one comparison answers the goal | no chart: a headline block | `comparison` (see page.md) | |
-| "So which one, across all these tasks?": the answer is a pattern over more than three primary comparisons on one level | a summary block: a stacked bar per candidate counting its results | `metric`; `candidates` to show fewer (see page.md) | three comparisons or fewer: headlines |
-| "Is it better, and by how much?" | `effect` | `metric` | the comparisons are on different metrics: `comparison-rows` |
-| "Where does the gap come from?" | `effect` with `breakdown` | `metric`, `breakdown` (a level: category, task, size) | the level has one node: the headline already says it; more than 8 rows (nodes times compared candidates): a table of effects (style.md) |
-| "Did this release improve, metric by metric?" | `comparison-rows` | `comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2× | more than 10 rows: a table |
-| "Is the gain worth the cost?": two metrics in tension (accuracy and cost, speed and memory) | `scatter` | `x`, `y` (metric ids), `node` | the two metrics do not trade against each other: two headlines |
-| "What will one run, one request look like?" (run times, latencies, flaky tasks) | `distribution` | `metric`; reads the raw file | the question is about the average: `effect` |
-| "How does it change as the input grows?": an ordered level (input size, concurrency, version) | `line` | `metric`, `breakdown` (the level, at least two nodes) | the level has no order (categories): `effect` with `breakdown` |
-| "How do they rank?": one metric, a few candidates | `dot-interval`; `bar` only for a quantity with a true zero (memory, cost, a count) | `metric`, `node` | the comparison is paired: `effect` |
-| "How do they rank in each category?" | `grouped-bar` up to 4 candidates, `dot-interval` beyond | `metric`, `breakdown` | many candidates across many tasks: `shaded-table` |
-| "Which candidate is good at what?": many candidates, many tasks | `shaded-table` | `metric`, `breakdown` | a few cells: `grouped-bar` |
-| "Where does the total go?": parts of one total (cost by stage) | `stacked-bar` | `metric` (the total), `breakdown` (the level of the parts) | one part is compared across candidates: `grouped-bar` |
+| 1 | 1 | `diverging-bar` (the default): worse to the left of a line, better to its right, about the same centred on it, unclear set apart | `stacked-bar`, when the message is the share of better parts only; an `effect` chart with `"sort": "effect"`, when the size of each change matters more than the count |
+| 2 or more | 1 | `diverging-bar`, the candidate with most better parts first: better and worse both start from the line, so both compare across candidates | `stacked-bar`, when the message is the share of better parts; `grouped-bar`, a group per result and a bar per candidate, when the reader compares one result such as "about the same" or "unclear" across candidates |
+| Any | 2 or 3 | One summary per criterion, side by side, the same candidate order in each (`"sort": "declared"` when the order by result would differ from one to the next) | — |
+| Any | 4 or more | A summary on the criterion the goal names, then a table of effects for the others (style.md) | A summary per criterion, up to three |
 
-How to pick, in order:
+A summary never mixes criteria in one bar: a part that is faster but heavier would be counted twice.
 
-1. **The answer first.** Each primary comparison the goal rests on gets a headline block, the one that answers the goal first; when they are more than three on one level (one per script or task), a summary block states the pattern instead; the chart that backs them is an `effect` chart, or a `comparison-rows` chart when the comparisons are on different metrics.
-2. **The question the goal names.** A goal that weighs two things ("given accuracy and running cost", "faster without using more memory") gets the `scatter` of those two metrics; a goal about one run (latency, flaky tasks) gets the `distribution`, which shows every run up to 20 and a box beyond.
-3. **A paired comparison is never left to two separate intervals.** When the same items or runs were measured for both candidates, show the effect itself (headline, `effect` or `comparison-rows`); two dots with their own intervals cannot show a paired result, and `validate` says so.
-4. **Then the breakdowns**, which are exploratory unless declared primary: the reader sees where the difference comes from.
-5. **No chart for one, two or three numbers**: a headline says it better.
-6. **No paragraph where a chart fits.** A finding you are about to explain in a text block ("the gain comes from coding", "slower on small files") is a breakdown to draw; the method, the environment and the limitations are drawn by the generator from the file.
+### The evidence, under the answer
 
-Pies, donuts, bubbles, radar charts, two y-axes and 3D are not in the chart set: angle, area and a second axis are judged far less accurately than positions on one scale.
+| The reader asks | Recommended `chart` | Alternatives, and what they read better |
+| --- | --- | --- |
+| "Is it better, and by how much?" | `effect`, with the band of differences too small to matter | `comparison-rows`, when the comparisons are on different metrics |
+| "Where does the gap come from?": a few parts (up to about 8 rows) | `effect` with `breakdown` (a level: category, task, size) | `grouped-bar` for a quantity with a true zero, up to 4 candidates, when the comparison is not paired and the reader ranks values per part; `line` when the level has an order |
+| The same, many parts | A table of effects, a row per part (style.md) | An `effect` chart with `"sort": "effect"`, when the spread is the message ("most files gain a little, a few gain a lot"): the reader takes in its shape, not each row |
+| Several criteria across many parts | A table of effects, a column per candidate and criterion | One table per criterion, when they are read apart; a `scatter` of one criterion against the other, a point per part, when they trade off |
+| "Is the gain worth the cost?": two metrics in tension (accuracy and cost, speed and memory) | `scatter` (`x`, `y`, `node`) | Two `effect` charts side by side, rows in the same order |
+| "What will one run, one request look like?" (run times, latencies, flaky tasks) | `distribution`, which shows every run up to 20 and a box beyond | Percentiles in a table |
+| "How does it change as the input grows?": a level with an order | `line` (`breakdown`, at least two nodes) | `effect` with `breakdown` when the level has three nodes or fewer |
+| "How do they rank?": one metric, one part | `dot-interval`; `bar` only for a quantity with a true zero (memory, cost, a count) | `effect` when the comparison is paired |
+| "Which candidate is good at what?": many candidates, many parts | `shaded-table` | `grouped-bar` for a few cells |
+| "Where does the total go?": parts of one total (cost by stage) | `stacked-bar` (`metric` the total, `breakdown` the level of the parts) | `grouped-bar` to compare one part across candidates |
+| "Did this release improve, metric by metric?" | `comparison-rows` (`comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2×) | A table past 10 rows |
+
+Whatever you choose:
+
+- **No chart for one, two or three numbers**: a headline says it better.
+- **The breakdowns are exploratory** unless declared primary, and say so.
+- **No paragraph where a chart fits.** A finding you are about to explain in a text block ("the gain comes from coding", "slower on small files") is a breakdown to draw; the method, the environment and the limitations are drawn by the generator from the file.
+- **Not in the chart set**: pies, donuts, bubbles, radar charts, two y-axes and 3D. Angle, area and a second axis are judged far less accurately than positions on one scale.
 
 ## The fields of a chart block
 
@@ -71,7 +103,7 @@ Pies, donuts, bubbles, radar charts, two y-axes and 3D are not in the chart set:
 | `series` | `candidate`, the only value: one colour and one label per candidate |
 | `uncertainty` | `ci`: the intervals compute wrote. Required whenever the values have one |
 | `scale` | See below |
-| `sort` | `value` (default: best first along the metric's direction) or `declared` (the order of `candidates[]`, kept on every chart) |
+| `sort` | `value` (default: best first along the metric's direction), `declared` (the order of `candidates[]`, kept on every chart), or `effect` (as `value`, and the parts of an `effect` chart with a `breakdown` ordered by their mean effect, largest gain first) |
 | `annotations` | Short notes next to a candidate or a node, written with templates |
 | `effect_format` | `percent` (default) or `times`, on `comparison-rows` only |
 | `filters` | Filter ids that change this chart (page.md) |
@@ -105,7 +137,7 @@ Every axis is a decision that changes how large a difference looks. The generato
 | D3 | Must | Do not rely on axis-break markers to fix a truncated axis; readers are still misled. | False sense of honesty | no axis breaks in the generator |
 | D10 | Should | When distributions are skewed, multi-modal or have outliers, show them (box, violin or cumulative distribution plots) rather than only a mean with error bars. | Averages hiding the real behaviour | raw_data[] |
 | D11 | Should | Show reference points that make scores readable where they exist: floor and ceiling, random or trivial baseline, human level, theoretical upper bound. | Scores with no sense of what is good or bad | metrics[].reference_points |
-| V1 | Must | Choose the chart from the data shape in the table above, and encode the compared quantity as a position on a common scale before any other encoding. | A chart picked for looks that readers judge less accurately | blocks[].chart (checked against the shape) |
+| V1 | Must | Choose the chart from the recommendation tables above, the recommended one or an alternative whose reason fits the message, and encode the compared quantity as a position on a common scale before any other encoding. | A chart picked for looks that readers judge less accurately | blocks[].chart (checked against the shape) |
 | V2 | Must | Do not use angle or area (pie, donut, bubble size) to compare candidates. | Judgments by angle and circular area are less accurate than by position | not in the chart set |
 | V3 | Should | Do not chart one, two or three numbers: use a headline block or a sentence. | A chart that adds ink but no information | blocks[].type |
 | V4 | Should | Beyond 8 candidates in one chart, highlight the subject and grey the rest, or split into small multiples; never add colours. | Colours that can no longer be told apart | style.highlight |

@@ -157,7 +157,10 @@ export function valueGroupsOf(block: ChartBlock, benchmark: Benchmark, lookup: L
   }));
 }
 
-/** The comparisons with the baseline a block charts: one group per node, best effect first within it. */
+/**
+ * The comparisons with the baseline a block charts: one group per node, best effect first within it; with sort "effect",
+ * the nodes too, by the mean effect of the candidates compared there, so that no candidate decides the order.
+ */
 export function comparisonGroupsOf(block: ChartBlock, benchmark: Benchmark, lookup: Lookup, filterState: FilterState): ComparisonGroup[] {
   const metric = metricOf(block, lookup);
   const nodes = nodesOf(block, benchmark, lookup, filterState);
@@ -171,7 +174,20 @@ export function comparisonGroupsOf(block: ChartBlock, benchmark: Benchmark, look
 
         return isBetter(metric, first.effect, second.effect) ? -1 : 1;
       });
-  const nodesWithComparisons = nodes.filter((node) => comparisonsAt(node).length > 0);
+  const meanEffectAt = (node: NodeId) => {
+    const effects = comparisonsAt(node).map((comparison) => comparison.effect);
+
+    return effects.reduce((sum, effect) => sum + effect, 0) / effects.length;
+  };
+  const withComparisons = nodes.filter((node) => comparisonsAt(node).length > 0);
+  const nodesWithComparisons =
+    block.sort === "effect"
+      ? [...withComparisons].sort((first, second) => {
+          const [firstEffect, secondEffect] = [meanEffectAt(first), meanEffectAt(second)];
+
+          return firstEffect === secondEffect ? 0 : isBetter(metric, firstEffect, secondEffect) ? -1 : 1;
+        })
+      : withComparisons;
 
   if (nodesWithComparisons.length === 0) throw new ChartError("V1", `block "${block.id}" has no comparison on "${metric.id}" to show`);
 
