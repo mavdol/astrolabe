@@ -1,5 +1,5 @@
 import { KINDS_MEASURED_ON_YOUR_MACHINES, type Benchmark, type Comparison, type Metric, type Value } from "../schema/benchmark.js";
-import { withUnit } from "./chart/chart-content.js";
+import { capitalised, withUnit } from "./chart/chart-content.js";
 import {
   effectAndInterval,
   labelDecimals,
@@ -16,17 +16,19 @@ import {
 import { seriesStylesOf, THEME, type Colours, type Mode } from "../themes/astrolabe.js";
 import { formatNumber } from "./number-format.js";
 import {
+  comparisonsOfChart,
   countsByVerdict,
   effectRangeOf,
-  inReadingOrder,
-  partsOf,
-  plainCountsOf,
+  likelyPartOf,
   pluralOf,
-  squaresKeyOf,
-  summariesOf,
+  stacksKeyOf,
+  summaryChartOf,
+  summaryChartsOf,
   summaryClaimOf,
-  summaryOf,
+  verdictBarsOf,
+  type BarSide,
   type Summary,
+  type SummaryChart,
 } from "./summary.js";
 import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "./svg-text.js";
 
@@ -39,10 +41,13 @@ const PADDING = 36;
 const CELL_PADDING = 28;
 /** The least space a cell keeps inside its hairlines, when a verdict needs the room. */
 const SMALLEST_CELL_PADDING = 16;
-/** A summary's squares: as large as the cell allows one line of them, within these bounds, then on several lines. */
-const LARGEST_SQUARE = 24;
-const SMALLEST_SQUARE = 12;
-const SQUARE_GAP = 5;
+/** A summary's stacked bars, one per candidate under its name, and their legend. */
+const STACK_HEIGHT = 26;
+const STACK_GAP = 14;
+const LEGEND_SWATCH = 10;
+const LEGEND_GAP = 16;
+/** The likely part of a segment: its side's colour, lighter. */
+const LIKELY_OPACITY = 0.38;
 /** The sizes a figure steps down through, all of them, so that every figure fits its column. */
 const EFFECT_SIZES = [56, 48, 40, 32];
 const STRIP_HEIGHT = 28;
@@ -76,7 +81,7 @@ export const STYLE = {
   effectUnit: { weight: 400, size: 18 },
   heading: { weight: 500, size: 14, lineHeight: 20 },
   chip: { weight: 400, size: 12, tracking: 0.06, mono: true },
-  name: { weight: 500, size: 13 },
+  name: { weight: 500, size: 13, lineHeight: 18 },
   detail: { weight: 400, size: 12, lineHeight: 18, mono: true },
   warning: { weight: 500, size: 12, lineHeight: 18, mono: true },
   scale: { weight: 400, size: 12, mono: true },
@@ -92,7 +97,7 @@ export interface CardHeadline {
 export interface CardContent {
   headlines: CardHeadline[];
   /** Summary cells instead of headlines, when the answer is a pattern across many comparisons: a card shows one kind or the other. */
-  summaries?: Summary[];
+  charts?: SummaryChart[];
   /** Primary comparisons the card does not show, counted by verdict in its footer. */
   omitted: Comparison[];
 }
@@ -102,14 +107,14 @@ interface HeadlineBlock {
   type: string;
   comparison?: string;
   title?: string;
-  candidate?: string;
   metric?: string;
+  candidates?: string[];
 }
 
 /** Every comparison the card's cells stand for: one per headline, all those a summary counts. */
 const shownComparisonsOf = (content: CardContent): Comparison[] => [
   ...content.headlines.map(({ comparison }) => comparison),
-  ...(content.summaries ?? []).flatMap((summary) => summary.comparisons),
+  ...(content.charts ?? []).flatMap(comparisonsOfChart),
 ];
 
 /**
@@ -136,13 +141,10 @@ export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardCo
     });
 
     if (named.every((block) => block.type === "summary")) {
-      const summaries = named.map((block) => summaryOf(benchmark.results, block.candidate ?? "", block.metric ?? ""));
+      const charts = named.map((block) => summaryChartOf(benchmark.results, { metric: block.metric ?? "", candidates: block.candidates }));
+      const counted = new Set(charts.flatMap(comparisonsOfChart));
 
-      return {
-        headlines: [],
-        summaries,
-        omitted: primary.filter((comparison) => !summaries.some((summary) => summary.comparisons.includes(comparison))),
-      };
+      return { headlines: [], charts, omitted: primary.filter((comparison) => !counted.has(comparison)) };
     }
 
     const headlines = named.map((block) => {
@@ -161,14 +163,13 @@ export function cardContentOf(benchmark: Benchmark, blockIds?: string[]): CardCo
     return { headlines, omitted: primary.filter((comparison) => !shown.has(comparison.id)) };
   }
 
-  const summaries = summariesOf(benchmark.results).slice(0, MAX_HEADLINES);
+  const charts = summaryChartsOf(benchmark.results).slice(0, MAX_HEADLINES);
 
-  if (primary.length > MAX_HEADLINES && summaries.length > 0)
-    return {
-      headlines: [],
-      summaries,
-      omitted: primary.filter((comparison) => !summaries.some((summary) => summary.comparisons.includes(comparison))),
-    };
+  if (primary.length > MAX_HEADLINES && charts.length > 0) {
+    const counted = new Set(charts.flatMap(comparisonsOfChart));
+
+    return { headlines: [], charts, omitted: primary.filter((comparison) => !counted.has(comparison)) };
+  }
 
   return {
     headlines: primary.slice(0, MAX_HEADLINES).map((comparison) => ({ comparison })),
@@ -351,8 +352,8 @@ export function cardAltText(benchmark: Benchmark, content: CardContent): string 
   const lookup = lookupOf(benchmark.results);
   const sharedPair = sharedPairOf(lookup, content);
 
-  if (content.summaries && content.summaries.length > 0)
-    return content.summaries.map((summary) => summaryClaimOf(lookup, summary)).join(" ");
+  if (content.charts && content.charts.length > 0)
+    return content.charts.flatMap((chart) => chart.summaries.map((summary) => summaryClaimOf(lookup, summary))).join(" ");
 
   const sentences = content.headlines.map(({ comparison }) => {
     const metric = lookup.metricById.get(comparison.metric)!;
@@ -847,89 +848,186 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     return { columnCount, cellWidth, columnsBottom, drawsStrips: columns.some((column) => !column.fromZero) };
   };
 
-  /** One cell per summary: its label, a square per comparison in its verdict's colour, the counts, then the range. */
-  const drawSummaryCells = (summaries: Summary[]) => {
-    const columnCount = summaries.length;
+  /**
+   * One cell per summary chart: its label, a legend of the sides, a stacked bar per candidate under its name with the
+   * count inside each segment that has room (the others said under the bar), then the range of each candidate's changes.
+   */
+  const drawSummaryCells = (charts: SummaryChart[]) => {
+    const columnCount = charts.length;
     const cellWidth = WIDTH / columnCount;
     const columnWidth = cellWidth - 2 * CELL_PADDING;
-    const cells = summaries.map((summary) => {
-      const metric = lookup.metricById.get(summary.metric)!;
-      const labelParts = [
-        metric.label,
-        ...(sharedPair ? [] : [lookup.candidateName.get(summary.candidate)!]),
-        ...(sharedDirection ? [] : [directionWords(metric)]),
-      ].map((part) => part.toUpperCase());
-      const counts = plainCountsOf(metric, summary.comparisons).map(({ words, count, sample }) => ({
-        verdict: words,
-        count,
-        comparison: sample,
-      }));
+    const sideColourOf = (side: BarSide) => (side === "better" ? colours.good : side === "worse" ? colours.bad : colours.secondary);
+    const cells = charts.map((chart) => {
+      const metric = lookup.metricById.get(chart.metric)!;
+      const barsOf = (summary: Summary) => verdictBarsOf(metric, summary.comparisons);
+      const everyBar = chart.summaries.flatMap(barsOf);
+      const sides = barsOf(chart.summaries[0]).filter(
+        (bar) => bar.side !== "unclear" || everyBar.some((other) => other.side === "unclear" && other.count > 0),
+      );
+      const legend = [
+        ...sides.map((bar) => ({ side: bar.side as BarSide | "likely", words: capitalised(bar.words) })),
+        ...(everyBar.some((bar) => bar.likely > 0 && bar.side !== "unclear")
+          ? [{ side: "likely" as const, words: "Lighter: likely, not certain yet" }]
+          : []),
+      ];
+      const legendLines: (typeof legend)[] = [[]];
+      let lineWidth = 0;
+
+      for (const item of legend) {
+        const width = LEGEND_SWATCH + 6 + text.measure(item.words, STYLE.detail);
+
+        if (lineWidth > 0 && lineWidth + LEGEND_GAP + width > columnWidth) {
+          legendLines.push([]);
+          lineWidth = 0;
+        }
+
+        legendLines[legendLines.length - 1].push(item);
+        lineWidth += (lineWidth > 0 ? LEGEND_GAP : 0) + width;
+      }
 
       return {
-        summary,
-        labelLines: text.wrapParts(labelParts, STYLE.label, columnWidth),
-        counts,
-        details: [`Out of ${partsOf(lookup, summary)}`, effectRangeOf(lookup, summary)].flatMap((detail) =>
-          text.wrap(detail, STYLE.detail, columnWidth),
+        chart,
+        barsOf,
+        labelLines: text.wrapParts(
+          [metric.label, ...(sharedDirection ? [] : [directionWords(metric)])].map((part) => part.toUpperCase()),
+          STYLE.label,
+          columnWidth,
+        ),
+        legendLines,
+        details: chart.summaries.flatMap((summary) =>
+          text.wrap(
+            chart.summaries.length > 1
+              ? `${lookup.candidateName.get(summary.candidate)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
+              : effectRangeOf(lookup, summary),
+            STYLE.detail,
+            columnWidth,
+          ),
         ),
       };
     });
-    const largestCount = Math.max(...summaries.map((summary) => summary.comparisons.length));
-    const square = Math.max(SMALLEST_SQUARE, Math.min(LARGEST_SQUARE, Math.floor((columnWidth + SQUARE_GAP) / largestCount - SQUARE_GAP)));
-    const squaresPerLine = Math.max(1, Math.floor((columnWidth + SQUARE_GAP) / (square + SQUARE_GAP)));
-    const squaresHeight = Math.ceil(largestCount / squaresPerLine) * (square + SQUARE_GAP) - SQUARE_GAP;
+    const total = (cell: (typeof cells)[number]) => cell.chart.summaries[0].comparisons.length;
+    // The counts of segments too narrow to hold them, said in a line under their bar.
+    const saidUnder = (cell: (typeof cells)[number], summary: Summary) =>
+      cell
+        .barsOf(summary)
+        .filter((bar) => bar.count > 0)
+        .filter(
+          (bar) =>
+            (Math.max(bar.count - bar.likely, bar.likely) / total(cell)) * columnWidth < text.measure(String(bar.count), STYLE.counts) + 8,
+        )
+        .map((bar) => `${bar.count} ${bar.words}`);
+    const rowHeightOf = (cell: (typeof cells)[number], summary: Summary) =>
+      STYLE.name.lineHeight + 6 + STACK_HEIGHT + (saidUnder(cell, summary).length > 0 ? STYLE.detail.lineHeight + 2 : 0) + STACK_GAP;
     const columnsTop = headerRuleY + 28;
-    const squaresTop = columnsTop + Math.max(...cells.map((cell) => cell.labelLines.length)) * STYLE.label.lineHeight + 24;
-    const countsTop = squaresTop + squaresHeight + 20;
-    const countLines = (cell: (typeof cells)[number]) =>
-      text.wrapParts(
-        cell.counts.map(({ verdict, count }) => `${count} ${verdict}`),
-        STYLE.counts,
-        columnWidth,
-      );
-    const detailsTop = countsTop + Math.max(...cells.map((cell) => countLines(cell).length)) * STYLE.counts.lineHeight + 12;
+    const legendTop = columnsTop + Math.max(...cells.map((cell) => cell.labelLines.length)) * STYLE.label.lineHeight + 16;
+    const rowsTop = legendTop + Math.max(...cells.map((cell) => cell.legendLines.length)) * STYLE.detail.lineHeight + 18;
+    const detailsTop =
+      rowsTop +
+      Math.max(...cells.map((cell) => cell.chart.summaries.reduce((height, summary) => height + rowHeightOf(cell, summary), 0))) +
+      2;
 
     cells.forEach((cell, index) => {
       const x = index * cellWidth + CELL_PADDING;
 
       drawLines(cell.labelLines, STYLE.label, colours.secondary, x, columnsTop);
 
-      inReadingOrder(cell.summary.comparisons).forEach((comparison, position) => {
-        const squareX = x + (position % squaresPerLine) * (square + SQUARE_GAP);
-        const squareY = squaresTop + Math.floor(position / squaresPerLine) * (square + SQUARE_GAP);
-        const colour = chipColourOf(comparison, colours);
+      cell.legendLines.forEach((line, lineIndex) => {
+        let itemX = x;
+        const top = legendTop + lineIndex * STYLE.detail.lineHeight;
+        const swatchTop = top + (STYLE.detail.lineHeight - LEGEND_SWATCH) / 2;
 
-        marks.push(
-          isFirmVerdict(comparison)
-            ? `<rect x="${round(squareX)}" y="${round(squareY)}" width="${square}" height="${square}" rx="3" fill="${colour}"/>`
-            : `<rect x="${round(squareX + 0.75)}" y="${round(squareY + 0.75)}" width="${square - 1.5}" height="${square - 1.5}" rx="3" fill="none" stroke="${colour}" stroke-width="1.5"/>`,
-        );
-      });
+        for (const item of line) {
+          if (item.side === "likely") {
+            const half = LEGEND_SWATCH / 2;
 
-      let countY = countsTop;
-
-      for (const line of countLines(cell)) {
-        let countX = x;
-        const pieces = line.split(" · ");
-
-        pieces.forEach((piece, pieceIndex) => {
-          const group = cell.counts.find(({ verdict, count }) => `${count} ${verdict}` === piece)!;
-
-          if (pieceIndex > 0) {
-            marks.push(text.draw(" · ", countX, baselineOf(countY, STYLE.counts), { ...STYLE.counts, fill: colours.quiet }));
-            countX += text.measure(" · ", STYLE.counts);
-          }
+            marks.push(
+              `<rect x="${round(itemX)}" y="${round(swatchTop)}" width="${half}" height="${LEGEND_SWATCH}" fill="${colours.good}" fill-opacity="${LIKELY_OPACITY}"/>`,
+            );
+            marks.push(
+              `<rect x="${round(itemX + half)}" y="${round(swatchTop)}" width="${half}" height="${LEGEND_SWATCH}" fill="${colours.bad}" fill-opacity="${LIKELY_OPACITY}"/>`,
+            );
+          } else if (item.side === "unclear")
+            marks.push(
+              `<rect x="${round(itemX + 0.75)}" y="${round(swatchTop + 0.75)}" width="${LEGEND_SWATCH - 1.5}" height="${LEGEND_SWATCH - 1.5}" rx="2" fill="none" stroke="${colours.secondary}" stroke-width="1.5"/>`,
+            );
+          else
+            marks.push(
+              `<rect x="${round(itemX)}" y="${round(swatchTop)}" width="${LEGEND_SWATCH}" height="${LEGEND_SWATCH}" rx="2" fill="${sideColourOf(item.side)}"/>`,
+            );
 
           marks.push(
-            text.draw(piece, countX, baselineOf(countY, STYLE.counts), {
-              ...STYLE.counts,
-              fill: verdictColourOf(group.comparison, colours),
+            text.draw(item.words, itemX + LEGEND_SWATCH + 6, baselineOf(top + 3, STYLE.detail), {
+              ...STYLE.detail,
+              fill: colours.secondary,
             }),
           );
-          countX += text.measure(piece, STYLE.counts);
-        });
-        textLines.push(line);
-        countY += STYLE.counts.lineHeight;
+          itemX += LEGEND_SWATCH + 6 + text.measure(item.words, STYLE.detail) + LEGEND_GAP;
+        }
+
+        textLines.push(line.map((item) => item.words).join("  "));
+      });
+
+      let rowTop = rowsTop;
+
+      for (const summary of cell.chart.summaries) {
+        const name = lookup.candidateName.get(summary.candidate) ?? summary.candidate;
+        const barTop = rowTop + STYLE.name.lineHeight + 6;
+        let segmentX = x;
+
+        marks.push(text.draw(name, x, baselineOf(rowTop + 2, STYLE.name), { ...STYLE.name, fill: colours.ink }));
+
+        for (const bar of cell.barsOf(summary).filter((entry) => entry.count > 0)) {
+          const width = (columnWidth * bar.count) / total(cell);
+          const firm = bar.side === "unclear" ? 0 : bar.count - bar.likely;
+          const firmWidth = (width * firm) / bar.count;
+          const colour = sideColourOf(bar.side);
+          const countInFirm = firm >= bar.count - firm;
+          const [holderX, holderWidth] = countInFirm ? [segmentX, firmWidth] : [segmentX + firmWidth, width - firmWidth];
+          const countWidth = text.measure(String(bar.count), STYLE.counts);
+
+          if (bar.side === "unclear")
+            marks.push(
+              `<rect x="${round(segmentX + 0.75)}" y="${round(barTop + 0.75)}" width="${round(Math.max(width - 2.5, 0))}" height="${STACK_HEIGHT - 1.5}" fill="none" stroke="${colour}" stroke-width="1.5"/>`,
+            );
+          else {
+            if (firmWidth > 0)
+              marks.push(
+                `<rect x="${round(segmentX)}" y="${round(barTop)}" width="${round(Math.max(firmWidth - (firm === bar.count ? 2 : 0), 0))}" height="${STACK_HEIGHT}" fill="${colour}"/>`,
+              );
+
+            if (width - firmWidth > 0)
+              marks.push(
+                `<rect x="${round(segmentX + firmWidth)}" y="${round(barTop)}" width="${round(Math.max(width - firmWidth - 2, 0))}" height="${STACK_HEIGHT}" fill="${colour}" fill-opacity="${LIKELY_OPACITY}"/>`,
+              );
+          }
+
+          if (holderWidth >= countWidth + 8)
+            marks.push(
+              text.draw(
+                String(bar.count),
+                holderX + (holderWidth - countWidth) / 2,
+                barTop + STACK_HEIGHT / 2 + (STYLE.counts.size * CAP_HEIGHT_RATIO) / 2,
+                {
+                  ...STYLE.counts,
+                  fill: countInFirm && bar.side !== "unclear" ? colours.background : colours.ink,
+                },
+              ),
+            );
+
+          segmentX += width;
+        }
+
+        const under = saidUnder(cell, summary);
+
+        if (under.length > 0) drawLines([under.join(" · ")], STYLE.detail, colours.secondary, x, barTop + STACK_HEIGHT + 4);
+
+        textLines.push(
+          `${name}  ${cell
+            .barsOf(summary)
+            .map((bar) => `${bar.count} ${bar.words}${likelyPartOf(bar)}`)
+            .join("  ")}`,
+        );
+        rowTop += rowHeightOf(cell, summary);
       }
 
       drawLines(cell.details, STYLE.detail, colours.secondary, x, detailsTop);
@@ -941,7 +1039,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   };
 
   const { columnCount, cellWidth, columnsBottom, drawsStrips } =
-    content.summaries && content.summaries.length > 0 ? drawSummaryCells(content.summaries) : drawHeadlineCells();
+    content.charts && content.charts.length > 0 ? drawSummaryCells(content.charts) : drawHeadlineCells();
 
   const footerRuleY = columnsBottom + 32;
 
@@ -965,10 +1063,10 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         ? `${possessive} ${sharedLevel} ${intervalNoun}`
         : `${possessive} ${intervalNoun}`;
   const readingOfCells =
-    content.summaries && content.summaries.length > 0
+    content.charts && content.charts.length > 0
       ? [
           `Compared with ${lookup.candidateName.get(results.baseline)}; each verdict is read from ${intervalPhrase}.`,
-          squaresKeyOf(lookup, content.summaries),
+          stacksKeyOf(lookup, content.charts[0]),
         ]
       : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`];
   const legendSentences = [

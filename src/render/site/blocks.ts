@@ -15,7 +15,21 @@ import {
 } from "../chart/chart-data.js";
 import { asSentence, capitalised, keyMarkOf, withUnit, type KeyPaint } from "../chart/chart-content.js";
 import { renderChart, type RenderedChart } from "../chart/render-chart.js";
-import { countsByVerdict, effectRangeOf, inReadingOrder, partsOf, plainCountsOf, pluralOf, summaryOf } from "../summary.js";
+import {
+  barCountOf,
+  chartPairOf,
+  countsByVerdict,
+  effectRangeOf,
+  partsOf,
+  plainVerdictOf,
+  pluralOf,
+  stacksKeyOf,
+  summaryChartOf,
+  verdictBarsOf,
+  type BarSide,
+  type Summary,
+  type VerdictBar,
+} from "../summary.js";
 import {
   effectAndInterval,
   finestDecimals,
@@ -50,6 +64,10 @@ export interface PageInputs {
   evidencePaths: Map<string, string>;
   /** The short name of each part of the page, by block id, written above its claim and in the ruler. */
   sectionLabels: Map<string, string>;
+  /** Whether the page lists the described parts of the structure, so that tables can link each part to its description. */
+  listsParts: boolean;
+  /** Who the top of the page names as compared ("Node 24 compared with Node 22"), so a block below does not say it again. */
+  titlePair?: string;
 }
 
 /** Below this width a chart is drawn again for phones rather than shrunk. */
@@ -133,29 +151,83 @@ function headlineHtml(block: HeadlineBlock, inputs: PageInputs, number: string):
   ].join("\n");
 }
 
-const SQUARES_PER_LINE = 16;
+const SIDE_TONES: Record<BarSide, string> = { better: "good", same: "neutral", worse: "bad", unclear: "neutral" };
+/** The share of the bar a count needs inside its segment, per digit; a narrower segment has its count said under the bar. */
+const SHARE_PER_DIGIT = 4;
+
+const percentOf = (share: number) => `${Math.round(share * 1000) / 10}%`;
+
+/** One side of a stacked bar: its firm part filled, its likely part lighter (unclear outlined), the count in the larger part when it fits. */
+function segmentHtml(bar: VerdictBar, total: number): { html: string; fits: boolean } {
+  const firm = bar.count - bar.likely;
+  const countIn = firm >= bar.likely ? "firm" : "likely";
+  const fits = (Math.max(firm, bar.likely) / total) * 100 >= SHARE_PER_DIGIT * String(bar.count).length;
+  const part = (kind: string, count: number) =>
+    count > 0
+      ? `<i class="${kind}" style="width: ${percentOf(count / bar.count)}">${fits && (kind === countIn || kind === "open") ? `<b>${bar.count}</b>` : ""}</i>`
+      : "";
+  const inside = bar.side === "unclear" ? part("open", bar.count) : part("firm", firm) + part("likely", bar.likely);
+
+  return { html: `<span class="segment ${SIDE_TONES[bar.side]}" style="width: ${percentOf(bar.count / total)}">${inside}</span>`, fits };
+}
 
 /**
- * The answer when it is a pattern: one square per primary comparison of the candidate on the metric, in its
- * verdict's colour (filled when firm, outlined when likely or inconclusive), the counts in words, and the range.
+ * The answer when it is a pattern: one stacked bar per candidate, its primary comparisons on the metric split into
+ * better, about the same and worse in the metric's own words, under one legend; then what a bar holds and the range of the changes.
  */
 function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): string {
   const { lookup } = inputs;
-  const summary = summaryOf(lookup.results, block.candidate, block.metric);
+  const chart = summaryChartOf(lookup.results, block);
   const metric = lookup.metricById.get(block.metric)!;
-  const squares = inReadingOrder(summary.comparisons).map(
-    (comparison) => `<span class="${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}"></span>`,
+  const total = chart.summaries[0].comparisons.length;
+  const barsOf = (summary: Summary) => verdictBarsOf(metric, summary.comparisons);
+  const everyBar = chart.summaries.flatMap(barsOf);
+  const sides = barsOf(chart.summaries[0]).filter(
+    (bar) => bar.side !== "unclear" || everyBar.some((other) => other.side === "unclear" && other.count > 0),
   );
-  const counts = plainCountsOf(metric, summary.comparisons);
-  const pair = `${lookup.candidateName.get(block.candidate)} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
-  const countsInWords = counts.map(({ words, count }) => `${count} ${words}`).join(", ");
+  const legend = [
+    ...sides.map(
+      (bar) =>
+        `<li class="${SIDE_TONES[bar.side]}${bar.side === "unclear" ? " unclear" : ""}"><i></i>${escapeHtml(capitalised(bar.words))}</li>`,
+    ),
+    ...(everyBar.some((bar) => bar.likely > 0 && bar.side !== "unclear")
+      ? ['<li class="likely"><i></i>Lighter: likely, not certain yet</li>']
+      : []),
+  ];
+  const rows = chart.summaries.map((summary) => {
+    const shown = barsOf(summary).filter((bar) => bar.count > 0);
+    const segments = shown.map((bar) => ({ bar, ...segmentHtml(bar, total) }));
+    const saidUnder = segments.filter((segment) => !segment.fits).map(({ bar }) => `${bar.count} ${bar.words}`);
+
+    return [
+      '<div class="stack-row">',
+      `<span class="stack-name">${escapeHtml(lookup.candidateName.get(summary.candidate) ?? summary.candidate)}</span>`,
+      `<span class="stack-bar">${segments.map((segment) => segment.html).join("")}</span>`,
+      saidUnder.length > 0 ? `<span class="stack-rest">${escapeHtml(saidUnder.join(" · "))}</span>` : "",
+      "</div>",
+    ].join("");
+  });
+  const label = (summary: Summary) =>
+    chart.summaries.length > 1
+      ? `${lookup.candidateName.get(summary.candidate)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
+      : effectRangeOf(lookup, summary);
+  const ariaLabel = chart.summaries
+    .map(
+      (summary) =>
+        `${lookup.candidateName.get(summary.candidate)}: ${barsOf(summary)
+          .map((bar) => `${bar.words} ${barCountOf(bar)}`)
+          .join(", ")}`,
+    )
+    .join(". ");
 
   return [
     sectionLabel(number, `${metric.label} · ${directionWords(metric.direction)}`),
-    anchoredTitle(block, pair),
-    `<div class="verdict-squares" style="--squares: ${Math.min(squares.length, SQUARES_PER_LINE)}" role="img" aria-label="${escapeHtml(`${countsInWords}, out of ${partsOf(lookup, summary)}`)}">${squares.join("")}</div>`,
-    `<p class="verdict-counts">${counts.map(({ words, count, sample }) => `<span class="${toneOf(sample)}">${count} ${escapeHtml(words)}</span>`).join(' <span class="dim">·</span> ')}</p>`,
-    `<ul class="details">\n<li>Out of ${escapeHtml(partsOf(lookup, summary))}</li>\n<li>${escapeHtml(effectRangeOf(lookup, summary))}</li>\n</ul>`,
+    chartPairOf(lookup, chart) === inputs.titlePair ? "" : anchoredTitle(block, chartPairOf(lookup, chart)),
+    `<ul class="stack-legend">${legend.join("")}</ul>`,
+    `<div class="stacks" role="img" aria-label="${escapeHtml(`${ariaLabel}; out of ${partsOf(lookup, chart.summaries[0])}`)}">`,
+    ...rows,
+    "</div>",
+    `<ul class="details">\n${[stacksKeyOf(lookup, chart), ...chart.summaries.map(label)].map((line) => `<li>${escapeHtml(line)}</li>`).join("\n")}\n</ul>`,
   ].join("\n");
 }
 
@@ -476,14 +548,14 @@ function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterSt
           `<span class="cell-value">${escapeHtml(effect)}</span>`,
           `<span class="effect-bar" aria-hidden="true"><i style="left: ${start.toFixed(1)}%; width: ${share.toFixed(1)}%"></i></span>`,
           "</span>",
-          `<span class="cell-detail effect-verdict">${escapeHtml(verdictLabel(comparison) + exploratory)}</span>`,
+          `<span class="cell-detail effect-verdict">${escapeHtml(plainVerdictOf(metric, comparison) + exploratory)}</span>`,
           show.has("ci") && interval ? `<span class="cell-detail dim">${escapeHtml(interval)}</span>` : "",
           "</td>",
         ].join("");
       });
     });
 
-    return `<tr><th scope="row">${escapeHtml(node === undefined ? "All" : (lookup.nodeLabel.get(node) ?? node))}</th>${cells.join("")}</tr>`;
+    return `<tr><th scope="row">${node === undefined ? "All" : partNameHtml(inputs, node)}</th>${cells.join("")}</tr>`;
   });
   const shown = nodes.flatMap((node) =>
     block.metrics.flatMap((metricId) => compared.flatMap((candidate) => comparisonOf(metricId, node, candidate.id) ?? [])),
@@ -564,7 +636,7 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
             ].join("");
           });
 
-          return `<tr><th scope="row">${escapeHtml(node === undefined ? metric.label : (lookup.nodeLabel.get(node) ?? node))}</th>${cells.join("")}</tr>`;
+          return `<tr><th scope="row">${node === undefined ? escapeHtml(metric.label) : partNameHtml(inputs, node)}</th>${cells.join("")}</tr>`;
         });
         const statistic = STATISTIC_WORD[metric.statistic].toLowerCase();
         const unit = UNIT_WORDS[metric.unit] ?? metric.unit;
@@ -701,6 +773,49 @@ const factOf = (line: string) => {
 
 const SHOWN_IN_THE_PIPELINE = new Set(["Comparisons", "Observed"]);
 
+/** The structure's nodes that carry a description, by level in the structure's order: what the page lists. */
+function describedPartsOf(lookup: Lookup): { level: string; nodes: { id: string; label: string; description?: string }[] }[] {
+  const structure = lookup.results.structure;
+
+  if (!structure) return [];
+
+  return structure.levels.flatMap((level) => {
+    const nodes = structure.nodes.filter((node) => node.level === level);
+
+    return nodes.some((node) => node.description) ? [{ level, nodes }] : [];
+  });
+}
+
+const partAnchorOf = (node: string) => `part-${node}`;
+
+/** A part's name in a table: a link to its description when the page lists it. */
+function partNameHtml(inputs: PageInputs, node: string): string {
+  const label = escapeHtml(inputs.lookup.nodeLabel.get(node) ?? node);
+  const described = inputs.lookup.results.structure?.nodes.find((entry) => entry.id === node)?.description;
+
+  return inputs.listsParts && described ? `<a class="part-link" href="#${escapeHtml(partAnchorOf(node))}">${label}</a>` : label;
+}
+
+/** Each described part by name, its description one click away, so a reader can learn what a row of a table measured. */
+function partsListHtml(lookup: Lookup): string {
+  return describedPartsOf(lookup)
+    .map(({ level, nodes }) =>
+      [
+        '<div class="parts">',
+        `<p class="mono-label">What was measured<span class="dim"> · ${escapeHtml(`${nodes.length} ${nodes.length === 1 ? level : pluralOf(level)}`)}</span></p>`,
+        '<ul class="part-list">',
+        ...nodes.map((node) =>
+          node.description
+            ? `<li><details id="${escapeHtml(partAnchorOf(node.id))}"><summary>${escapeHtml(node.label)}</summary><p>${withLinks(node.description)}</p></details></li>`
+            : `<li><p class="part-name">${escapeHtml(node.label)}</p></li>`,
+        ),
+        "</ul>",
+        "</div>",
+      ].join("\n"),
+    )
+    .join("\n");
+}
+
 function methodologyHtml(block: Block, inputs: PageInputs): string {
   const { lookup } = inputs;
   const comparisons = lookup.results.comparisons ?? [];
@@ -728,6 +843,7 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
   return [
     '<h3 class="visually-hidden">Method</h3>',
     `<ol class="pipeline">\n${steps.join("\n")}\n</ol>`,
+    partsListHtml(lookup),
     '<div class="verdicts">',
     `<p class="mono-label">Against ${escapeHtml(lookup.candidateName.get(lookup.results.baseline)!)}<span class="dim"> · the claims</span></p>`,
     foldedVerdictListOf(lookup, primary),

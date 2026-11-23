@@ -58,8 +58,11 @@ const blockText = {
 };
 
 const headlineBlock = z.strictObject({ id, type: z.literal("headline"), comparison: text, ...blockText, title: text });
-/** The answer when it is a pattern: every primary comparison of one candidate on one metric, counted by verdict. Its words are generated. */
-const summaryBlock = z.strictObject({ id, type: z.literal("summary"), candidate: id, metric: id });
+/**
+ * The answer when it is a pattern: the primary comparisons of each candidate on one metric, counted by verdict, one
+ * stacked bar per candidate. Every candidate compared with the baseline unless `candidates` names some. Its words are generated.
+ */
+const summaryBlock = z.strictObject({ id, type: z.literal("summary"), metric: id, candidates: z.array(id).min(1).optional() });
 
 const chartBlock = z.strictObject({
   id,

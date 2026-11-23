@@ -2,7 +2,7 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import { isAnswerBlock, TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
-import { squaresKeyOf, summariesOf, summaryOf } from "../summary.js";
+import { summaryChartsOf } from "../summary.js";
 import { blockHtml, downloadLinksOf, sectionLabel, sectionLabelsOf, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
 import type { Answer } from "./write-site.js";
@@ -53,18 +53,18 @@ export function pageRowsOf(benchmark: Benchmark): Block[][] {
 
 /**
  * A file with no presentation still answers its question, as the default README card does: its primary comparisons
- * as headlines, or, when there are more than three, a summary per candidate and metric.
+ * as headlines, or, when there are more than three, a summary chart per metric with something to count.
  */
 function defaultBlocksOf(benchmark: Benchmark): Block[] {
   const primary = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
-  const summaries = summariesOf(benchmark.results);
+  const charts = summaryChartsOf(benchmark.results);
 
-  if (primary.length > MAX_HEADLINES && summaries.length > 0)
-    return summaries.slice(0, MAX_HEADLINES).map((summary) => ({
-      id: `summary-${summary.candidate}-${summary.metric}`,
+  if (primary.length > MAX_HEADLINES && charts.length > 0)
+    return charts.slice(0, MAX_HEADLINES).map((chart) => ({
+      id: `summary-${chart.metric}`,
       type: "summary",
-      candidate: summary.candidate,
-      metric: summary.metric,
+      metric: chart.metric,
+      candidates: chart.summaries.map((summary) => summary.candidate),
     }));
 
   return primary
@@ -78,7 +78,7 @@ export interface PageHead {
   /** The preview image, relative to the site, with its text alternative. */
   previewImage?: { path: string; alt: string; width: number; height: number };
   description: string;
-  /** The same answer in parts: the claim under the question, the count of the others in the lede. */
+  /** The pair the title names after the question; the answer itself is in the description and the blocks. */
   answer: Answer;
 }
 
@@ -177,11 +177,18 @@ function trustSectionHtml(blocks: Block[], inputs: PageInputs, number: string, i
 const TRUST_SECTION_NAME = "How it was measured";
 
 /** The whole page: the question and its answer, the parts in order with every filter state rendered in advance, the evidence. */
-export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">, head: PageHead): string {
+export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" | "listsParts" | "titlePair">, head: PageHead): string {
   const { benchmark } = inputs;
   const lookup = lookupOf(benchmark.results);
   const rows = pageRowsOf(benchmark);
-  const pageInputs: PageInputs = { ...inputs, lookup, sectionLabels: sectionLabelsOf(rows.flat(), { ...inputs, lookup }) };
+  const listsParts = rows.flat().some((block) => block.type === "methodology");
+  const pageInputs: PageInputs = {
+    ...inputs,
+    lookup,
+    listsParts,
+    titlePair: head.answer.pair,
+    sectionLabels: sectionLabelsOf(rows.flat(), { ...inputs, lookup, listsParts }),
+  };
   const results = benchmark.results;
   const provenance = provenanceParts(benchmark, inputs.context);
   let count = 0;
@@ -212,7 +219,6 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
     closeTrustRun();
 
     const headlines = row.filter(isAnswerBlock);
-    const summaries = headlines.flatMap((block) => (block.type === "summary" ? [block] : []));
 
     if (headlines.length > 0) {
       const numbers = headlines.map(() => nextNumber());
@@ -224,16 +230,6 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
             (block, index) =>
               `<article class="block stat headline" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, 0, numbers[index])}\n</article>`,
           ),
-          ...(summaries.length > 0
-            ? [
-                `<p class="squares-key">${escapeHtml(
-                  squaresKeyOf(
-                    pageInputs.lookup,
-                    summaries.map((block) => summaryOf(pageInputs.lookup.results, block.candidate, block.metric)),
-                  ),
-                )}</p>`,
-              ]
-            : []),
           "</section>",
         ].join("\n"),
       );
@@ -266,11 +262,8 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
     ...downloadLinksOf(pageInputs),
   ].map((part) => `<span>${part}</span>`);
   const credit = provenance.attribution ? `<span class="credit"><a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a></span>` : "";
-  const lede = [results.benchmark.scope, head.answer.others]
-    .filter((text): text is string => Boolean(text))
-    .map(escapeHtml)
-    .join(" ");
-  const answer = head.answer.claim ? ` <span class="answer">${escapeHtml(head.answer.claim)}</span>` : "";
+  const lede = results.benchmark.scope ? escapeHtml(results.benchmark.scope) : "";
+  const answer = head.answer.pair ? ` <span class="answer">${escapeHtml(head.answer.pair)}</span>` : "";
 
   return [
     "<!doctype html>",

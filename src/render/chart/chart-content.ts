@@ -145,13 +145,13 @@ export interface ValueAxis {
   extent: [number, number];
   logScale: boolean;
   startsAtZero: boolean;
-  /** Why the axis does not start at zero, or is on a log scale, for the how-to-read line. */
+  /** That the axis is fitted to the values, or on a log scale, and why, for the how-to-read line. */
   note: string;
 }
 
 /**
- * The axis of a metric's values: from zero; or around the data when the block gives the reason, wide
- * enough that a difference too small to matter cannot fill it; or the powers of ten of a log scale.
+ * The axis of a metric's values: from zero for bars, or when the block asks for it; otherwise fitted to the
+ * values, wide enough that a difference too small to matter cannot fill it; or the powers of ten of a log scale.
  */
 export function valueAxisOf(inputs: ChartInputs, metric: Metric, plotted: number[], drawsBars: boolean): ValueAxis {
   const { block } = inputs;
@@ -168,18 +168,21 @@ export function valueAxisOf(inputs: ChartInputs, metric: Metric, plotted: number
   const dataExtent: [number, number] = [Math.min(...plotted), Math.max(...plotted)];
   const largest = Math.max(...plotted.map(Math.abs));
   const meaningfulInUnits = metric.compare_as === "relative" ? (metric.minimum_meaningful / 100) * largest : metric.minimum_meaningful;
-  const startsAtZero = !isLog && block.scale?.zero !== false;
+  const startsAtZero = !isLog && (drawsBars || block.scale?.zero === true);
   const ownExtent: [number, number] = isLog
     ? dataExtent
     : startsAtZero
       ? [Math.min(0, dataExtent[0]), Math.max(0, dataExtent[1])]
       : extentAroundData(dataExtent, meaningfulInUnits);
   const reason = block.scale?.reason ? sentence(block.scale.reason) : "";
+  const fittedNote = reason
+    ? `The axis is fitted to the values rather than drawn from zero: ${reason}`
+    : "The axis is fitted to the values rather than drawn from zero, so that the candidates can be told apart.";
 
   return {
     extent: unionOf(ownExtent, inputs.sharedExtent),
     logScale: isLog,
     startsAtZero,
-    note: isLog ? `The axis is on a log scale: ${reason}` : startsAtZero ? "" : `The axis does not start at zero: ${reason}`,
+    note: isLog ? `The axis is on a log scale: ${reason}` : startsAtZero ? "" : fittedNote,
   };
 }

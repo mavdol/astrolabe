@@ -236,23 +236,24 @@ describe("summaries in the presentation", () => {
   const pattern = () => withTasksAsPrimary(loadExample("support-assistant-eval").benchmark);
 
   it("counts the primary comparisons of a candidate on a metric, when they share one level", () => {
-    expect(errorsOf(summaryIssues(pattern(), { candidate: "model_a", metric: "accuracy" }))).toEqual([]);
+    expect(errorsOf(summaryIssues(pattern(), { candidates: ["model_a"], metric: "accuracy" }))).toEqual([]);
   });
 
   it("refuses a summary of the baseline, of one comparison, or of a total together with its parts", () => {
     const messageOf = (benchmark: Benchmark, block: Record<string, unknown>) =>
       errorsOf(summaryIssues(benchmark, block)).map((issue) => [issue.rule, issue.message]);
 
-    expect(messageOf(pattern(), { candidate: "model_b", metric: "accuracy" })).toEqual([
-      ["S7", '"model_b" is not a candidate compared with the baseline'],
+    expect(messageOf(pattern(), { metric: "accuracy" })).toEqual([]);
+    expect(messageOf(pattern(), { candidates: ["model_b"], metric: "accuracy" })).toEqual([
+      ["S7", '"model_b": not a candidate compared with the baseline'],
     ]);
-    expect(messageOf(pattern(), { candidate: "model_a", metric: "cost_per_item" })).toEqual([
+    expect(messageOf(pattern(), { metric: "cost_per_item" })).toEqual([
       [
         "S11",
         'a summary counts the primary comparisons of "model_a" on "cost_per_item", and there is one: use a headline on "cost_per_item__suite__model_a"',
       ],
     ]);
-    expect(messageOf(loadExample("support-assistant-eval").benchmark, { candidate: "model_a", metric: "accuracy" })).toEqual([
+    expect(messageOf(loadExample("support-assistant-eval").benchmark, { metric: "accuracy" })).toEqual([
       [
         "S11",
         'the primary comparisons of "model_a" on "accuracy" sit on several levels (suite, category): a summary counts one level, so that a total is not counted with its parts; use headlines',
@@ -266,7 +267,7 @@ describe("summaries in the presentation", () => {
     const headlineIds = benchmark.blocks!.filter((block) => block.type === "headline").map((block) => block.id);
 
     expect(checkPresentation(withoutAnswers).map((issue) => [issue.severity, issue.rule])).toEqual([["warning", "V38"]]);
-    const summary = { id: "summary", type: "summary", candidate: "model_a", metric: "cost_per_item" } as never;
+    const summary = { id: "summary", type: "summary", metric: "cost_per_item" } as never;
 
     expect(headlineIds).toHaveLength(2);
     expect(

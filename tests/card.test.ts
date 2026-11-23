@@ -224,28 +224,25 @@ describe("reading a card at a glance", () => {
     expect(adding).toContain("under the CI runner's limit");
   });
 
-  it("counts a pattern in summary cells: a square per comparison, the counts and the range, then how to read the squares", () => {
+  it("counts a pattern in summary cells: a legend, a stacked bar per candidate, the range, then what a bar holds", () => {
     const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
 
-    suite.blocks = [{ id: "summary-accuracy", type: "summary", candidate: "model_a", metric: "accuracy" }, ...suite.blocks!];
+    suite.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...suite.blocks!];
     const content = cardContentOf(suite, ["summary-accuracy"]);
     const card = renderCard(suite, content, "light", context);
 
-    expect(content.summaries!.map((summary) => summary.comparisons.length)).toEqual([3]);
+    expect(content.charts!.map((chart) => chart.summaries.map((summary) => summary.comparisons.length))).toEqual([[3]]);
     expect(content.omitted.map((comparison) => comparison.metric)).toEqual(["cost_per_item"]);
-    expect(card.textLines).toContain("1 better · 2 unclear");
-    expect(card.textLines).toContain("Out of 3 tasks");
-    expect(card.textLines.join(" ")).toContain(
-      "One square per task: green when it does better than Model B, orange when it does worse, grey when it is about the same; outlined when the difference is not certain yet.",
-    );
-    expect(card.svg.match(/<rect [^>]*rx="3"/g)).toHaveLength(3);
+    expect(card.textLines).toContain("Better  About the same  Worse  Unclear");
+    expect(card.textLines).toContain("Model A  1 better  0 about the same  0 worse  2 unclear");
+    expect(card.textLines.join(" ")).toContain("Each bar: the 3 tasks, by their result against Model B.");
     expect(card.altText).toBe("Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2.");
   });
 
   it("draws summary cells by default when the comparisons are too many for headlines and share one level", () => {
-    expect(cardContentOf(withTasksAsPrimary(loadBenchmark("support-assistant-eval"))).summaries?.length).toBe(1);
+    expect(cardContentOf(withTasksAsPrimary(loadBenchmark("support-assistant-eval"))).charts?.length).toBe(1);
     expect(
-      cardContentOf(loadBenchmark("support-assistant-eval")).summaries,
+      cardContentOf(loadBenchmark("support-assistant-eval")).charts,
       "a total and its parts are never counted together",
     ).toBeUndefined();
   });
@@ -253,7 +250,7 @@ describe("reading a card at a glance", () => {
   it("shows either headline or summary cells, never both", () => {
     const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
 
-    suite.blocks = [{ id: "summary-accuracy", type: "summary", candidate: "model_a", metric: "accuracy" }, ...suite.blocks!];
+    suite.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...suite.blocks!];
     const headline = suite.blocks.find((block) => block.type === "headline")!;
 
     expect(() => cardContentOf(suite, ["summary-accuracy", headline.id])).toThrow(/either headline blocks or summary blocks/);

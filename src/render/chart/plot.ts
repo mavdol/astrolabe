@@ -33,13 +33,11 @@ export const PLOT_STYLE = {
   note: { weight: 400, size: 11, mono: true },
   tick: { weight: 400, size: 11, tabular: true, mono: true },
   /**
-   * Axis titles and the word "better", in capitals as the page's labels; smaller than the ticks because capitals read larger.
+   * Axis titles, in capitals as the page's labels; smaller than the ticks because capitals read larger.
    * Every chart is shown at least 1.15 times its layout size, so these are still 12 px as read.
    */
   caption: { weight: 400, size: 10.5, mono: true, tracking: 0.04 },
 } as const;
-
-export const BETTER = "BETTER";
 
 /** The soft disc behind a marker, so the estimate reads first. */
 const HALO_RADIUS = 10;
@@ -62,7 +60,7 @@ const INTERVAL_CAP = 8;
 
 export const round = (value: number) => String(Math.round(value * 10) / 10);
 
-/** Marks an element with the candidate it shows, so a page can bring that candidate forward on every chart. */
+/** Marks an element with the candidate it shows, so the page can colour it and key it between filter states. */
 export const taggedWith = (element: string, candidate: string | undefined) =>
   candidate && element ? element.replace(/^<(\w+)/, `<$1 data-candidate="${candidate}"`) : element;
 
@@ -100,19 +98,6 @@ export function intervalUpwards(from: number, to: number, x: number, colour: str
   const path = `M${round(x)} ${round(from)}V${round(to)}M${round(x - cap)} ${round(from)}H${round(x + cap)}M${round(x - cap)} ${round(to)}H${round(x + cap)}`;
 
   return `<path d="${path}" stroke="${colour}" stroke-width="${width}" fill="none"/>`;
-}
-
-const ARROW_HEAD = 3.5;
-
-/** An arrow from one point to another, for the direction in which results are better. */
-export function arrow(from: [number, number], to: [number, number], colour: string): string {
-  const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
-  const [alongX, alongY] = [(to[0] - from[0]) / length, (to[1] - from[1]) / length];
-  const [backX, backY] = [to[0] - alongX * ARROW_HEAD, to[1] - alongY * ARROW_HEAD];
-  const firstBarb = `${round(backX - alongY * ARROW_HEAD)} ${round(backY + alongX * ARROW_HEAD)}`;
-  const secondBarb = `${round(backX + alongY * ARROW_HEAD)} ${round(backY - alongX * ARROW_HEAD)}`;
-
-  return `<path d="M${round(from[0])} ${round(from[1])}L${round(to[0])} ${round(to[1])}M${firstBarb}L${round(to[0])} ${round(to[1])}L${secondBarb}" stroke="${colour}" stroke-width="1.25" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
 type Rgb = [number, number, number];
