@@ -1540,6 +1540,34 @@
               },
               "type": {
                 "type": "string",
+                "const": "summary"
+              },
+              "candidate": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "metric": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "candidate",
+              "metric"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "type": {
+                "type": "string",
                 "const": "chart"
               },
               "chart": {

@@ -9,6 +9,7 @@ import { pngOf } from "../src/render/png.js";
 import { SvgTextRenderer } from "../src/render/svg-text.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { seriesStylesOf, THEME } from "../src/themes/astrolabe.js";
+import { withTasksAsPrimary } from "./helpers.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -135,7 +136,7 @@ describe("what a card shows", () => {
 
     expect(content.headlines.map((headline) => headline.comparison.id)).toEqual(["wall_time__fastjson", "peak_rss__fastjson"]);
     expect(lines).toContain("WALL TIME");
-    expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline blocks/);
+    expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline or summary blocks/);
   });
 
   it("says how many primary comparisons a card leaves out, also when the export picks its headlines", () => {
@@ -221,6 +222,41 @@ describe("reading a card at a glance", () => {
 
     expect(restating).not.toContain("uses less memory");
     expect(adding).toContain("under the CI runner's limit");
+  });
+
+  it("counts a pattern in summary cells: a square per comparison, the counts and the range, then how to read the squares", () => {
+    const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    suite.blocks = [{ id: "summary-accuracy", type: "summary", candidate: "model_a", metric: "accuracy" }, ...suite.blocks!];
+    const content = cardContentOf(suite, ["summary-accuracy"]);
+    const card = renderCard(suite, content, "light", context);
+
+    expect(content.summaries!.map((summary) => summary.comparisons.length)).toEqual([3]);
+    expect(content.omitted.map((comparison) => comparison.metric)).toEqual(["cost_per_item"]);
+    expect(card.textLines).toContain("1 better · 2 inconclusive");
+    expect(card.textLines).toContain("Across 3 tasks");
+    expect(card.textLines.join(" ")).toContain(
+      "One square per comparison: filled when the verdict is firm, outlined when likely or inconclusive.",
+    );
+    expect(card.svg.match(/<rect [^>]*rx="3"/g)).toHaveLength(3);
+    expect(card.altText).toBe("Model A against Model B, accuracy across 3 tasks: 1 better, 2 inconclusive.");
+  });
+
+  it("draws summary cells by default when the comparisons are too many for headlines and share one level", () => {
+    expect(cardContentOf(withTasksAsPrimary(loadBenchmark("support-assistant-eval"))).summaries?.length).toBe(1);
+    expect(
+      cardContentOf(loadBenchmark("support-assistant-eval")).summaries,
+      "a total and its parts are never counted together",
+    ).toBeUndefined();
+  });
+
+  it("shows either headline or summary cells, never both", () => {
+    const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    suite.blocks = [{ id: "summary-accuracy", type: "summary", candidate: "model_a", metric: "accuracy" }, ...suite.blocks!];
+    const headline = suite.blocks.find((block) => block.type === "headline")!;
+
+    expect(() => cardContentOf(suite, ["summary-accuracy", headline.id])).toThrow(/either headline blocks or summary blocks/);
   });
 
   it("keeps a block title that adds information", () => {

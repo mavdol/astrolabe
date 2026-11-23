@@ -4,7 +4,8 @@ import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark } from "../../schema/benchmark.js";
 import { THEME } from "../../themes/astrolabe.js";
 import type { Comparison } from "../../schema/benchmark.js";
-import { cardAltText, cardContentOf, countsByVerdict, measuredOf, pairOf, renderCard } from "../card.js";
+import { cardAltText, cardContentOf, MAX_HEADLINES, measuredOf, pairOf, renderCard } from "../card.js";
+import { countsByVerdict, summariesOf, summaryClaimOf, summaryOf, type Summary } from "../summary.js";
 import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
@@ -65,15 +66,21 @@ function previewImageOf(benchmark: Benchmark, context: BuildContext, rawFiles: R
   return { png: pngOf(card.svg, 1), alt: card.alt };
 }
 
-/** The comparison the answer names: the first headline's in the page's order, or else the first primary comparison. */
-function leadClaimOf(benchmark: Benchmark, claims: Comparison[]): Comparison | undefined {
-  const headlined = pageRowsOf(benchmark)
+/** The claim the top of the page states: its first answer block in page order; without one, a summary when one comparison would say too little. */
+function leadOf(benchmark: Benchmark, claims: Comparison[]): { comparison: Comparison } | { summary: Summary } | undefined {
+  const firstAnswer = pageRowsOf(benchmark)
     .flat()
-    .flatMap((block) =>
-      block.type === "headline" && "comparison" in block ? claims.filter((claim) => claim.id === block.comparison) : [],
-    );
+    .find((block) => block.type === "summary" || (block.type === "headline" && claims.some((claim) => claim.id === block.comparison)));
 
-  return headlined[0] ?? claims[0];
+  if (firstAnswer?.type === "summary") return { summary: summaryOf(benchmark.results, firstAnswer.candidate, firstAnswer.metric) };
+
+  if (firstAnswer?.type === "headline") return { comparison: claims.find((claim) => claim.id === firstAnswer.comparison)! };
+
+  const [firstSummary] = summariesOf(benchmark.results);
+
+  if (claims.length > MAX_HEADLINES && firstSummary) return { summary: firstSummary };
+
+  return claims[0] ? { comparison: claims[0] } : undefined;
 }
 
 /** The answer under the question: one claim, so the headline says one thing, then a count of the other primary comparisons. */
@@ -85,13 +92,16 @@ export interface Answer {
 export function answerPartsOf(benchmark: Benchmark): Answer {
   const lookup = lookupOf(benchmark.results);
   const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
-  const lead = leadClaimOf(benchmark, claims);
+  const lead = leadOf(benchmark, claims);
 
   if (!lead) return {};
 
-  const metric = lookup.metricById.get(lead.metric)!;
-  const claim = `${pairOf(lookup, lead)}: ${lowerFirstLetterOfWord(measuredOf(lookup, lead))} ${effectAndInterval(metric, lead).effect}, ${verdictLabel(lead)}.`;
-  const others = claims.filter((other) => other !== lead);
+  const stated = "summary" in lead ? lead.summary.comparisons : [lead.comparison];
+  const claim =
+    "summary" in lead
+      ? summaryClaimOf(lookup, lead.summary)
+      : `${pairOf(lookup, lead.comparison)}: ${lowerFirstLetterOfWord(measuredOf(lookup, lead.comparison))} ${effectAndInterval(lookup.metricById.get(lead.comparison.metric)!, lead.comparison).effect}, ${verdictLabel(lead.comparison)}.`;
+  const others = claims.filter((other) => !stated.includes(other));
 
   if (others.length === 0) return { claim };
 

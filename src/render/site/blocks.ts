@@ -1,6 +1,6 @@
 import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark, Comparison } from "../../schema/benchmark.js";
-import type { Block, ChartBlock, HeadlineBlock, TableBlock } from "../../schema/presentation.js";
+import type { Block, ChartBlock, HeadlineBlock, SummaryBlock, TableBlock } from "../../schema/presentation.js";
 import type { Mode } from "../../themes/astrolabe.js";
 import { addsInformation, detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
 import {
@@ -15,6 +15,7 @@ import {
 } from "../chart/chart-data.js";
 import { asSentence, capitalised, keyMarkOf, type KeyPaint } from "../chart/chart-content.js";
 import { renderChart, type RenderedChart } from "../chart/render-chart.js";
+import { effectRangeOf, inReadingOrder, partsOf, pluralOf, summaryOf, VERDICTS_IN_READING_ORDER } from "../summary.js";
 import {
   effectAndInterval,
   finestDecimals,
@@ -129,6 +130,35 @@ function headlineHtml(block: HeadlineBlock, inputs: PageInputs, number: string):
     headlineFigure(lookup, comparison),
     shownTitle ? anchoredTitle(block, shownTitle) : "",
     `<ul class="details">\n${[...(pairInDetails ? [`<li>${escapeHtml(pair)}</li>`] : []), ...details].join("\n")}\n</ul>`,
+  ].join("\n");
+}
+
+const SQUARES_PER_LINE = 16;
+
+/**
+ * The answer when it is a pattern: one square per primary comparison of the candidate on the metric, in its
+ * verdict's colour (filled when firm, outlined when likely or inconclusive), the counts in words, and the range.
+ */
+function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): string {
+  const { lookup } = inputs;
+  const summary = summaryOf(lookup.results, block.candidate, block.metric);
+  const metric = lookup.metricById.get(block.metric)!;
+  const ordered = inReadingOrder(summary.comparisons);
+  const squares = ordered.map((comparison) => `<span class="${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}"></span>`);
+  const counts = VERDICTS_IN_READING_ORDER.flatMap((verdict) => {
+    const withVerdict = ordered.filter((comparison) => verdictLabel(comparison) === verdict);
+
+    return withVerdict.length > 0 ? [`<span class="${toneOf(withVerdict[0])}">${withVerdict.length} ${escapeHtml(verdict)}</span>`] : [];
+  });
+  const countsInWords = counts.map((count) => count.replace(/<[^>]+>/g, "")).join(", ");
+  const pair = `${lookup.candidateName.get(block.candidate)} against ${lookup.candidateName.get(lookup.results.baseline)}`;
+
+  return [
+    sectionLabel(number, `${metric.label} · ${directionWords(metric.direction)}`),
+    `<div class="verdict-squares" style="--squares: ${Math.min(squares.length, SQUARES_PER_LINE)}" role="img" aria-label="${escapeHtml(`${countsInWords}, across ${partsOf(lookup, summary)}`)}">${squares.join("")}</div>`,
+    `<p class="verdict-counts">${counts.join(' <span class="dim">·</span> ')}</p>`,
+    anchoredTitle(block, pair),
+    `<ul class="details">\n<li>Across ${escapeHtml(partsOf(lookup, summary))}</li>\n<li>${escapeHtml(effectRangeOf(lookup, summary))}</li>\n</ul>`,
   ].join("\n");
 }
 
@@ -451,9 +481,6 @@ function textHtml(block: Extract<Block, { type: "text" }>, inputs: PageInputs, n
   ].join("\n");
 }
 
-const pluralOf = (word: string) =>
-  /(s|x|sh|ch)$/.test(word) ? `${word}es` : /[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : `${word}s`;
-
 interface PipelineStep {
   figure: string;
   unit: string;
@@ -601,6 +628,8 @@ export function blockHtml(block: Block, inputs: PageInputs, width: number, numbe
   switch (block.type) {
     case "headline":
       return headlineHtml(block, inputs, number);
+    case "summary":
+      return summaryHtml(block, inputs, number);
     case "chart":
       return chartHtml(block, inputs, width, number);
     case "table":

@@ -58,6 +58,8 @@ const blockText = {
 };
 
 const headlineBlock = z.strictObject({ id, type: z.literal("headline"), comparison: text, ...blockText, title: text });
+/** The answer when it is a pattern: every primary comparison of one candidate on one metric, counted by verdict. Its words are generated. */
+const summaryBlock = z.strictObject({ id, type: z.literal("summary"), candidate: id, metric: id });
 
 const chartBlock = z.strictObject({
   id,
@@ -93,7 +95,7 @@ const tableBlock = z.strictObject({
 const textBlock = z.strictObject({ id, type: z.literal("text"), title: text.optional(), description: text });
 const trustBlock = z.strictObject({ id, type: z.enum(TRUST_BLOCK_TYPES) });
 
-export const blockSchema = z.discriminatedUnion("type", [headlineBlock, chartBlock, tableBlock, textBlock, trustBlock]);
+export const blockSchema = z.discriminatedUnion("type", [headlineBlock, summaryBlock, chartBlock, tableBlock, textBlock, trustBlock]);
 
 export const exportSchema = z.strictObject({
   id,
@@ -108,8 +110,12 @@ export type Style = z.infer<typeof styleSchema>;
 export type Filter = z.infer<typeof filterSchema>;
 export type Block = z.infer<typeof blockSchema>;
 export type ChartBlock = z.infer<typeof chartBlock>;
+export type SummaryBlock = z.infer<typeof summaryBlock>;
 export type HeadlineBlock = z.infer<typeof headlineBlock>;
 export type TableBlock = z.infer<typeof tableBlock>;
 export type Export = z.infer<typeof exportSchema>;
 export type ChartType = (typeof CHART_TYPES)[number];
 export type ExportSize = (typeof EXPORT_SIZES)[number];
+
+/** The blocks that state the answer: side by side at the top of the page, three at most. */
+export const isAnswerBlock = (block: { type: string }) => block.type === "headline" || block.type === "summary";

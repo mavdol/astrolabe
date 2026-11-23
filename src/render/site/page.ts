@@ -1,7 +1,8 @@
 import type { Benchmark } from "../../schema/benchmark.js";
-import { TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
+import { isAnswerBlock, TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
+import { summariesOf } from "../summary.js";
 import { blockHtml, downloadLinksOf, sectionLabel, sectionLabelsOf, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
 import type { Answer } from "./write-site.js";
@@ -31,8 +32,7 @@ export function pageRowsOf(benchmark: Benchmark): Block[][] {
   } else {
     for (const block of blocks.filter((entry) => !isTrustBlock(entry))) {
       const lastRow = rows[rows.length - 1];
-      const joinsLastRow =
-        block.type === "headline" && lastRow?.every((entry) => entry.type === "headline") && lastRow.length < MAX_HEADLINES;
+      const joinsLastRow = isAnswerBlock(block) && lastRow?.every(isAnswerBlock) && lastRow.length < MAX_HEADLINES;
 
       if (joinsLastRow) lastRow.push(block);
       else rows.push([block]);
@@ -51,10 +51,23 @@ export function pageRowsOf(benchmark: Benchmark): Block[][] {
     .filter((row) => row.length > 0);
 }
 
-/** A file with no presentation still answers its question: its first primary comparisons, as on the default README card. */
+/**
+ * A file with no presentation still answers its question, as the default README card does: its primary comparisons
+ * as headlines, or, when there are more than three, a summary per candidate and metric.
+ */
 function defaultBlocksOf(benchmark: Benchmark): Block[] {
-  return (benchmark.results.comparisons ?? [])
-    .filter((comparison) => comparison.role === "primary")
+  const primary = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
+  const summaries = summariesOf(benchmark.results);
+
+  if (primary.length > MAX_HEADLINES && summaries.length > 0)
+    return summaries.slice(0, MAX_HEADLINES).map((summary) => ({
+      id: `summary-${summary.candidate}-${summary.metric}`,
+      type: "summary",
+      candidate: summary.candidate,
+      metric: summary.metric,
+    }));
+
+  return primary
     .slice(0, MAX_HEADLINES)
     .map((comparison) => ({ id: comparison.id, type: "headline", comparison: comparison.id, title: `{metric:${comparison.metric}}` }));
 }
@@ -198,7 +211,7 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
 
     closeTrustRun();
 
-    const headlines = row.filter((block) => block.type === "headline");
+    const headlines = row.filter(isAnswerBlock);
 
     if (headlines.length > 0) {
       const numbers = headlines.map(() => nextNumber());
@@ -220,7 +233,7 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
       });
     }
 
-    for (const block of row.filter((entry) => entry.type !== "headline")) {
+    for (const block of row.filter((entry) => !isAnswerBlock(entry))) {
       const number = nextNumber();
 
       sections.push(

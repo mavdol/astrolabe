@@ -142,6 +142,12 @@ main > section + section { border-top: 1px solid var(--rule); }
 .micro + .details { margin-top: 22px; }
 .details .warning { color: var(--ink); }
 .chip { display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 6px; font-family: ${MONO}; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; color: var(--secondary); }
+.verdict-squares { display: grid; grid-template-columns: repeat(var(--squares, 12), minmax(0, 22px)); gap: 5px; margin: 30px 0 16px; color: var(--secondary); }
+.verdict-squares span { aspect-ratio: 1; border: 1.5px solid currentColor; border-radius: 4px; }
+.verdict-squares .firm { background: currentColor; }
+.verdict-squares .neutral.firm { opacity: 0.55; }
+.verdict-counts { margin: 0; font-family: ${MONO}; font-size: 13px; line-height: 20px; color: var(--secondary); }
+.verdict-counts > span { white-space: nowrap; }
 .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .chip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
 .chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }

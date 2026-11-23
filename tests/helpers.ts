@@ -1,5 +1,5 @@
 import { parseRaw, type RawFile } from "../src/compute/compute.js";
-import { resultsSchema, type Results } from "../src/schema/benchmark.js";
+import { resultsSchema, type Benchmark, type Results } from "../src/schema/benchmark.js";
 
 type RawRowInput = Record<string, string | number | null>;
 
@@ -79,3 +79,14 @@ export const suiteStructure = {
     { id: "bugfix", level: "task", parent: "coding", label: "Bug fixes" },
   ],
 };
+
+/** The support example with Model A's accuracy on each task as the primary comparisons: a pattern on one level, which a summary can count. */
+export function withTasksAsPrimary(support: Benchmark): Benchmark {
+  const tasks = new Set(["math_word", "policy_qa", "bugfix"]);
+
+  support.results.comparisons = support.results.comparisons!.map((comparison) =>
+    comparison.metric === "accuracy" ? { ...comparison, role: tasks.has(comparison.node ?? "") ? "primary" : "exploratory" } : comparison,
+  );
+
+  return support;
+}

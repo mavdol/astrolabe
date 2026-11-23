@@ -19,6 +19,7 @@ Start from the question the reader brings, not from the data you have: write it 
 | The reader asks | `chart` | Fields it needs | Not when |
 | --- | --- | --- | --- |
 | "So which one?": one comparison answers the goal | no chart: a headline block | `comparison` (see page.md) | |
+| "So which one, across all these scripts?": the answer is a pattern over more than three primary comparisons on one level | no chart: a summary block per candidate and metric | `candidate`, `metric` (see page.md) | three comparisons or fewer: headlines |
 | "Is it better, and by how much?" | `effect` | `metric` | the comparisons are on different metrics: `comparison-rows` |
 | "Where does the gap come from?" | `effect` with `breakdown` | `metric`, `breakdown` (a level: category, task, size) | the level has one node: the headline already says it |
 | "Did this release improve, metric by metric?" | `comparison-rows` | `comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2× | more than 10 rows: a table |
@@ -32,7 +33,7 @@ Start from the question the reader brings, not from the data you have: write it 
 
 How to pick, in order:
 
-1. **The answer first.** Each primary comparison the goal rests on gets a headline block, the one that answers the goal first; the chart that backs them is an `effect` chart, or a `comparison-rows` chart when the comparisons are on different metrics.
+1. **The answer first.** Each primary comparison the goal rests on gets a headline block, the one that answers the goal first; when they are more than three on one level (one per script or task), a summary block per candidate and metric states the pattern instead; the chart that backs them is an `effect` chart, or a `comparison-rows` chart when the comparisons are on different metrics.
 2. **The question the goal names.** A goal that weighs two things ("given accuracy and running cost", "faster without using more memory") gets the `scatter` of those two metrics; a goal about one run (latency, flaky tasks) gets the `distribution`, which shows every run up to 20 and a box beyond.
 3. **A paired comparison is never left to two separate intervals.** When the same items or runs were measured for both candidates, show the effect itself (headline, `effect` or `comparison-rows`); two dots with their own intervals cannot show a paired result, and `validate` says so.
 4. **Then the breakdowns**, which are exploratory unless declared primary: the reader sees where the difference comes from.

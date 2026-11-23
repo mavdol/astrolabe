@@ -13,7 +13,7 @@ import { answerOf } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
 import { THEME } from "../src/themes/astrolabe.js";
-import { planOf, rawFileOf } from "./helpers.js";
+import { planOf, rawFileOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng } from "./png.js";
 
 const context = { generatorVersion: "0.2.0", buildDate: "2026-11-17" };
@@ -194,6 +194,54 @@ describe("the site", () => {
     expect(answerOf(benchmark)).toBe(
       "Model A against Model B: cost per item +265%, worse. 3 more primary comparisons: 1 better, 1 likely better, 1 inconclusive.",
     );
+  });
+
+  it("states the summary that leads the page as the pattern it counts", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    benchmark.blocks = [{ id: "summary-accuracy", type: "summary", candidate: "model_a", metric: "accuracy" }, ...benchmark.blocks!];
+    benchmark.layout = undefined;
+
+    expect(answerOf(benchmark)).toBe(
+      "Model A against Model B, accuracy across 3 tasks: 1 better, 2 inconclusive. 1 more primary comparison: 1 worse.",
+    );
+  });
+
+  it("states a summary when no headline leads the page and one comparison of many would say too little", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    benchmark.blocks = benchmark.blocks?.filter((block) => block.type !== "headline");
+
+    expect(answerOf(benchmark)).toBe(
+      "Model A against Model B, accuracy across 3 tasks: 1 better, 2 inconclusive. 1 more primary comparison: 1 worse.",
+    );
+  });
+
+  it("draws a summary as one square per comparison, its counts in words and the range of its effects", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    benchmark.blocks = [{ id: "summary-accuracy", type: "summary", candidate: "model_a", metric: "accuracy" }, ...benchmark.blocks!];
+    benchmark.layout = undefined;
+    const { html } = buildSite("support-assistant-eval", { benchmark });
+    const squares = /<div class="verdict-squares"[^>]*aria-label="([^"]*)">(.*?)<\/div>/.exec(html)!;
+
+    expect(squares[1]).toBe("1 better, 2 inconclusive, across 3 tasks");
+    expect(squares[2].match(/<span class="[^"]*"><\/span>/g)).toEqual([
+      '<span class="good firm"></span>',
+      '<span class="neutral"></span>',
+      '<span class="neutral"></span>',
+    ]);
+    expect(html).toContain("Across 3 tasks");
+    expect(html).toMatch(/<li>From −?[\d.]+ to \+?[\d.]+ points<\/li>/);
+  });
+
+  it("gives a file without blocks a summary per candidate and metric when its comparisons are too many for headlines", () => {
+    const benchmark = { ...withTasksAsPrimary(loadBenchmark("support-assistant-eval")), blocks: undefined, layout: undefined };
+
+    expect(pageRowsOf(benchmark)[0].map((block) => block.type)).toEqual(["summary"]);
+    expect(
+      pageRowsOf({ ...loadBenchmark("support-assistant-eval"), blocks: undefined, layout: undefined })[0].map((block) => block.type),
+    ).toEqual(["headline", "headline", "headline"]);
   });
 
   it("names the script of each claim when scripts sit side by side at the top of the structure", () => {

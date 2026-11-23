@@ -1072,7 +1072,7 @@
   {
     "id": "V38",
     "level": "should",
-    "text": "Order the page from the answer to the evidence: headline blocks, the chart that backs each headline, the breakdowns, the full table, then the trust blocks.",
+    "text": "Order the page from the answer to the evidence: headline or summary blocks, the chart that backs them, the breakdowns, the full table, then the trust blocks.",
     "pitfall": "A reader who has to scroll past method to find the result, or who never reaches the evidence",
     "proved_by": "layout",
     "explained_in": "visualization/page.md"
@@ -1080,7 +1080,7 @@
   {
     "id": "V39",
     "level": "should",
-    "text": "Put at most two blocks in a row, and at most three headline blocks on a page; rows stack into one column on narrow screens.",
+    "text": "Put at most two blocks in a row, three when they are all headline or summary blocks, and at most three headline and summary blocks on a page; rows stack into one column on narrow screens.",
     "pitfall": "Charts too small to read; a headline row where nothing stands out",
     "proved_by": "layout",
     "explained_in": "visualization/page.md"

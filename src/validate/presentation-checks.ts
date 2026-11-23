@@ -1,6 +1,8 @@
 import type { Issue } from "../rules/registry.js";
 import { lookupOf, resolveTemplates, type EffectFormat } from "../render/describe.js";
 import type { Benchmark, Comparison } from "../schema/benchmark.js";
+import { isAnswerBlock } from "../schema/presentation.js";
+import { levelsOf, summaryOf } from "../render/summary.js";
 
 const TEMPLATE = /\{(\w+):([^}]+)\}/g;
 const TRUST_BLOCK_TYPES = new Set(["methodology", "environment", "limitations", "provenance"]);
@@ -14,6 +16,8 @@ interface Block {
   comparisons?: unknown;
   asserts?: unknown;
   metrics?: string[];
+  candidate?: string;
+  metric?: string;
   show?: string[];
   effect_format?: EffectFormat;
 }
@@ -56,7 +60,9 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
   }
 
   (benchmark.layout ?? []).forEach((row, rowIndex) => {
-    if (row.length > LARGEST_ROW)
+    const rowOfAnswers = row.every((blockId) => blocks.some((block) => block.id === blockId && isAnswerBlock(block)));
+
+    if (row.length > (rowOfAnswers ? LARGEST_HEADLINE_COUNT : LARGEST_ROW))
       warning("V39", `layout[${rowIndex}]`, `${row.length} blocks side by side: beyond ${LARGEST_ROW}, each is too narrow to read`);
 
     for (const blockId of row)
@@ -64,17 +70,30 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
   });
 
   const pageOrder = [...new Set([...(benchmark.layout ?? []).flat(), ...blocks.map((block) => block.id)])];
-  const headlines = pageOrder.flatMap((blockId) => blocks.filter((block) => block.id === blockId && block.type === "headline"));
+  const answers = pageOrder.flatMap((blockId) => blocks.filter((block) => block.id === blockId && isAnswerBlock(block)));
 
-  if (headlines.length > LARGEST_HEADLINE_COUNT) {
-    const extra = headlines.slice(LARGEST_HEADLINE_COUNT).map((block) => `"${block.id}" (${block.comparison})`);
+  if (answers.length > LARGEST_HEADLINE_COUNT) {
+    const extra = answers
+      .slice(LARGEST_HEADLINE_COUNT)
+      .map((block) => `"${block.id}" (${block.type === "summary" ? `${block.candidate} on ${block.metric}` : String(block.comparison)})`);
 
     warning(
       "V39",
       "blocks",
-      `${headlines.length} headline blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the first ${LARGEST_HEADLINE_COUNT} and show ${extra.join(", ")} in a comparison-rows chart or a table instead`,
+      `${answers.length} headline and summary blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the first ${LARGEST_HEADLINE_COUNT} and show ${extra.join(", ")} in a comparison-rows chart or a table instead`,
     );
   }
+
+  const primaryComparisons = (results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
+
+  if (blocks.length > 0 && answers.length === 0 && primaryComparisons.length > 0)
+    warning(
+      "V38",
+      "blocks",
+      primaryComparisons.length > LARGEST_HEADLINE_COUNT
+        ? `no headline or summary block: the top of the page would state one of ${primaryComparisons.length} primary comparisons alone; add a summary block per candidate and metric, so the answer reads as the pattern it is`
+        : "no headline block: the top of the page would state the first primary comparison alone; add the headline that answers the goal",
+    );
 
   blocks.forEach((block, blockIndex) => {
     if (block.type !== "table") return;
@@ -162,6 +181,31 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
     }
 
     if (block.type === "headline") requirePrimary(block.comparison, `${path}.comparison`, "a headline");
+
+    if (block.type === "summary") {
+      if (!knownIds.candidate.has(block.candidate ?? "") || block.candidate === results.baseline)
+        error("S7", `${path}.candidate`, `"${String(block.candidate)}" is not a candidate compared with the baseline`);
+      else if (!knownIds.metric.has(block.metric ?? ""))
+        error("S7", `${path}.metric`, `"${String(block.metric)}" is not the id of a metric`);
+      else {
+        const summary = summaryOf(results, block.candidate!, block.metric!);
+        const counted = summary.comparisons;
+        const levels = [...levelsOf(results, summary)];
+
+        if (counted.length >= 2 && levels.length > 1)
+          error(
+            "S11",
+            path,
+            `the primary comparisons of "${block.candidate}" on "${block.metric}" sit on several levels (${levels.map((level) => level ?? "the whole benchmark").join(", ")}): a summary counts one level, so that a total is not counted with its parts; use headlines`,
+          );
+        else if (counted.length < 2)
+          error(
+            "S11",
+            path,
+            `a summary counts the primary comparisons of "${block.candidate}" on "${block.metric}", and there ${counted.length === 1 ? "is one" : "are none"}: ${counted.length === 1 ? `use a headline on "${counted[0].id}"` : "declare them in analysis.primary, or summarize another metric"}`,
+          );
+      }
+    }
 
     if (block.asserts !== undefined && typeof block.asserts === "object" && block.asserts !== null) {
       for (const [comparisonId, assertedVerdict] of Object.entries(block.asserts)) {
