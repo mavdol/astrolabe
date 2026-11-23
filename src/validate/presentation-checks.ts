@@ -1,6 +1,9 @@
 import type { Issue } from "../rules/registry.js";
 import { lookupOf, resolveTemplates, type EffectFormat } from "../render/describe.js";
 import type { Benchmark, Comparison } from "../schema/benchmark.js";
+import { isAnswerBlock } from "../schema/presentation.js";
+import { levelsOf, summaryChartOf } from "../render/summary.js";
+import { defaultFilterState, nodesOf } from "../render/chart/chart-data.js";
 
 const TEMPLATE = /\{(\w+):([^}]+)\}/g;
 const TRUST_BLOCK_TYPES = new Set(["methodology", "environment", "limitations", "provenance"]);
@@ -14,6 +17,13 @@ interface Block {
   comparisons?: unknown;
   asserts?: unknown;
   metrics?: string[];
+  cells?: string;
+  chart?: string;
+  breakdown?: string;
+  node?: string;
+  filters?: string[];
+  candidates?: unknown;
+  metric?: string;
   show?: string[];
   effect_format?: EffectFormat;
 }
@@ -22,6 +32,8 @@ const LARGEST_ROW = 2;
 const LARGEST_HEADLINE_COUNT = 3;
 /** A claim read at a glance: one line on the page, the card and the images. */
 const LONGEST_TITLE = 60;
+/** An effect chart's rows (nodes times compared candidates): beyond them, the rows look alike and a table reads faster. */
+const LONGEST_EFFECT_CHART = 8;
 const BLOCKS_WITH_WRITTEN_TITLES = new Set(["headline", "chart", "text"]);
 
 function verdictLabel(comparison: Comparison): string {
@@ -56,7 +68,9 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
   }
 
   (benchmark.layout ?? []).forEach((row, rowIndex) => {
-    if (row.length > LARGEST_ROW)
+    const rowOfAnswers = row.every((blockId) => blocks.some((block) => block.id === blockId && isAnswerBlock(block)));
+
+    if (row.length > (rowOfAnswers ? LARGEST_HEADLINE_COUNT : LARGEST_ROW))
       warning("V39", `layout[${rowIndex}]`, `${row.length} blocks side by side: beyond ${LARGEST_ROW}, each is too narrow to read`);
 
     for (const blockId of row)
@@ -64,23 +78,48 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
   });
 
   const pageOrder = [...new Set([...(benchmark.layout ?? []).flat(), ...blocks.map((block) => block.id)])];
-  const headlines = pageOrder.flatMap((blockId) => blocks.filter((block) => block.id === blockId && block.type === "headline"));
+  const answers = pageOrder.flatMap((blockId) => blocks.filter((block) => block.id === blockId && isAnswerBlock(block)));
 
-  if (headlines.length > LARGEST_HEADLINE_COUNT) {
-    const extra = headlines.slice(LARGEST_HEADLINE_COUNT).map((block) => `"${block.id}" (${block.comparison})`);
+  if (answers.length > LARGEST_HEADLINE_COUNT) {
+    const extra = answers
+      .slice(LARGEST_HEADLINE_COUNT)
+      .map((block) => `"${block.id}" (${block.type === "summary" ? String(block.metric) : String(block.comparison)})`);
 
     warning(
       "V39",
       "blocks",
-      `${headlines.length} headline blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the first ${LARGEST_HEADLINE_COUNT} and show ${extra.join(", ")} in a comparison-rows chart or a table instead`,
+      `${answers.length} headline and summary blocks: beyond ${LARGEST_HEADLINE_COUNT}, none stands out; keep the first ${LARGEST_HEADLINE_COUNT} and show ${extra.join(", ")} in a comparison-rows chart or a table instead`,
     );
   }
+
+  const primaryComparisons = (results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
+
+  if (blocks.length > 0 && answers.length === 0 && primaryComparisons.length > 0)
+    warning(
+      "V38",
+      "blocks",
+      primaryComparisons.length > LARGEST_HEADLINE_COUNT
+        ? `no headline or summary block: the top of the page would state one of ${primaryComparisons.length} primary comparisons alone; add a summary block on the metric the goal names, so the answer reads as the pattern it is`
+        : "no headline block: the top of the page would state the first primary comparison alone; add the headline that answers the goal",
+    );
 
   blocks.forEach((block, blockIndex) => {
     if (block.type !== "table") return;
 
     const metrics = new Set(block.metrics ?? []);
     const show = new Set(block.show ?? []);
+
+    if (block.cells === "effects") {
+      const effects = (results.comparisons ?? []).filter((comparison) => metrics.has(comparison.metric));
+
+      if (effects.length === 0)
+        error("V31", `blocks[${blockIndex}].cells`, "a table of effects needs comparisons on its metrics: run astrolabe compute");
+      else if (!show.has("ci") && effects.some((comparison) => comparison.ci))
+        error("V31", `blocks[${blockIndex}].show`, 'the table of effects leaves out "ci": an effect is only weighed with its interval');
+
+      return;
+    }
+
     const values = (results.values ?? []).filter((value) => metrics.has(value.metric));
     const missing = [
       show.has("n") ? "" : "n",
@@ -150,6 +189,23 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
       );
     }
 
+    if (block.type === "chart" && block.chart === "effect") {
+      const nodes = nodesOf(
+        { id: block.id, node: block.node, breakdown: block.breakdown, filters: block.filters },
+        benchmark,
+        lookup,
+        defaultFilterState(benchmark),
+      );
+      const rows = nodes.length * (results.candidates.length - 1);
+
+      if (rows > LONGEST_EFFECT_CHART)
+        warning(
+          "V40",
+          path,
+          `the effect chart draws ${rows} rows: beyond ${LONGEST_EFFECT_CHART}, a table of effects reads better, one row per ${block.breakdown ?? "node"}: a table block with ${block.breakdown ? `"rows": "${block.breakdown}", ` : ""}"cells": "effects"`,
+        );
+    }
+
     if (BLOCKS_WITH_WRITTEN_TITLES.has(block.type) && typeof block.title === "string") {
       const shownTitle = resolveTemplates(block.title, lookup, block.effect_format);
 
@@ -162,6 +218,38 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
     }
 
     if (block.type === "headline") requirePrimary(block.comparison, `${path}.comparison`, "a headline");
+
+    if (block.type === "summary") {
+      const named = Array.isArray(block.candidates) ? (block.candidates as unknown[]) : undefined;
+      const strangers = (named ?? []).filter((candidate) => !knownIds.candidate.has(String(candidate)) || candidate === results.baseline);
+
+      if (strangers.length > 0)
+        error(
+          "S7",
+          `${path}.candidates`,
+          `${strangers.map((candidate) => `"${String(candidate)}"`).join(", ")}: not a candidate compared with the baseline`,
+        );
+      else if (!knownIds.metric.has(block.metric ?? ""))
+        error("S7", `${path}.metric`, `"${String(block.metric)}" is not the id of a metric`);
+      else
+        for (const summary of summaryChartOf(results, { metric: block.metric!, candidates: named as string[] | undefined }).summaries) {
+          const counted = summary.comparisons;
+          const levels = [...levelsOf(results, summary)];
+
+          if (counted.length >= 2 && levels.length > 1)
+            error(
+              "S11",
+              path,
+              `the primary comparisons of "${summary.candidate}" on "${summary.metric}" sit on several levels (${levels.map((level) => level ?? "the whole benchmark").join(", ")}): a summary counts one level, so that a total is not counted with its parts; use headlines`,
+            );
+          else if (counted.length < 2)
+            error(
+              "S11",
+              path,
+              `a summary counts the primary comparisons of "${summary.candidate}" on "${summary.metric}", and there ${counted.length === 1 ? "is one" : "are none"}: ${counted.length === 1 ? `use a headline on "${counted[0].id}"` : `name the other candidates in "candidates", declare the comparisons in analysis.primary, or summarize another metric`}`,
+            );
+        }
+    }
 
     if (block.asserts !== undefined && typeof block.asserts === "object" && block.asserts !== null) {
       for (const [comparisonId, assertedVerdict] of Object.entries(block.asserts)) {

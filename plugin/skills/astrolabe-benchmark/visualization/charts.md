@@ -19,8 +19,9 @@ Start from the question the reader brings, not from the data you have: write it 
 | The reader asks | `chart` | Fields it needs | Not when |
 | --- | --- | --- | --- |
 | "So which one?": one comparison answers the goal | no chart: a headline block | `comparison` (see page.md) | |
+| "So which one, across all these tasks?": the answer is a pattern over more than three primary comparisons on one level | a summary block: a stacked bar per candidate counting its results | `metric`; `candidates` to show fewer (see page.md) | three comparisons or fewer: headlines |
 | "Is it better, and by how much?" | `effect` | `metric` | the comparisons are on different metrics: `comparison-rows` |
-| "Where does the gap come from?" | `effect` with `breakdown` | `metric`, `breakdown` (a level: category, task, size) | the level has one node: the headline already says it |
+| "Where does the gap come from?" | `effect` with `breakdown` | `metric`, `breakdown` (a level: category, task, size) | the level has one node: the headline already says it; more than 8 rows (nodes times compared candidates): a table of effects (style.md) |
 | "Did this release improve, metric by metric?" | `comparison-rows` | `comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2× | more than 10 rows: a table |
 | "Is the gain worth the cost?": two metrics in tension (accuracy and cost, speed and memory) | `scatter` | `x`, `y` (metric ids), `node` | the two metrics do not trade against each other: two headlines |
 | "What will one run, one request look like?" (run times, latencies, flaky tasks) | `distribution` | `metric`; reads the raw file | the question is about the average: `effect` |
@@ -32,7 +33,7 @@ Start from the question the reader brings, not from the data you have: write it 
 
 How to pick, in order:
 
-1. **The answer first.** Each primary comparison the goal rests on gets a headline block, the one that answers the goal first; the chart that backs them is an `effect` chart, or a `comparison-rows` chart when the comparisons are on different metrics.
+1. **The answer first.** Each primary comparison the goal rests on gets a headline block, the one that answers the goal first; when they are more than three on one level (one per script or task), a summary block states the pattern instead; the chart that backs them is an `effect` chart, or a `comparison-rows` chart when the comparisons are on different metrics.
 2. **The question the goal names.** A goal that weighs two things ("given accuracy and running cost", "faster without using more memory") gets the `scatter` of those two metrics; a goal about one run (latency, flaky tasks) gets the `distribution`, which shows every run up to 20 and a box beyond.
 3. **A paired comparison is never left to two separate intervals.** When the same items or runs were measured for both candidates, show the effect itself (headline, `effect` or `comparison-rows`); two dots with their own intervals cannot show a paired result, and `validate` says so.
 4. **Then the breakdowns**, which are exploratory unless declared primary: the reader sees where the difference comes from.
@@ -54,7 +55,7 @@ Pies, donuts, bubbles, radar charts, two y-axes and 3D are not in the chart set:
       "series": "candidate",
       "uncertainty": "ci",
       "title": "{candidate:quickmark} is faster than {candidate:markly}",
-      "description": "Wall time {effect:wall_time__quickmark}, beyond the smallest difference that matters.",
+      "description": "Build time {effect:wall_time__quickmark}, beyond the smallest difference that matters.",
       "asserts": { "wall_time__quickmark": "better" }
     }
   ]
@@ -80,26 +81,10 @@ The direction ("lower is better"), how to read the chart, the interval's level a
 
 ## Scales
 
-Every axis is a decision that changes how large a difference looks, so it is declared and justified, never tuned until a difference "shows".
-
-```json
-{
-  "blocks": [
-    {
-      "id": "chart-pages",
-      "type": "chart",
-      "chart": "dot-interval",
-      "metric": "identical_pages",
-      "uncertainty": "ci",
-      "title": "Pages rendered identically to the reference",
-      "scale": { "zero": false, "reason": "both renderers score between 90 and 100%; from zero, a 2-point difference would be invisible" }
-    }
-  ]
-}
-```
+Every axis is a decision that changes how large a difference looks. The generator makes it from the data and the smallest difference that matters, and writes it on the chart; you only override it, and say why.
 
 - **Bars start at zero**, always; a bar that cannot (a negative value) is a `dot-interval` instead.
-- **Dots and lines may leave zero** with `zero: false` and a `reason`, when zero is arbitrary or a difference the user cares about would be invisible. Pick the range so that a difference of `minimum_meaningful` is visible and a smaller one does not look large.
+- **Dots, lines and scatters fit their axes to the values** by default, so that close candidates can be told apart, and the chart says so. The range never shrinks below twice `minimum_meaningful`, so a difference too small to matter cannot fill the axis, and it never goes below zero for values that cannot. Set `"scale": { "zero": true }` when the reader needs the distance from zero (a count, a share out of 100%); `"zero": false` with a `reason` only adds that reason to the chart.
 - **Linear by default.** `type: "log"` needs a `reason` (values spanning orders of magnitude, a long-tailed latency, a question about ratios); bars and effects refuse it.
 - **Charts meant to be compared share a scale**: list their ids in `shared_with`. A filter keeps its chart's axis fixed across options by itself.
 - **No axis breaks**, and never an axis turned upside down to make lower look bigger: the direction is written on the chart, and candidates are sorted best first.

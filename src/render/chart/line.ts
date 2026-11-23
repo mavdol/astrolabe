@@ -17,18 +17,7 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
-import {
-  arrow,
-  BETTER,
-  intervalUpwards,
-  PLOT_STYLE,
-  poppingMarker,
-  round,
-  taggedWith,
-  widestOf,
-  type DrawnPlot,
-  type PlotArea,
-} from "./plot.js";
+import { intervalUpwards, PLOT_STYLE, poppingMarker, round, taggedWith, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
 import { linearScale, logScale } from "./scale.js";
 
 interface LinePoint {
@@ -50,12 +39,12 @@ interface LinePlot {
   logScale: boolean;
   tickText: (value: number, decimals: Decimals) => string;
   valueText: (value: number) => string;
-  betterUpwards: boolean;
 }
 
-const DIRECTION_HEIGHT = 22;
+/** Room above the plot for the label of its highest tick. */
+const TOP_GAP = 10;
 const X_LABELS_HEIGHT = 24;
-const FIXED_HEIGHT = DIRECTION_HEIGHT + X_LABELS_HEIGHT;
+const FIXED_HEIGHT = TOP_GAP + X_LABELS_HEIGHT;
 const END_LABEL_GAP = 8;
 const END_LABEL_SPACING = 16;
 const LARGEST_END_LABEL_SHARE = 0.3;
@@ -67,7 +56,7 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
   const textLines: string[] = [];
   const tickStyle = { ...PLOT_STYLE.tick, fill: colours.secondary };
   const capHeight = (size: number) => size * CAP_HEIGHT_RATIO;
-  const plotTop = area.y + DIRECTION_HEIGHT;
+  const plotTop = area.y + TOP_GAP;
   const plotBottom = area.y + area.height - X_LABELS_HEIGHT;
   const targetTicks = plotBottom - plotTop < 200 ? 3 : 5;
   const scaleBetween = (pixels: [number, number]) =>
@@ -107,13 +96,6 @@ function drawLines(plot: LinePlot, text: SvgTextRenderer, colours: Colours, area
   }
 
   textLines.push(yScale.ticks.map((tick) => plot.tickText(tick, yScale.tickDecimals)).join("  "));
-
-  const arrowX = plotLeft + 4;
-  const [arrowFrom, arrowTo] = plot.betterUpwards ? [area.y + 16, area.y + 4] : [area.y + 4, area.y + 16];
-
-  marks.push(arrow([arrowX, arrowFrom], [arrowX, arrowTo], colours.secondary));
-  marks.push(text.draw(BETTER, arrowX + 8, area.y + 10 + capHeight(12) / 2, { ...PLOT_STYLE.caption, fill: colours.secondary }));
-  textLines.push(plot.betterUpwards ? `${BETTER} ↑` : `${BETTER} ↓`);
 
   const labelEvery = Math.max(1, Math.ceil(SMALLEST_X_LABEL_SPACE / step));
 
@@ -257,7 +239,6 @@ export function lineContent(inputs: ChartInputs): ChartContent {
     logScale: axis.logScale,
     tickText: (value, tickDecimals) => formatNumber(value, tickDecimals),
     valueText: (value) => formatNumber(value, decimals),
-    betterUpwards: metric.direction === "higher",
   };
   const howToRead = [
     inputs.compact ? "" : sentence(metric.definition),

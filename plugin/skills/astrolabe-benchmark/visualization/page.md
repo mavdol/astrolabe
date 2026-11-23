@@ -18,7 +18,7 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 On every page and image, whatever the file says: the direction and how to read each chart, the interval's level, a data table and a long text alternative for each chart, a light and a dark version, a narrow version for phones, filters that work with the keyboard, no value reachable only by hovering, no motion for readers who asked for less, no text below 12 px, and a provenance line on every export. The trust blocks close the page even when `layout` leaves them out: the method drawn as its steps, the environment and the limitations as short facts, and the provenance as the page's last line, with the benchmark file and the raw data to download.
 
-A file with no blocks still gets a page: its primary comparisons as headlines, then the trust blocks. Without `exports`, `build` writes a README card from the same comparisons.
+A file with no blocks still gets a page: its primary comparisons as headlines, or a summary per metric when they are more than three, then the trust blocks. Without `exports`, `build` writes a README card from the same answer.
 
 ## Propose the page before writing it
 
@@ -30,9 +30,9 @@ The framing step already asked what the benchmark decides. Ask at most two more 
 Then propose the page as a short outline, before writing any block: one line per block, each chart with the reader's question it answers (charts.md), and no text block unless no chart can carry it:
 
 ```
-Headlines   wall time first (the answer), then identical pages; quickmark against markly, both primary
-Chart       "Is it faster, and by how much?": the effect on wall time, with the band too small to matter
-Chart       "What will one run look like?": every run, wall time (12 runs per candidate)
+Headlines   build time first (the answer), then identical pages; quickmark against markly, both primary
+Chart       "Is it faster, and by how much?": the effect on build time, with the band too small to matter
+Chart       "What will one run look like?": every run, build time (12 runs per candidate)
 Table       both metrics by file size, with n, intervals and failures (exploratory)
 Exports     the README card (light and dark), a wide image of the effect chart
 ```
@@ -41,11 +41,12 @@ The user amends it; then write the sections, run `astrolabe validate`, and build
 
 ## Blocks and their order
 
-`blocks` lists every block once; `layout` places them, one array per row, at most two per row. Order the rows from the answer to the evidence:
+`blocks` lists every block once; `layout` places them, one array per row, at most two per row (three when the row holds only headlines and summaries). Order the rows from the answer to the evidence:
 
-1. **Headlines**: one per primary comparison the goal rests on, three at most, the one that answers the goal first: the top of the page states it alone. A headline names its `comparison` and a `title` (templates, style.md); the figure, interval, verdict, failures and a small drawing of the comparison are added by the generator.
+1. **Headlines**: one per primary comparison the goal rests on, three at most, the one that answers the goal first: the top of the page names its pair ("quickmark compared with markly"). A headline names its `comparison` and a `title` (templates, style.md); the figure, interval, verdict, failures and a small drawing of the comparison are added by the generator.
+   When the answer is a pattern across more than three primary comparisons on one level (a script, a task or a file each), a **summary** states it instead: `{ "id": "summary-time", "type": "summary", "metric": "wall_time" }`. It draws a stacked bar per candidate under one legend: the candidate's primary comparisons on that metric split into better, about the same and worse (in the metric's own words: faster, lower, cheaper), the count in each part, the part only likely lighter; then the range of the changes. It shows every candidate compared with the baseline; `candidates` names fewer. One summary per metric the reader asks about; every word is generated, so it has no title. `validate` warns when the page states neither a headline nor a summary.
 2. **The chart that backs them**: usually an `effect` or `comparison-rows` chart (charts.md).
-3. **Breakdowns**: where the difference comes from, labelled exploratory unless declared primary.
+3. **Breakdowns**: where the difference comes from, labelled exploratory unless declared primary. Beyond 8 rows (nodes times compared candidates), a breakdown is a table of effects rather than an `effect` chart (style.md): one row per node reads faster than many chart rows that look alike.
 4. **The full table**, with n, intervals and failures.
 5. **Trust blocks**: `methodology`, `environment`, `limitations`, `provenance`, each a block with only an `id` and its `type`.
 
@@ -100,7 +101,7 @@ Use a filter only when one view cannot hold the content: a breakdown that fits i
 
 | `size` | What it is | `blocks` |
 | --- | --- | --- |
-| `banner` | The README card: SVG in light and dark, with a PNG beside it | Headline blocks |
+| `banner` | The README card: SVG in light and dark, with a PNG beside it | Headline blocks, or summary blocks |
 | `wide` | 1200 × 630 px: link previews and social posts; the first one written as PNG is the site's preview image | One chart block |
 | `square` | 1080 × 1080 px: social posts | One chart block |
 
@@ -125,9 +126,9 @@ Open it and read it as the user's reader would: does the first screen answer the
 | V35 | Should | When a filter changes the data shown, keep the axis fixed across its options; if the range must change, show that it did. | Two filter states compared by eye on two different scales | blocks[].scale |
 | V36 | Should | Keep the filter state in the page address, so a link reproduces exactly what its sender saw. | A shared link showing something else than what was discussed | generator |
 | V37 | Should | Use a filter only when one view cannot hold the content; a breakdown that fits on the page is shown, not filtered. | Controls added for their own sake | filters[] |
-| V38 | Should | Order the page from the answer to the evidence: headline blocks, the chart that backs each headline, the breakdowns, the full table, then the trust blocks. | A reader who has to scroll past method to find the result, or who never reaches the evidence | layout |
-| V39 | Should | Put at most two blocks in a row, and at most three headline blocks on a page; rows stack into one column on narrow screens. | Charts too small to read; a headline row where nothing stands out | layout |
-| V40 | Should | Give each chart one message. When too many elements compete in one chart, split it, aggregate, or filter. | A chart that shows everything and says nothing | blocks[] |
+| V38 | Should | Order the page from the answer to the evidence: headline or summary blocks, the chart that backs them, the breakdowns, the full table, then the trust blocks. | A reader who has to scroll past method to find the result, or who never reaches the evidence | layout |
+| V39 | Should | Put at most two blocks in a row, three when they are all headline or summary blocks, and at most three headline and summary blocks on a page; rows stack into one column on narrow screens. | Charts too small to read; a headline row where nothing stands out | layout |
+| V40 | Should | Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, or show it as a table: an effect chart of more than 8 rows becomes a table of effects. | A chart that shows everything and says nothing | blocks[] |
 | V41 | Must | Make every export readable alone: title, candidate names, unit, direction, and the interval note are inside the image. | A chart shared on a social site with no way to know what it measures | enforced by the generator |
 | V42 | Must | Print a provenance line in every export: where the full page is, the short hash of `results`, the date. | A number that cannot be traced back to its data | exports[] (generated) |
 | V43 | Must | An export shows the default state of the filters, or a state named in its preset; never a state picked by hand at export time. | The most flattering slice exported without saying it is a slice | exports[].filter_state |

@@ -57,9 +57,10 @@ describe("the scale of an axis", () => {
     expect(logScale([10, 1000], [0, 100]).position(100)).toBe(50);
   });
 
-  it("cannot make a difference too small to matter fill an axis that does not start at zero", () => {
-    expect(extentAroundData([99.9, 100.1], 1)).toEqual([97.5, 102.5]);
+  it("cannot make a difference too small to matter fill an axis fitted to its values, nor take it below zero", () => {
+    expect(extentAroundData([99.9, 100.1], 1)).toEqual([99, 101]);
     expect(extentAroundData([80, 120], 1)).toEqual([80, 120]);
+    expect(extentAroundData([0.01, 0.02], 0.1)).toEqual([0, 0.2]);
   });
 });
 
@@ -152,10 +153,10 @@ describe("a chart of values", () => {
     expect(() => draw(negative, memory)).toThrow(/a bar starts at zero/);
   });
 
-  it("marks which way is better, in words and with an arrow", () => {
+  it("says which way is better in words, without an arrow inside the plot", () => {
     const chart = draw(parsers, memory);
 
-    expect(chart.textLines).toContain("← BETTER");
+    expect(chart.textLines.some((line) => line.includes("BETTER") && !line.includes("IS BETTER"))).toBe(false);
     expect(chart.subtitle).toBe("Peak memory, median in MiB · lower is better");
     expect(chart.textLines, "in capitals, as the page's labels").toContain("PEAK MEMORY, MEDIAN IN MIB · LOWER IS BETTER");
   });
@@ -166,15 +167,21 @@ describe("a chart of values", () => {
     );
   });
 
-  it("starts a dot chart at zero unless the block gives a reason not to, and then says so", () => {
+  it("fits a dot chart to its values and says so, and starts it at zero when the block asks", () => {
     const time = { chart: "dot-interval", metric: "wall_time", title: "Wall time" };
-    const fromZero = draw(parsers, chartBlock(time));
-    const zoomed = draw(parsers, chartBlock({ ...time, scale: { zero: false, reason: "The candidates differ by a few percent" } }));
+    const fitted = draw(parsers, chartBlock(time));
+    const fromZero = draw(parsers, chartBlock({ ...time, scale: { zero: true } }));
+    const withReason = draw(parsers, chartBlock({ ...time, scale: { zero: false, reason: "The candidates differ by a few percent" } }));
 
     expect(fromZero.textLines).toContain("0  1  2  3  4  5");
-    expect(zoomed.textLines).not.toContain("0  1  2  3  4  5");
-    expect(zoomed.howToRead).toContain("The axis does not start at zero: The candidates differ by a few percent.");
-    expect(fromZero.howToRead).not.toContain("does not start at zero");
+    expect(fitted.textLines).not.toContain("0  1  2  3  4  5");
+    expect(fitted.howToRead).toContain(
+      "The axis is fitted to the values rather than drawn from zero, so that the candidates can be told apart.",
+    );
+    expect(withReason.howToRead).toContain(
+      "The axis is fitted to the values rather than drawn from zero: The candidates differ by a few percent.",
+    );
+    expect(fromZero.howToRead).not.toContain("fitted to the values");
   });
 
   it("draws a log scale with real values on its ticks, names it, and refuses bars on it", () => {
@@ -502,19 +509,18 @@ describe("a scatter chart", () => {
   const support = loadBenchmark("support-assistant-eval");
   const costAccuracy = chartBlockOf(support, "chart-cost-accuracy");
 
-  it("places each candidate by its two measures, marks the better corner and joins the candidates no other beats", () => {
+  it("places each candidate by its two measures, says which way is better and joins the candidates no other beats", () => {
     const chart = draw(support, costAccuracy);
 
     expect(chart.textLines).toEqual(
       expect.arrayContaining([
         "Model A",
         "Model B",
-        "BETTER",
-        "↑ ACCURACY, SHARE IN % · HIGHER IS BETTER",
-        "COST PER ITEM, MEAN IN USD · LOWER IS BETTER ←",
+        "ACCURACY, SHARE IN % · HIGHER IS BETTER",
+        "COST PER ITEM, MEAN IN USD · LOWER IS BETTER",
       ]),
     );
-    expect(chart.howToRead).toContain("The marked corner is better: lower cost per item and higher accuracy.");
+    expect(chart.howToRead).toContain("Better is towards lower cost per item and higher accuracy.");
     expect(chart.table.rows.map((row) => row[5])).toEqual(["no", "no"]);
     expect(chart.svg).toContain('stroke-dasharray="4 3"');
   });
@@ -531,6 +537,20 @@ describe("a scatter chart", () => {
     expect(chart.svg).not.toContain("stroke-dasharray");
   });
 
+  it("fits its axes to the values and says so, unless the author asks for zero", () => {
+    const fitted = draw(support, costAccuracy);
+    const fromZero = draw(support, { ...costAccuracy, scale: { zero: true } });
+    const lowestTick = (chart: { textLines: string[] }) =>
+      chart.textLines.find((line) => /^[\d.]+( {2}[\d.]+)+$/.test(line))!.split("  ")[0];
+
+    expect(fitted.howToRead).toContain(
+      "The axes are fitted to the values rather than drawn from zero, so that the candidates can be told apart.",
+    );
+    expect(fromZero.howToRead).not.toContain("fitted to the values");
+    expect(lowestTick(fromZero)).toBe("0");
+    expect(lowestTick(fitted)).not.toBe("0");
+  });
+
   it("refuses a breakdown and a log scale", () => {
     expect(() => draw(support, { ...costAccuracy, breakdown: "category" })).toThrow(/a scatter chart shows one node/);
     expect(() => draw(support, { ...costAccuracy, scale: { type: "log", reason: "Wide range" } })).toThrow(ChartError);
@@ -544,7 +564,7 @@ describe("a line chart", () => {
     const chart = draw(support, chartBlock({ chart: "line", metric: "accuracy", breakdown: "task" }));
 
     expect(chart.textLines).toEqual(
-      expect.arrayContaining(["BETTER ↑", "Math word problems  Policy questions  Bug fixes", "Model A  73  68  59", "Model B  71  73  45"]),
+      expect.arrayContaining(["Math word problems  Policy questions  Bug fixes", "Model A  73  68  59", "Model B  71  73  45"]),
     );
     expect(chart.table.header).toEqual(["task", "Candidate", "Share (%)", "Interval", "n"]);
   });

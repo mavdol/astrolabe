@@ -1016,7 +1016,7 @@
   {
     "id": "V31",
     "level": "must",
-    "text": "In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures.",
+    "text": "In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures; in a table of effects, each effect's interval.",
     "pitfall": "A bare score with nothing to weigh it by",
     "proved_by": "blocks[].show",
     "explained_in": "visualization/style.md"
@@ -1072,7 +1072,7 @@
   {
     "id": "V38",
     "level": "should",
-    "text": "Order the page from the answer to the evidence: headline blocks, the chart that backs each headline, the breakdowns, the full table, then the trust blocks.",
+    "text": "Order the page from the answer to the evidence: headline or summary blocks, the chart that backs them, the breakdowns, the full table, then the trust blocks.",
     "pitfall": "A reader who has to scroll past method to find the result, or who never reaches the evidence",
     "proved_by": "layout",
     "explained_in": "visualization/page.md"
@@ -1080,7 +1080,7 @@
   {
     "id": "V39",
     "level": "should",
-    "text": "Put at most two blocks in a row, and at most three headline blocks on a page; rows stack into one column on narrow screens.",
+    "text": "Put at most two blocks in a row, three when they are all headline or summary blocks, and at most three headline and summary blocks on a page; rows stack into one column on narrow screens.",
     "pitfall": "Charts too small to read; a headline row where nothing stands out",
     "proved_by": "layout",
     "explained_in": "visualization/page.md"
@@ -1088,7 +1088,7 @@
   {
     "id": "V40",
     "level": "should",
-    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, or filter.",
+    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, or show it as a table: an effect chart of more than 8 rows becomes a table of effects.",
     "pitfall": "A chart that shows everything and says nothing",
     "proved_by": "blocks[]",
     "explained_in": "visualization/page.md"

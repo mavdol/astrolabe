@@ -40,7 +40,7 @@ astrolabe import hyperfine data/hyperfine/round-*.json --raw runs
 The import writes the measures `wall_time`, `cpu_time`, `user_time` and `system_time` in seconds, `peak_rss` in MiB when hyperfine reports it, and turns a non-zero exit code into a failure. hyperfine runs all the runs of one command before the next: do several rounds, each with its own export, and alternate the order of the commands between rounds; the import numbers the runs across exports. Keep the exports in `data/` and put the whole sequence in a script, so that `artifacts.command` reruns it.
 
 ```json
-{ "id": "wall_time", "label": "Wall time", "unit": "s", "direction": "lower", "kind": "run_time", "statistic": "median",
+{ "id": "wall_time", "label": "Run time", "unit": "s", "direction": "lower", "kind": "run_time", "statistic": "median",
   "definition": "Elapsed time of one process parsing data/orders.csv, start-up included, measured by hyperfine without a shell",
   "compare_as": "relative", "minimum_meaningful": 10, "failures_count_as": "excluded",
   "from": { "raw": "runs", "measure": "wall_time" } }

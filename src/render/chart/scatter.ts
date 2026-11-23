@@ -19,11 +19,9 @@ import {
 } from "./chart-content.js";
 import { ChartError, metricOf, nodesOf } from "./chart-data.js";
 import {
-  arrow,
   intervalAcross,
   intervalUpwards,
   poppingMarker,
-  BETTER,
   PLOT_STYLE,
   round,
   taggedWith,
@@ -51,8 +49,6 @@ interface ScatterPlot {
   yExtent: [number, number];
   xTitle: string;
   yTitle: string;
-  betterOnTheLeft: boolean;
-  betterUpwards: boolean;
 }
 
 const Y_TITLE_HEIGHT = 24;
@@ -61,8 +57,6 @@ const X_TITLE_HEIGHT = 20;
 const FIXED_HEIGHT = Y_TITLE_HEIGHT + X_AXIS_HEIGHT + X_TITLE_HEIGHT;
 const LABEL_HEIGHT = 15;
 const LABEL_OFFSET = 9;
-const CORNER_INSET = 6;
-const CORNER_ARROW_LENGTH = 16;
 const FRONTIER_SAMPLE_SPACING = 4;
 /** Shorter than this, two points a minimum meaningful difference apart would sit on each other. */
 const SMALLEST_PLOT_SIDE = 100;
@@ -93,8 +87,8 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
   const yScale = linearScale(plot.yExtent, [plotBottom, plotTop], yTargetTicks);
 
   const captionStyle = { ...PLOT_STYLE.caption, fill: colours.secondary };
-  const yTitle = text.fit(`${plot.betterUpwards ? "↑" : "↓"} ${plot.yTitle}`.toUpperCase(), PLOT_STYLE.caption, area.width);
-  const xTitle = text.fit(`${plot.xTitle} ${plot.betterOnTheLeft ? "←" : "→"}`.toUpperCase(), PLOT_STYLE.caption, area.width);
+  const yTitle = text.fit(plot.yTitle.toUpperCase(), PLOT_STYLE.caption, area.width);
+  const xTitle = text.fit(plot.xTitle.toUpperCase(), PLOT_STYLE.caption, area.width);
 
   marks.push(text.draw(yTitle, area.x, area.y + capHeight(12) + 4, captionStyle));
   textLines.push(yTitle);
@@ -137,22 +131,6 @@ function drawScatter(plot: ScatterPlot, text: SvgTextRenderer, colours: Colours,
     ),
   );
   textLines.push(xTitle);
-
-  const corner: [number, number] = [plot.betterOnTheLeft ? plotLeft : plotRight, plot.betterUpwards ? plotTop : plotBottom];
-  const inwards: [number, number] = [plot.betterOnTheLeft ? 1 : -1, plot.betterUpwards ? 1 : -1];
-  const tip: [number, number] = [corner[0] + inwards[0] * CORNER_INSET, corner[1] + inwards[1] * CORNER_INSET];
-  const tail: [number, number] = [tip[0] + inwards[0] * CORNER_ARROW_LENGTH, tip[1] + inwards[1] * CORNER_ARROW_LENGTH];
-  const wordBaseline = tail[1] + (inwards[1] > 0 ? capHeight(12) : 0);
-
-  marks.push(arrow(tail, tip, colours.secondary));
-  marks.push(
-    text.draw(BETTER, tail[0] + inwards[0] * 4, wordBaseline, {
-      ...captionStyle,
-      anchor: plot.betterOnTheLeft ? "start" : "end",
-      halo: colours.background,
-    }),
-  );
-  textLines.push(BETTER);
 
   if (plot.frontier.length >= 2) {
     const path = plot.frontier.map(
@@ -276,7 +254,8 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
         (isBetter(xMetric, other.x, point.x) || isBetter(yMetric, other.y, point.y)),
     );
   const frontier = points.filter((point) => !isBeaten(point)).sort((first, second) => first.x - second.x);
-  const startsAtZero = block.scale?.zero !== false;
+  // Dots, not bars: the axes fit the values unless the author asks for zero, so that close candidates can be told apart.
+  const startsAtZero = block.scale?.zero === true;
   const extentOf = (metric: Metric, values: Value[]): [number, number] => {
     const plotted = values.flatMap((value) => [value.value, ...(value.ci ?? [])]);
     const [low, high] = [Math.min(...plotted), Math.max(...plotted)];
@@ -302,10 +281,23 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
     frontier.length >= 2
       ? { mark: "frontier", markName: "Dashed line", text: "the candidates that no other candidate beats on both measures." }
       : { text: "" },
-    { text: `The marked corner is better: ${towards(xMetric)} and ${towards(yMetric)}.` },
-    { text: startsAtZero ? "" : `The axes do not start at zero: ${sentence(block.scale!.reason!)}` },
+    { text: `Better is towards ${towards(xMetric)} and ${towards(yMetric)}.` },
+    {
+      text: startsAtZero
+        ? ""
+        : block.scale?.reason
+          ? `The axes are fitted to the values rather than drawn from zero: ${sentence(block.scale.reason)}`
+          : "The axes are fitted to the values rather than drawn from zero, so that the candidates can be told apart.",
+    },
     { text: caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup)) },
-    { text: caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)) },
+    // Both axes often carry the same caveat (failures left out on each): it is said once.
+    {
+      text:
+        caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)) ===
+        caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup))
+          ? ""
+          : caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)),
+    },
   ];
   const howToRead = howToReadOf(howToReadParts);
   const fixedHeight = FIXED_HEIGHT;
@@ -316,8 +308,6 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
     yExtent: extentOf(yMetric, yValues),
     xTitle: titleOf(xMetric),
     yTitle: titleOf(yMetric),
-    betterOnTheLeft: xMetric.direction === "lower",
-    betterUpwards: yMetric.direction === "higher",
   };
   const cell = (value: Value, decimals: Decimals | null) => [
     `${formatNumber(value.value, decimals)}${value.source === "declared" ? " (declared)" : ""}`,

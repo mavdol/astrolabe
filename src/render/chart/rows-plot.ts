@@ -2,11 +2,9 @@ import type { Colours, SeriesStyle } from "../../themes/astrolabe.js";
 import type { Decimals } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, type SvgTextRenderer } from "../svg-text.js";
 import {
-  arrow,
   growsFrom,
   INTERVAL_STROKE,
   intervalAcross,
-  BETTER,
   PLOT_STYLE,
   poppingMarker,
   round,
@@ -68,8 +66,6 @@ export interface RowsPlot {
   band?: [number, number];
   /** A reference line at zero, for effects. */
   zeroLine?: boolean;
-  /** The side of the axis where results are better. */
-  betterSide: "left" | "right";
   /** What each colour of a stack stands for. */
   legend?: { label: string; colour: string }[];
 }
@@ -78,7 +74,6 @@ export const ROW_HEIGHT = { smallest: 22, usual: 44, largest: 52 };
 
 const HEADING_ROWS = 0.9;
 const GAP_BETWEEN_GROUPS_ROWS = 0.5;
-const DIRECTION_LINE_HEIGHT = 20;
 const AXIS_HEIGHT = 24;
 const COLUMN_GAP = 12;
 const LARGEST_LABEL_SHARE = 0.34;
@@ -87,8 +82,6 @@ const BOX_SHARE_OF_ROW = 0.5;
 const POINT_RADIUS = 3;
 const POINT_OPACITY = 0.45;
 const CENTRE_TICK_SHARE_OF_ROW = 0.7;
-const ARROW_LENGTH = 10;
-const ARROW_GAP = 5;
 const LEGEND_LINE_HEIGHT = 20;
 const LEGEND_SWATCH = 10;
 const LEGEND_GAP = 16;
@@ -185,7 +178,7 @@ function columnsOf(plot: RowsPlot, text: SvgTextRenderer, width: number) {
 function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
   const { x, width } = area;
   const legend = legendLayout(plot, text, width);
-  const fixedHeight = legend.height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
+  const fixedHeight = legend.height + AXIS_HEIGHT;
   const rowHeight = (area.height - fixedHeight) / rowUnitsOf(plot);
   const rows = plot.groups.flatMap((group) => group.rows);
   const { labelWidth, valueWidth, noteWidth, notesBelow, noteLinesOf } = columnsOf(plot, text, width);
@@ -199,8 +192,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
   const scale = plot.logScale ? logScale(scaleExtent, [plotLeft, plotRight]) : linearScale(scaleExtent, [plotLeft, plotRight], targetTicks);
   const marks: string[] = [];
   const textLines: string[] = [];
-  const directionTop = area.y + legend.height;
-  const rowsTop = directionTop + DIRECTION_LINE_HEIGHT;
+  const rowsTop = area.y + legend.height;
   const rowsBottom = rowsTop + rowUnitsOf(plot) * rowHeight;
   const baselineIn = (top: number, height: number, size: number) => top + height / 2 + (size * CAP_HEIGHT_RATIO) / 2;
   const rowSpans = rowSpansOf(plot, rowsTop, rowHeight);
@@ -221,17 +213,6 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
   }
 
   if (legend.entries.length > 0) textLines.push(legend.entries.map((entry) => entry.label).join("  "));
-
-  const directionBaseline = directionTop + PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO + 2;
-  const arrowCentreY = directionBaseline - (PLOT_STYLE.tick.size * CAP_HEIGHT_RATIO) / 2;
-  const wordWidth = text.measure(BETTER, PLOT_STYLE.caption);
-  const pointsRight = plot.betterSide === "right";
-  const wordX = pointsRight ? plotRight - ARROW_LENGTH - ARROW_GAP - wordWidth : plotLeft + ARROW_LENGTH + ARROW_GAP;
-  const arrowStart = pointsRight ? plotRight - ARROW_LENGTH : plotLeft + ARROW_LENGTH;
-
-  marks.push(text.draw(BETTER, wordX, directionBaseline, { ...PLOT_STYLE.caption, fill: colours.secondary }));
-  marks.push(arrow([arrowStart, arrowCentreY], [pointsRight ? plotRight : plotLeft, arrowCentreY], colours.secondary));
-  textLines.push(pointsRight ? `${BETTER} →` : `← ${BETTER}`);
 
   if (plot.band) {
     const [from, to] = plot.band.map((value) => Math.min(Math.max(scale.position(value), plotLeft), plotRight));
@@ -406,7 +387,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
 export function rowsPlot(plot: RowsPlot): Plot {
   return {
     heightsAt(width, text) {
-      const fixedHeight = legendLayout(plot, text, width).height + DIRECTION_LINE_HEIGHT + AXIS_HEIGHT;
+      const fixedHeight = legendLayout(plot, text, width).height + AXIS_HEIGHT;
       const units = rowUnitsOf(plot);
       const columns = columnsOf(plot, text, width);
       const extra = columns.notesBelow ? columns.noteLineCount * NOTE_BELOW_HEIGHT : 0;

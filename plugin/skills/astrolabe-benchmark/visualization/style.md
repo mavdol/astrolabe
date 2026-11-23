@@ -45,17 +45,18 @@ The default needs nothing: the `astrolabe` theme, a dark page, the first candida
 
 A reader remembers the title more than the chart, so a title states the finding, and only a finding the results support. Then the chart speaks: the page writes the title in ink and your reading right after it in grey, as one short paragraph beside the chart, and the images do the same above it. Keep both short enough to read at a glance:
 
+- **Each metric is named as a reader would name it**: its `label` is the everyday word ("Build time", "Accuracy", "Cost per request"), never the measuring term ("wall time", "pass@1", "p50"), which goes with how it was measured in `definition`; the page prints the definition with each chart and table of values. The labels appear in every heading, summary and card, so they are worth the user's confirmation.
 - **The title is the claim, in a few words**: 60 characters at most as the reader sees it (a template counts as the text it becomes), no second clause; `validate` warns past that. "The gap comes from coding", not "Model A is more accurate than Model B overall, and most of the difference comes from the coding tasks".
 - **The reading is one sentence**, about 20 words at most, saying what the title does not: where the difference comes from, what to watch, the caveat. Leave out what the chart already labels (the values, the candidates, the unit) and everything the generator writes under it (the direction, how to read the marks, the interval's level, the number of runs).
 - **A headline's title says what the figure is about**, in a few words: the scope ("all pages", "large files"), and the pair only when the headlines compare different pairs; when they all compare the same two candidates, the page and the card name them once. The figure, its unit and its verdict are drawn beside it, and the page and the README card leave out a title that only restates them.
-- **The first headline is the answer**: the top of the page states its comparison alone, so place first in `layout` the comparison on the metric the goal names first; when the goal names none, the one with the firmest verdict. The goal was written before measuring, so this choice cannot follow the results. Three headlines at most: a fourth result goes in the `comparison-rows` chart with the others, where it is still seen.
+- **The first headline is the answer**: the top of the page names its pair after the question ("quickmark compared with markly", 50 characters at most, page.md), so place first in `layout` the comparison on the metric the goal names first; when the goal names none, the one with the firmest verdict. The goal was written before measuring, so this choice cannot follow the results. Three headlines at most: a fourth result goes in the `comparison-rows` chart with the others, where it is still seen.
 - **"Likely" stays in the words**: in a sentence, write the word yourself and assert the full verdict ("a likely slower tail", with `"likely worse"` in `asserts`); `{verdict:id}` prints the verdict on its own ("likely better"), so use it only where it stands alone, after a colon or in brackets ("Identical pages: {verdict:identical_pages__quickmark}"). `validate` warns when a title asserts the bare verdict without either.
 
 - **Numbers and names by template, never typed**: `{effect:id}` (the effect of a comparison, with its unit), `{verdict:id}`, `{candidate:id}`, `{metric:id}`, `{node:id}`. A digit typed in a title is refused: after a rerun it would be stale.
 - **List in `asserts` the verdicts the title relies on**, comparison id to verdict word (`better`, `worse`, `equivalent`, `inconclusive`, `likely better`, `likely worse`). `validate` fails as soon as a rerun changes one of them, so the title cannot outlive its evidence.
 - **Only primary comparisons in a title or a headline.** An exploratory comparison is shown in charts and tables, labelled exploratory, and never claimed.
 - **Words follow the verdict**, as presentation.md says: its wording rules hold for titles as for sentences.
-- **A title without a verdict describes** ("Every run, wall time"); it needs no `asserts`.
+- **A title without a verdict describes** ("Every run, build time"); it needs no `asserts`.
 - **`description` is that one-sentence reading**, with templates. The generator adds the factual part (what is plotted, the values, the comparisons) to it for the long text alternative; together they are what a screen reader hears.
 - **Text blocks** (`"type": "text"`) are the last resort: context no chart and no trust block can carry (why the benchmark was run, a decision taken from it), three sentences at most, under the same template rules. A finding is never a text block: draw it (charts.md).
 
@@ -63,9 +64,9 @@ A reader remembers the title more than the chart, so a title states the finding,
 | --- | --- |
 | "quickmark is 35% faster" | `"{candidate:quickmark} is faster: {effect:wall_time__quickmark}"` with `asserts: { "wall_time__quickmark": "better" }` |
 | "quickmark renders pages more faithfully" (verdict equivalent) | `"Same share of identical pages"` with `asserts: { "identical_pages__quickmark": "equivalent" }` |
-| "Huge gains on large files" (an exploratory node) | `"Wall time by file size"`, and the reading in `description`, labelled exploratory |
-| A reading that repeats the chart: "This chart shows the wall time of quickmark and markly for each file size, with 95% confidence intervals; lower is better." | A reading that adds to it: `"Exploratory: the gap widens with file size."` |
-| A text block explaining that the gain comes from large files | A chart with `"breakdown": "size"`, titled `"Wall time by file size"` |
+| "Huge gains on large files" (an exploratory node) | `"Build time by file size"`, and the reading in `description`, labelled exploratory |
+| A reading that repeats the chart: "This chart shows the build time of quickmark and markly for each file size, with 95% confidence intervals; lower is better." | A reading that adds to it: `"Exploratory: the gap widens with file size."` |
+| A text block explaining that the gain comes from large files | A chart with `"breakdown": "size"`, titled `"Build time by file size"` |
 
 ## Tables
 
@@ -89,9 +90,20 @@ A reader remembers the title more than the chart, so a title states the finding,
 | `metrics` | One or more metric ids |
 | `rows` | A level of `structure`: one row per node of that level. Left out, one row for `node` (or the whole benchmark) |
 | `columns` | `candidate` |
-| `show` | What sits under each value: `n`, `ci`, `failures`, and `evidence` (a link to the raw file). `n` always, `ci` when values have intervals, `failures` when any attempt failed: `validate` refuses a table without them |
+| `cells` | `values` (the default): each candidate's value. `effects`: each compared candidate's change against the baseline, with its verdict in its colour and a bar from zero |
+| `show` | What sits under each value: `n`, `ci`, `failures`, and `evidence` (a link to the raw file). `n` always, `ci` when values have intervals, `failures` when any attempt failed: `validate` refuses a table without them. A table of effects needs only `ci` |
 
-The generator aligns figures on the right with the same decimals down a column, rounds each value to what its interval supports, marks declared values as declared and writes "successful attempts only" where failures are left out. Past about 20 rows or 8 columns, prefer a `shaded-table` chart or a sort, and keep the full table in `dist/benchmark.md`.
+A **table of effects** is how a long breakdown is shown: one row per node, one column per compared candidate and metric, so thirty files compared on two metrics fit in thirty rows. Use it instead of an `effect` chart beyond 8 rows; `validate` warns past that.
+
+```json
+{
+  "blocks": [
+    { "id": "table-effects", "type": "table", "metrics": ["wall_time", "identical_pages"], "rows": "size", "cells": "effects", "show": ["ci"] }
+  ]
+}
+```
+
+The generator aligns figures on the right with the same decimals down a column, rounds each value to what its interval supports, marks declared values as declared and writes "successful attempts only" where failures are left out. Past about 20 rows or 8 columns, prefer a table of effects, a `shaded-table` chart or a sort, and keep the full table in `dist/benchmark.md`.
 
 ## Rules
 
@@ -112,6 +124,6 @@ The generator aligns figures on the right with the same decimals down a column, 
 | V28 | Should | Label candidates on the chart itself instead of a separate legend. Put the overall message in the title, and statistics or context next to the data point they describe. | Eyes going back and forth to a legend; a message stated far from its evidence | blocks[].annotations |
 | V29 | Should | Lay tables out for comparison: numbers right-aligned with the same number of decimals down a column, text left-aligned, the unit once in the header, headers set apart, light dividers, the row or cell that matters highlighted. | Numbers that cannot be compared by eye down a column | enforced by the generator |
 | V30 | Should | Show no more digits than the uncertainty supports: round a value to the decimal of the first significant digit of its standard error, and show the interval with the same decimals. Percentages: whole numbers, one decimal below 10%. | 82.4137% displayed for a result known to within 5 points | enforced by the generator |
-| V31 | Must | In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures. | A bare score with nothing to weigh it by | blocks[].show |
+| V31 | Must | In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures; in a table of effects, each effect's interval. | A bare score with nothing to weigh it by | blocks[].show |
 | V32 | Should | When a table grows past about 20 rows or 8 columns, shade the cells (V23), sort it, or replace it with a chart; keep the full table one click away. | A wall of numbers nobody reads | blocks[].type |
 | V56 | Must | Never present a declared figure like a computed one. The generator marks every declared value "declared" wherever it appears (label, table cell, headline, export), writes "likely" and "exploratory" with the verdicts they qualify, writes "successful attempts only" next to every result that leaves failures out and a visible warning when the candidates' failure shares differ, and lists in the methodology block what was computed from raw data and what was only declared, with the number of comparisons of each kind. | A typed-in figure or an unchecked declaration read with the same trust as a computed result | values[].source, comparisons[].qualifier and .role (generated) |

@@ -9,11 +9,11 @@ import { servePreview } from "../src/preview/serve.js";
 import { buildOutputs } from "../src/render/build.js";
 import { cardAltText, cardContentOf } from "../src/render/card.js";
 import { pageRowsOf } from "../src/render/site/page.js";
-import { answerOf } from "../src/render/site/write-site.js";
+import { answerOf, answerPartsOf, LONGEST_TITLE_PAIR } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
 import { THEME } from "../src/themes/astrolabe.js";
-import { planOf, rawFileOf } from "./helpers.js";
+import { planOf, rawFileOf, scriptsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng } from "./png.js";
 
 const context = { generatorVersion: "0.2.0", buildDate: "2026-11-17" };
@@ -158,15 +158,21 @@ describe("the site", () => {
     expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
   });
 
-  it("answers the question in the headline with the one comparison the page leads with, in ink without verdict colours, and counts the others below it", () => {
-    const answer =
-      "Model A against Model B: accuracy +6.4 points, likely better. 3 more primary comparisons: 1 better, 1 inconclusive, 1 worse.";
+  it("names after the question the pair the page leads with, short, and keeps the answer in words for link previews", () => {
+    const answer = "Model A against Model B: accuracy +6.4 points, likely better. 3 more results: 1 better, 1 unclear, 1 worse.";
 
-    expect(support.html).toContain('<span class="answer">Model A against Model B: accuracy +6.4 points, likely better.</span></h1>');
-    expect(support.html).toContain(
-      '<p class="lede">Internal tasks only; does not measure latency or safety. 3 more primary comparisons: 1 better, 1 inconclusive, 1 worse.</p>',
-    );
+    expect(support.html).toContain('<span class="answer">Model A compared with Model B</span></h1>');
+    expect(support.html).toContain('<p class="lede">Internal tasks only; does not measure latency or safety.</p>');
     expect(support.html).toContain(`<meta name="description" content="${answer}">`);
+  });
+
+  it("names no pair after the question when it would be longer than a title allows", () => {
+    const benchmark = loadBenchmark("support-assistant-eval");
+
+    benchmark.results.candidates[0].name = "A model with a name far too long for a title";
+
+    expect(answerPartsOf(benchmark).pair).toBeUndefined();
+    expect(answerPartsOf(loadBenchmark("support-assistant-eval")).pair!.length).toBeLessThanOrEqual(LONGEST_TITLE_PAIR);
   });
 
   it("leaves out a headline title that only restates its figure, and the pair every headline shares", () => {
@@ -192,8 +198,233 @@ describe("the site", () => {
     benchmark.results.comparisons = [...benchmark.results.comparisons!].reverse();
 
     expect(answerOf(benchmark)).toBe(
-      "Model A against Model B: cost per item +265%, worse. 3 more primary comparisons: 1 better, 1 likely better, 1 inconclusive.",
+      "Model A against Model B: cost per item +265%, worse. 3 more results: 1 better, 1 likely better, 1 unclear.",
     );
+  });
+
+  it("states the summary that leads the page as the pattern it counts", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    benchmark.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...benchmark.blocks!];
+    benchmark.layout = undefined;
+
+    expect(answerOf(benchmark)).toBe(
+      "Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2. 1 more result: 1 worse.",
+    );
+  });
+
+  it("states a summary when no headline leads the page and one comparison of many would say too little", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    benchmark.blocks = benchmark.blocks?.filter((block) => block.type !== "headline");
+
+    expect(answerOf(benchmark)).toBe(
+      "Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2. 1 more result: 1 worse.",
+    );
+  });
+
+  it("draws a summary as a stacked bar per candidate under one legend, the count inside each part, then the range of its effects", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    benchmark.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...benchmark.blocks!];
+    benchmark.layout = undefined;
+    const { html } = buildSite("support-assistant-eval", { benchmark });
+    const legend = /<ul class="stack-legend">(.*?)<\/ul>/.exec(html)![1];
+    const stacks = /<div class="stacks" role="img" aria-label="([^"]*)">([\s\S]*?)\n<\/div>/.exec(html)!;
+
+    expect([...legend.matchAll(/<li class="([^"]+)"><i><\/i>([^<]+)<\/li>/g)].map((match) => match.slice(1))).toEqual([
+      ["good", "Better"],
+      ["neutral", "About the same"],
+      ["bad", "Worse"],
+      ["neutral unclear", "Unclear"],
+    ]);
+    expect(stacks[1]).toBe("Model A: better 1, about the same 0, worse 0, unclear 2; out of 3 tasks");
+    expect(stacks[2]).toContain('<span class="stack-name">Model A</span>');
+    expect(stacks[2]).toContain('<span class="segment good" style="width: 33.3%"><i class="firm" style="width: 100%"><b>1</b></i></span>');
+    expect(stacks[2]).toContain(
+      '<span class="segment neutral" style="width: 66.7%"><i class="open" style="width: 100%"><b>2</b></i></span>',
+    );
+    expect(html).toContain("<li>Each bar: the 3 tasks, by their result against Model B.</li>");
+    expect(html).toMatch(/<li>From −?[\d.]+ to \+?[\d.]+ points<\/li>/);
+    expect(html, "the title already names the pair").not.toContain('id="summary-accuracy-title"');
+  });
+
+  it("draws every candidate compared with the baseline in one summary, or those it names, each said with its range", () => {
+    const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+    const third = { ...benchmark.results.candidates[0], id: "model_c", name: "Model C" };
+
+    benchmark.results.candidates = [...benchmark.results.candidates, third];
+    benchmark.results.comparisons = [
+      ...benchmark.results.comparisons!,
+      ...benchmark.results
+        .comparisons!.filter((comparison) => comparison.candidate === "model_a")
+        .map((comparison) => ({ ...comparison, id: `${comparison.id}-c`, candidate: "model_c" })),
+    ];
+    benchmark.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }];
+    benchmark.layout = undefined;
+    benchmark.exports = undefined;
+    const both = buildSite("support-assistant-eval", { benchmark }).html;
+
+    expect(answerPartsOf(benchmark).pair).toBe("Model A and Model C compared with Model B");
+    expect([...both.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map((match) => match[1])).toEqual(["Model A", "Model C"]);
+    expect(both).toMatch(/<li>Model C: from −?[\d.]+ to \+?[\d.]+ points<\/li>/);
+
+    benchmark.blocks[0] = { id: "summary-accuracy", type: "summary", metric: "accuracy", candidates: ["model_c"] };
+
+    expect(
+      [...buildSite("support-assistant-eval", { benchmark }).html.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map(
+        (match) => match[1],
+      ),
+    ).toEqual(["Model C"]);
+  });
+
+  it("gives a file without blocks a summary per metric when its comparisons are too many for headlines", () => {
+    const benchmark = { ...withTasksAsPrimary(loadBenchmark("support-assistant-eval")), blocks: undefined, layout: undefined };
+
+    expect(pageRowsOf(benchmark)[0].map((block) => block.type)).toEqual(["summary"]);
+    expect(
+      pageRowsOf({ ...loadBenchmark("support-assistant-eval"), blocks: undefined, layout: undefined })[0].map((block) => block.type),
+    ).toEqual(["headline", "headline", "headline"]);
+  });
+
+  it("says a summary in the reader's words: faster and slower for a run time, the range in words, and how to read the bars", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(4),
+      blocks: [{ id: "summary-time", type: "summary", metric: "wall_time" }],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(answerOf(scripts)).toBe("new compared with base, wall time on 4 scripts: faster on 2, slower on 2.");
+    expect(html).toContain(
+      '<li class="good"><i></i>Faster</li><li class="neutral"><i></i>About the same</li><li class="bad"><i></i>Slower</li>',
+    );
+    expect(html).toContain("<li>From 20% faster to 20% slower</li>");
+    expect(html).toContain("<li>Each bar: the 4 scripts, by their result against base.</li>");
+  });
+
+  it("draws the part of a bar that is only likely lighter, its count in the larger part, and says so in the legend", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(6),
+      blocks: [{ id: "summary-time", type: "summary", metric: "wall_time" }],
+    } as Benchmark;
+    const faster = scripts.results.comparisons!.filter((comparison) => comparison.verdict === "better");
+
+    faster[0].qualifier = "likely";
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(answerOf(scripts)).toBe("new compared with base, wall time on 6 scripts: faster on 3 (1 likely), slower on 3.");
+    expect(html).toContain(
+      '<span class="segment good" style="width: 50%"><i class="firm" style="width: 66.7%"><b>3</b></i><i class="likely" style="width: 33.3%"></i></span>',
+    );
+    expect(html).toContain('<li class="likely"><i></i>Lighter: likely, not certain yet</li>');
+  });
+
+  it("says under the bar a count its part has no room for", () => {
+    const scripts = { ...scriptsBenchmarkOf(40), blocks: [{ id: "summary-time", type: "summary", metric: "wall_time" }] } as Benchmark;
+    const slower = scripts.results.comparisons!.filter((comparison) => comparison.verdict === "worse");
+
+    for (const comparison of slower.slice(1)) comparison.verdict = "equivalent";
+
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(html).toContain('<span class="stack-rest">1 slower</span>');
+    expect(html).toContain('<span class="segment bad" style="width: 2.5%"><i class="firm" style="width: 100%"></i></span>');
+  });
+
+  it("lists the described parts in the method, each opening to what it does, and links the rows of a table to them", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(3),
+      blocks: [
+        { id: "table-effects", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] },
+        { id: "methodology", type: "methodology" },
+      ],
+    } as Benchmark;
+    const nodes = scripts.results.structure!.nodes;
+
+    nodes[0].description = "Sorts a million numbers.";
+    nodes[1].description = "Parses a large JSON file.";
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(html).toContain('What was measured<span class="dim"> · 3 scripts</span>');
+    expect(html).toContain(`<details id="part-${nodes[0].id}"><summary>Script 1</summary><p>Sorts a million numbers.</p></details>`);
+    expect(html).toContain('<p class="part-name">Script 3</p>');
+    expect(html).toContain(`<th scope="row"><a class="part-link" href="#part-${nodes[0].id}">Script 1</a></th>`);
+    expect(html).toContain('<th scope="row">Script 3</th>');
+  });
+
+  it("lists no parts, and links no rows, when no part is described", () => {
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scriptsBenchmarkOf(3), ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(html).not.toContain('class="parts"');
+    expect(html).not.toContain("part-link");
+  });
+
+  it("counts a long list of results in the method and folds the list one click away", () => {
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scriptsBenchmarkOf(13), ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(html).toContain('<p class="verdict-counts">13 results: 7 better, 6 worse.</p>');
+    expect(html).toContain('<details class="aside"><summary>Every result, one by one</summary>');
+  });
+
+  it("heads each metric of a table of values with its statistic and unit, and says once what every value rests on", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(2),
+      blocks: [{ id: "table-values", type: "table", metrics: ["wall_time"], rows: "script", show: ["n", "ci", "failures"] }],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(html).toContain('<h3 class="table-heading">Wall time <span class="dim">· median in seconds · lower is better</span></h3>');
+    expect(html).toContain('<span class="cell-value">0.100 s</span>');
+    expect(html).toContain(
+      '<p class="table-note">Each value is the median of 12 measurements, none of which failed; the line under it is its 95% interval.</p>',
+    );
+    expect(html).not.toContain("n = 12");
+  });
+
+  it("lays a table of effects out as one row per node: the change, its verdict in the reader's words and colour, a bar from zero", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(3),
+      blocks: [{ id: "table-effects", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] }],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const cells = [...html.matchAll(/<td class="effect-cell ([^"]*)"[^>]*>(.*?)<\/td>/g)].map(([, classes, inside]) => [
+      classes,
+      /<span class="cell-value">([^<]*)</.exec(inside)![1],
+      /effect-verdict">([^<]*)</.exec(inside)![1],
+      /<span class="effect-bar"/.test(inside),
+    ]);
+
+    expect(html).toContain("Against base · by script");
+    expect([...html.matchAll(/<th scope="row">([^<]*)<\/th>/g)].map((match) => match[1])).toEqual(["Script 1", "Script 2", "Script 3"]);
+    expect(cells).toEqual([
+      ["good firm", "−20%", "faster", true],
+      ["bad firm", "+20%", "slower", true],
+      ["good firm", "−20%", "faster", true],
+    ]);
   });
 
   it("names the script of each claim when scripts sit side by side at the top of the structure", () => {
@@ -235,7 +466,7 @@ describe("the site", () => {
     );
     const scripts = { schema_version: SCHEMA_VERSION, results: compute(plan, { data: rawFileOf(rows) }) } as Benchmark;
 
-    expect(answerOf(scripts)).toBe("new against base: wall time, Start-up script +20%, worse. 1 more primary comparison: 1 better.");
+    expect(answerOf(scripts)).toBe("new against base: wall time, Start-up script +20%, worse. 1 more result: 1 better.");
     expect(cardAltText(scripts, cardContentOf(scripts))).toBe(
       "new against base: wall time, Start-up script (lower is better) +20%, worse; wall time, Parsing script (lower is better) −20%, better.",
     );
@@ -419,7 +650,7 @@ describe("the site", () => {
       ),
     );
     expect(support.html).toMatch(
-      /<span class="cell-line"><span class="cell-value">73<\/span><span class="cell-bar" style="[^"]+" aria-hidden="true"><\/span><span class="cell-ci">69 to 77<\/span><\/span>/,
+      /<span class="cell-line"><span class="cell-value">73%<\/span><span class="cell-bar" style="[^"]+" aria-hidden="true"><\/span><\/span><span class="cell-detail">69 to 77% · n = 200 · 0 failed<\/span>/,
     );
   });
 

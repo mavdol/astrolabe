@@ -8,7 +8,7 @@ import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { checkCharts } from "../src/validate/chart-checks.js";
 import { checkPresentation } from "../src/validate/presentation-checks.js";
 import { validate } from "../src/validate/validate.js";
-import { planOf, rawFileOf } from "./helpers.js";
+import { planOf, rawFileOf, scriptsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 
 const ALL_EXAMPLES = readdirSync("examples").filter((folder) => existsSync(`examples/${folder}/benchmark.json`));
 const isComputed = (id: string) => JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")).results.computed !== undefined;
@@ -226,6 +226,83 @@ describe("claims in the presentation", () => {
   });
 });
 
+describe("summaries in the presentation", () => {
+  const summaryIssues = (benchmark: Benchmark, block: Record<string, unknown>) =>
+    checkPresentation({
+      ...benchmark,
+      blocks: [{ id: "summary", type: "summary", ...block } as never],
+      layout: undefined,
+    });
+  const pattern = () => withTasksAsPrimary(loadExample("support-assistant-eval").benchmark);
+
+  it("counts the primary comparisons of a candidate on a metric, when they share one level", () => {
+    expect(errorsOf(summaryIssues(pattern(), { candidates: ["model_a"], metric: "accuracy" }))).toEqual([]);
+  });
+
+  it("refuses a summary of the baseline, of one comparison, or of a total together with its parts", () => {
+    const messageOf = (benchmark: Benchmark, block: Record<string, unknown>) =>
+      errorsOf(summaryIssues(benchmark, block)).map((issue) => [issue.rule, issue.message]);
+
+    expect(messageOf(pattern(), { metric: "accuracy" })).toEqual([]);
+    expect(messageOf(pattern(), { candidates: ["model_b"], metric: "accuracy" })).toEqual([
+      ["S7", '"model_b": not a candidate compared with the baseline'],
+    ]);
+    expect(messageOf(pattern(), { metric: "cost_per_item" })).toEqual([
+      [
+        "S11",
+        'a summary counts the primary comparisons of "model_a" on "cost_per_item", and there is one: use a headline on "cost_per_item__suite__model_a"',
+      ],
+    ]);
+    expect(messageOf(loadExample("support-assistant-eval").benchmark, { metric: "accuracy" })).toEqual([
+      [
+        "S11",
+        'the primary comparisons of "model_a" on "accuracy" sit on several levels (suite, category): a summary counts one level, so that a total is not counted with its parts; use headlines',
+      ],
+    ]);
+  });
+
+  it("warns when a page states no answer, and lets a row hold three answers", () => {
+    const { benchmark } = loadExample("support-assistant-eval");
+    const withoutAnswers = { ...benchmark, blocks: benchmark.blocks!.filter((block) => block.type !== "headline"), layout: undefined };
+    const headlineIds = benchmark.blocks!.filter((block) => block.type === "headline").map((block) => block.id);
+
+    expect(checkPresentation(withoutAnswers).map((issue) => [issue.severity, issue.rule])).toEqual([["warning", "V38"]]);
+    const summary = { id: "summary", type: "summary", metric: "cost_per_item" } as never;
+
+    expect(headlineIds).toHaveLength(2);
+    expect(
+      rulesOf(checkPresentation({ ...benchmark, blocks: [...benchmark.blocks!, summary], layout: [[...headlineIds, "summary"]] })),
+    ).not.toContain("V39");
+  });
+});
+
+describe("tables of effects", () => {
+  const withBlocks = (scriptCount: number, blocks: Record<string, unknown>[]) =>
+    checkPresentation(benchmarkSchema.parse({ ...scriptsBenchmarkOf(scriptCount), blocks }));
+
+  it("an effect chart longer than eight rows is a warning that points to a table of effects", () => {
+    const chart = { id: "chart", type: "chart", chart: "effect", metric: "wall_time", breakdown: "script", title: "Wall time by script" };
+
+    expect(
+      withBlocks(9, [chart])
+        .filter((issue) => issue.rule === "V40")
+        .map((issue) => issue.message),
+    ).toEqual([
+      'the effect chart draws 9 rows: beyond 8, a table of effects reads better, one row per script: a table block with "rows": "script", "cells": "effects"',
+    ]);
+    expect(rulesOf(withBlocks(8, [chart]))).not.toContain("V40");
+  });
+
+  it("a table of effects shows each effect's interval, and needs neither n nor failures", () => {
+    const table = (show: string[]) => ({ id: "table", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show });
+
+    expect(errorsOf(withBlocks(3, [table(["n"])])).map((issue) => [issue.rule, issue.message])).toEqual([
+      ["V31", 'the table of effects leaves out "ci": an effect is only weighed with its interval'],
+    ]);
+    expect(errorsOf(withBlocks(3, [table(["ci"])]))).toEqual([]);
+  });
+});
+
 describe("charts in the presentation", () => {
   const { benchmark, rawFiles } = loadExample("support-assistant-eval");
   const withPresentation = (presentation: Record<string, unknown>) => ({
@@ -280,7 +357,7 @@ describe("charts in the presentation", () => {
     expect(checked([{ ...table, show: ["n", "ci", "failures"] }])).toEqual([]);
   });
 
-  it("more than two blocks in a row, or more than three headlines, is a warning", () => {
+  it("more than two blocks in a row, more than three answers in a row, or more than three headlines, is a warning", () => {
     const headline = (id: string) => ({
       id,
       type: "headline",
@@ -288,7 +365,7 @@ describe("charts in the presentation", () => {
       title: "{effect:accuracy__suite__model_a}",
     });
     const blocks = ["one", "two", "three", "four"].map(headline);
-    const issues = checkPresentation(benchmarkSchema.parse(withPresentation({ blocks, layout: [["one", "two", "three"], ["four"]] })));
+    const issues = checkPresentation(benchmarkSchema.parse(withPresentation({ blocks, layout: [["one", "two", "three", "four"]] })));
 
     expect(issues.map((issue) => [issue.severity, issue.rule, issue.path])).toEqual([
       ["warning", "V39", "layout[0]"],

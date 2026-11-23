@@ -173,6 +173,8 @@ export const resultsSchema = z.strictObject({
             id,
             level: text,
             label: text,
+            /** What the part does, in a reader's words: the page lists the parts with it, one click away. */
+            description: text.optional(),
             parent: id.optional(),
             n_items: z.number().int().optional(),
             scoring: text.optional(),

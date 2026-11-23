@@ -58,6 +58,11 @@ const blockText = {
 };
 
 const headlineBlock = z.strictObject({ id, type: z.literal("headline"), comparison: text, ...blockText, title: text });
+/**
+ * The answer when it is a pattern: the primary comparisons of each candidate on one metric, counted by verdict, one
+ * stacked bar per candidate. Every candidate compared with the baseline unless `candidates` names some. Its words are generated.
+ */
+const summaryBlock = z.strictObject({ id, type: z.literal("summary"), metric: id, candidates: z.array(id).min(1).optional() });
 
 const chartBlock = z.strictObject({
   id,
@@ -87,13 +92,15 @@ const tableBlock = z.strictObject({
   node: id.optional(),
   rows: text.optional(),
   columns: z.literal("candidate").optional(),
+  /** What each cell holds: the values (the default), or each candidate's change against the baseline with its verdict. */
+  cells: z.enum(["values", "effects"]).optional(),
   show: z.array(z.enum(["n", "ci", "failures", "evidence"])).min(1),
 });
 
 const textBlock = z.strictObject({ id, type: z.literal("text"), title: text.optional(), description: text });
 const trustBlock = z.strictObject({ id, type: z.enum(TRUST_BLOCK_TYPES) });
 
-export const blockSchema = z.discriminatedUnion("type", [headlineBlock, chartBlock, tableBlock, textBlock, trustBlock]);
+export const blockSchema = z.discriminatedUnion("type", [headlineBlock, summaryBlock, chartBlock, tableBlock, textBlock, trustBlock]);
 
 export const exportSchema = z.strictObject({
   id,
@@ -108,8 +115,12 @@ export type Style = z.infer<typeof styleSchema>;
 export type Filter = z.infer<typeof filterSchema>;
 export type Block = z.infer<typeof blockSchema>;
 export type ChartBlock = z.infer<typeof chartBlock>;
+export type SummaryBlock = z.infer<typeof summaryBlock>;
 export type HeadlineBlock = z.infer<typeof headlineBlock>;
 export type TableBlock = z.infer<typeof tableBlock>;
 export type Export = z.infer<typeof exportSchema>;
 export type ChartType = (typeof CHART_TYPES)[number];
 export type ExportSize = (typeof EXPORT_SIZES)[number];
+
+/** The blocks that state the answer: side by side at the top of the page, three at most. */
+export const isAnswerBlock = (block: { type: string }) => block.type === "headline" || block.type === "summary";

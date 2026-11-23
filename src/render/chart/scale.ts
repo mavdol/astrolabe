@@ -75,17 +75,18 @@ export function logScale(dataExtent: [number, number], pixels: [number, number])
   };
 }
 
-/** How many times the smallest difference that matters must fit in an axis that does not start at zero. */
-const MEANINGFUL_DIFFERENCES_ACROSS_AN_AXIS = 5;
+/** How many times the smallest difference that matters must fit in an axis fitted to its values. */
+const MEANINGFUL_DIFFERENCES_ACROSS_AN_AXIS = 2;
 
 /**
- * The extent of an axis that does not start at zero: wide enough that a difference of the smallest
- * size that matters covers at most a fifth of it, so a smaller difference cannot look large.
+ * The extent of an axis fitted to its values: wide enough that a difference of the smallest size that
+ * matters covers at most half of it, so a smaller difference cannot fill it; never below zero for
+ * values that are not.
  */
 export function extentAroundData(dataExtent: [number, number], minimumMeaningful: number): [number, number] {
   const [low, high] = dataExtent;
   const span = Math.max(high - low, MEANINGFUL_DIFFERENCES_ACROSS_AN_AXIS * minimumMeaningful);
   const centre = (low + high) / 2;
 
-  return [centre - span / 2, centre + span / 2];
+  return low >= 0 && centre - span / 2 < 0 ? [0, span] : [centre - span / 2, centre + span / 2];
 }

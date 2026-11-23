@@ -9,6 +9,7 @@ import { pngOf } from "../src/render/png.js";
 import { SvgTextRenderer } from "../src/render/svg-text.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { seriesStylesOf, THEME } from "../src/themes/astrolabe.js";
+import { withTasksAsPrimary } from "./helpers.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -117,7 +118,7 @@ describe("what a card shows", () => {
 
     expect(content.headlines).toHaveLength(MAX_HEADLINES);
     expect(content.omitted).toHaveLength(1);
-    expect(lines.join(" ")).toContain("1 more primary comparison in the full results: 1 worse.");
+    expect(lines.join(" ")).toContain("1 more result in the full report: 1 worse.");
     expect(lines.join(" ")).toContain("Median, n = 62 (Notes B), 58 (Notes A)");
   });
 
@@ -135,7 +136,7 @@ describe("what a card shows", () => {
 
     expect(content.headlines.map((headline) => headline.comparison.id)).toEqual(["wall_time__fastjson", "peak_rss__fastjson"]);
     expect(lines).toContain("WALL TIME");
-    expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline blocks/);
+    expect(() => cardContentOf(parsers, ["chart-runs"])).toThrow(/headline or summary blocks/);
   });
 
   it("says how many primary comparisons a card leaves out, also when the export picks its headlines", () => {
@@ -145,7 +146,7 @@ describe("what a card shows", () => {
 
     expect(content.omitted).toHaveLength(2);
     expect(lines, "counted by verdict, so leaving a loss out hides nothing").toContain(
-      "2 more primary comparisons in the full results: 1 likely worse, 1 worse.",
+      "2 more results in the full report: 1 likely worse, 1 worse.",
     );
   });
 });
@@ -221,6 +222,38 @@ describe("reading a card at a glance", () => {
 
     expect(restating).not.toContain("uses less memory");
     expect(adding).toContain("under the CI runner's limit");
+  });
+
+  it("counts a pattern in summary cells: a legend, a stacked bar per candidate, the range, then what a bar holds", () => {
+    const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    suite.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...suite.blocks!];
+    const content = cardContentOf(suite, ["summary-accuracy"]);
+    const card = renderCard(suite, content, "light", context);
+
+    expect(content.charts!.map((chart) => chart.summaries.map((summary) => summary.comparisons.length))).toEqual([[3]]);
+    expect(content.omitted.map((comparison) => comparison.metric)).toEqual(["cost_per_item"]);
+    expect(card.textLines).toContain("Better  About the same  Worse  Unclear");
+    expect(card.textLines).toContain("Model A  1 better  0 about the same  0 worse  2 unclear");
+    expect(card.textLines.join(" ")).toContain("Each bar: the 3 tasks, by their result against Model B.");
+    expect(card.altText).toBe("Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2.");
+  });
+
+  it("draws summary cells by default when the comparisons are too many for headlines and share one level", () => {
+    expect(cardContentOf(withTasksAsPrimary(loadBenchmark("support-assistant-eval"))).charts?.length).toBe(1);
+    expect(
+      cardContentOf(loadBenchmark("support-assistant-eval")).charts,
+      "a total and its parts are never counted together",
+    ).toBeUndefined();
+  });
+
+  it("shows either headline or summary cells, never both", () => {
+    const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+
+    suite.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...suite.blocks!];
+    const headline = suite.blocks.find((block) => block.type === "headline")!;
+
+    expect(() => cardContentOf(suite, ["summary-accuracy", headline.id])).toThrow(/either headline blocks or summary blocks/);
   });
 
   it("keeps a block title that adds information", () => {

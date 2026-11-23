@@ -1,6 +1,6 @@
 import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark, Comparison } from "../../schema/benchmark.js";
-import type { Block, ChartBlock, HeadlineBlock, TableBlock } from "../../schema/presentation.js";
+import type { Block, ChartBlock, HeadlineBlock, SummaryBlock, TableBlock } from "../../schema/presentation.js";
 import type { Mode } from "../../themes/astrolabe.js";
 import { addsInformation, detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
 import {
@@ -13,8 +13,23 @@ import {
   optionsOf,
   type FilterState,
 } from "../chart/chart-data.js";
-import { asSentence, capitalised, keyMarkOf, type KeyPaint } from "../chart/chart-content.js";
+import { asSentence, capitalised, keyMarkOf, withUnit, type KeyPaint } from "../chart/chart-content.js";
 import { renderChart, type RenderedChart } from "../chart/render-chart.js";
+import {
+  barCountOf,
+  chartPairOf,
+  countsByVerdict,
+  effectRangeOf,
+  partsOf,
+  plainVerdictOf,
+  pluralOf,
+  stacksKeyOf,
+  summaryChartOf,
+  verdictBarsOf,
+  type BarSide,
+  type Summary,
+  type VerdictBar,
+} from "../summary.js";
 import {
   effectAndInterval,
   finestDecimals,
@@ -49,6 +64,10 @@ export interface PageInputs {
   evidencePaths: Map<string, string>;
   /** The short name of each part of the page, by block id, written above its claim and in the ruler. */
   sectionLabels: Map<string, string>;
+  /** Whether the page lists the described parts of the structure, so that tables can link each part to its description. */
+  listsParts: boolean;
+  /** Who the top of the page names as compared ("quickmark compared with markly"), so a block below does not say it again. */
+  titlePair?: string;
 }
 
 /** Below this width a chart is drawn again for phones rather than shrunk. */
@@ -129,6 +148,86 @@ function headlineHtml(block: HeadlineBlock, inputs: PageInputs, number: string):
     headlineFigure(lookup, comparison),
     shownTitle ? anchoredTitle(block, shownTitle) : "",
     `<ul class="details">\n${[...(pairInDetails ? [`<li>${escapeHtml(pair)}</li>`] : []), ...details].join("\n")}\n</ul>`,
+  ].join("\n");
+}
+
+const SIDE_TONES: Record<BarSide, string> = { better: "good", same: "neutral", worse: "bad", unclear: "neutral" };
+/** The share of the bar a count needs inside its segment, per digit; a narrower segment has its count said under the bar. */
+const SHARE_PER_DIGIT = 4;
+
+const percentOf = (share: number) => `${Math.round(share * 1000) / 10}%`;
+
+/** One side of a stacked bar: its firm part filled, its likely part lighter (unclear outlined), the count in the larger part when it fits. */
+function segmentHtml(bar: VerdictBar, total: number): { html: string; fits: boolean } {
+  const firm = bar.count - bar.likely;
+  const countIn = firm >= bar.likely ? "firm" : "likely";
+  const fits = (Math.max(firm, bar.likely) / total) * 100 >= SHARE_PER_DIGIT * String(bar.count).length;
+  const part = (kind: string, count: number) =>
+    count > 0
+      ? `<i class="${kind}" style="width: ${percentOf(count / bar.count)}">${fits && (kind === countIn || kind === "open") ? `<b>${bar.count}</b>` : ""}</i>`
+      : "";
+  const inside = bar.side === "unclear" ? part("open", bar.count) : part("firm", firm) + part("likely", bar.likely);
+
+  return { html: `<span class="segment ${SIDE_TONES[bar.side]}" style="width: ${percentOf(bar.count / total)}">${inside}</span>`, fits };
+}
+
+/**
+ * The answer when it is a pattern: one stacked bar per candidate, its primary comparisons on the metric split into
+ * better, about the same and worse in the metric's own words, under one legend; then what a bar holds and the range of the changes.
+ */
+function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): string {
+  const { lookup } = inputs;
+  const chart = summaryChartOf(lookup.results, block);
+  const metric = lookup.metricById.get(block.metric)!;
+  const total = chart.summaries[0].comparisons.length;
+  const barsOf = (summary: Summary) => verdictBarsOf(metric, summary.comparisons);
+  const everyBar = chart.summaries.flatMap(barsOf);
+  const sides = barsOf(chart.summaries[0]).filter(
+    (bar) => bar.side !== "unclear" || everyBar.some((other) => other.side === "unclear" && other.count > 0),
+  );
+  const legend = [
+    ...sides.map(
+      (bar) =>
+        `<li class="${SIDE_TONES[bar.side]}${bar.side === "unclear" ? " unclear" : ""}"><i></i>${escapeHtml(capitalised(bar.words))}</li>`,
+    ),
+    ...(everyBar.some((bar) => bar.likely > 0 && bar.side !== "unclear")
+      ? ['<li class="likely"><i></i>Lighter: likely, not certain yet</li>']
+      : []),
+  ];
+  const rows = chart.summaries.map((summary) => {
+    const shown = barsOf(summary).filter((bar) => bar.count > 0);
+    const segments = shown.map((bar) => ({ bar, ...segmentHtml(bar, total) }));
+    const saidUnder = segments.filter((segment) => !segment.fits).map(({ bar }) => `${bar.count} ${bar.words}`);
+
+    return [
+      '<div class="stack-row">',
+      `<span class="stack-name">${escapeHtml(lookup.candidateName.get(summary.candidate) ?? summary.candidate)}</span>`,
+      `<span class="stack-bar">${segments.map((segment) => segment.html).join("")}</span>`,
+      saidUnder.length > 0 ? `<span class="stack-rest">${escapeHtml(saidUnder.join(" · "))}</span>` : "",
+      "</div>",
+    ].join("");
+  });
+  const label = (summary: Summary) =>
+    chart.summaries.length > 1
+      ? `${lookup.candidateName.get(summary.candidate)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
+      : effectRangeOf(lookup, summary);
+  const ariaLabel = chart.summaries
+    .map(
+      (summary) =>
+        `${lookup.candidateName.get(summary.candidate)}: ${barsOf(summary)
+          .map((bar) => `${bar.words} ${barCountOf(bar)}`)
+          .join(", ")}`,
+    )
+    .join(". ");
+
+  return [
+    sectionLabel(number, `${metric.label} · ${directionWords(metric.direction)}`),
+    chartPairOf(lookup, chart) === inputs.titlePair ? "" : anchoredTitle(block, chartPairOf(lookup, chart)),
+    `<ul class="stack-legend">${legend.join("")}</ul>`,
+    `<div class="stacks" role="img" aria-label="${escapeHtml(`${ariaLabel}; out of ${partsOf(lookup, chart.summaries[0])}`)}">`,
+    ...rows,
+    "</div>",
+    `<ul class="details">\n${[stacksKeyOf(lookup, chart), ...chart.summaries.map(label)].map((line) => `<li>${escapeHtml(line)}</li>`).join("\n")}\n</ul>`,
   ].join("\n");
 }
 
@@ -218,6 +317,15 @@ function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefine
       return same(`${metric}${block.chart === "effect" ? ` against ${baseline}` : ""}${exploratory}`);
     }
     case "table":
+      if (block.cells === "effects") {
+        const by = block.rows ? ` · by ${block.rows}` : "";
+
+        return {
+          short: `Against ${baseline}${by}`,
+          full: `${block.metrics.map((metricId) => metricLabel(metricId)).join(", ")} against ${baseline}${by}`,
+        };
+      }
+
       return {
         short: "The numbers",
         full: `The numbers · ${block.metrics.map((metricId) => lowerFirstLetterOfWord(metricLabel(metricId))).join(", ")}`,
@@ -369,6 +477,110 @@ function barPositionsOf(extent: [number, number], value: number, interval: [numb
   return `--from: ${from}%; --to: ${to}%; --at: ${share(value)}%`;
 }
 
+/** Units a reader knows by their name rather than their symbol. */
+const UNIT_WORDS: Record<string, string> = {
+  s: "seconds",
+  ms: "milliseconds",
+  µs: "microseconds",
+  us: "microseconds",
+  min: "minutes",
+  h: "hours",
+  "%": "percent",
+};
+
+/** At most three significant figures for the typical value: a reader compares 0.902 with 0.905, not 0.9024 with 0.9048. */
+function readableDecimals(numbers: number[]): number {
+  const sizes = numbers
+    .map(Math.abs)
+    .filter((size) => size > 0)
+    .sort((first, second) => first - second);
+
+  if (sizes.length === 0) return 0;
+
+  return Math.max(0, 2 - Math.floor(Math.log10(sizes[Math.floor(sizes.length / 2)])));
+}
+
+/**
+ * Each candidate's change against the baseline, one row per node: the figure, its verdict in its colour and a bar
+ * from zero on one scale per metric, so a long breakdown reads down a column instead of across many chart rows.
+ */
+function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterState): string {
+  const { lookup, benchmark } = inputs;
+  const show = new Set(block.show);
+  const compared = lookup.results.candidates.filter((candidate) => candidate.id !== lookup.results.baseline);
+  const nodes = nodesOf({ id: block.id, node: block.node, breakdown: block.rows, filters: block.filters }, benchmark, lookup, state);
+  const comparisonOf = (metricId: string, node: string | undefined, candidate: string) =>
+    (lookup.results.comparisons ?? []).find(
+      (comparison) => comparison.metric === metricId && comparison.node === node && comparison.candidate === candidate,
+    );
+  const largestOf = (metricId: string) =>
+    Math.max(
+      ...nodes.flatMap((node) => compared.map((candidate) => Math.abs(comparisonOf(metricId, node, candidate.id)?.effect ?? 0))),
+      Number.EPSILON,
+    );
+  const several = block.metrics.length > 1;
+  const metricHeader = block.metrics.map((metricId) => {
+    const metric = lookup.metricById.get(metricId)!;
+
+    return `<th scope="colgroup" colspan="${compared.length}">${escapeHtml(`${metric.label} · ${directionWords(metric.direction)}`)}</th>`;
+  });
+  const candidateHeader = block.metrics.flatMap(() =>
+    compared.map((candidate) => `<th scope="col" data-candidate="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</th>`),
+  );
+  const rows = nodes.map((node) => {
+    const cells = block.metrics.flatMap((metricId) => {
+      const metric = lookup.metricById.get(metricId)!;
+      const largest = largestOf(metricId);
+
+      return compared.map((candidate) => {
+        const comparison = comparisonOf(metricId, node, candidate.id);
+
+        if (!comparison) return `<td data-candidate="${escapeHtml(candidate.id)}">—</td>`;
+
+        const { effect, interval } = effectAndInterval(metric, comparison);
+        const share = (Math.abs(comparison.effect) / largest) * 50;
+        const start = comparison.effect < 0 ? 50 - share : 50;
+        const exploratory = comparison.role === "exploratory" ? " (exploratory)" : "";
+
+        return [
+          `<td class="effect-cell ${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}" data-candidate="${escapeHtml(candidate.id)}">`,
+          '<span class="cell-line">',
+          `<span class="cell-value">${escapeHtml(effect)}</span>`,
+          `<span class="effect-bar" aria-hidden="true"><i style="left: ${start.toFixed(1)}%; width: ${share.toFixed(1)}%"></i></span>`,
+          "</span>",
+          `<span class="cell-detail effect-verdict">${escapeHtml(plainVerdictOf(metric, comparison) + exploratory)}</span>`,
+          show.has("ci") && interval ? `<span class="cell-detail dim">${escapeHtml(interval)}</span>` : "",
+          "</td>",
+        ].join("");
+      });
+    });
+
+    return `<tr><th scope="row">${node === undefined ? "All" : partNameHtml(inputs, node)}</th>${cells.join("")}</tr>`;
+  });
+  const shown = nodes.flatMap((node) =>
+    block.metrics.flatMap((metricId) => compared.flatMap((candidate) => comparisonOf(metricId, node, candidate.id) ?? [])),
+  );
+  const levels = [...new Set(shown.map((comparison) => comparison.ci_level).filter((level) => level !== undefined))];
+  const adjusted = shown.length > 0 && shown.every((comparison) => comparison.adjusted);
+  const baselineName = lookup.candidateName.get(lookup.results.baseline);
+  const note = [
+    `The change against ${baselineName}; each verdict is read from its interval`,
+    levels.length === 1
+      ? ` (${formatLevel(levels[0]!)}%${adjusted ? `, adjusted for ${lookup.results.computed?.primary_comparisons ?? shown.length} primary comparisons` : ""})`
+      : "",
+    ` and the smallest difference that matters. Bars are drawn from zero, on one scale per metric.`,
+  ].join("");
+  const levelName = block.rows ? block.rows.charAt(0).toUpperCase() + block.rows.slice(1) : "";
+
+  return [
+    '<div class="table-scroll"><table class="value-table effects-table">',
+    `<thead>${several ? `<tr><td></td>${metricHeader.join("")}</tr>` : ""}<tr><th scope="col">${escapeHtml(levelName)}</th>${candidateHeader.join("")}</tr></thead>`,
+    `<tbody>\n${rows.join("\n")}\n</tbody>`,
+    "</table></div>",
+    `<p class="table-note">${escapeHtml(note)}</p>`,
+  ].join("\n");
+}
+
 function tableHtml(block: TableBlock, inputs: PageInputs, number: string): string {
   const { lookup, benchmark } = inputs;
   const show = new Set(block.show);
@@ -379,10 +591,17 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
         const metric = lookup.metricById.get(metricId)!;
         const nodes = nodesOf({ id: block.id, node: block.node, breakdown: block.rows, filters: block.filters }, benchmark, lookup, state);
         const values = (lookup.results.values ?? []).filter((value) => value.metric === metricId && nodes.includes(value.node));
-        const decimals = finestDecimals(values.map((value) => valueDecimals(metric, value)));
+        const readable = readableDecimals(values.map((value) => value.value));
+        const decimals = Math.min(finestDecimals(values.map((value) => valueDecimals(metric, value))) ?? readable, readable);
         const ends = values.flatMap((value) => (value.ci && show.has("ci") ? value.ci : [value.value]));
         const padding = (Math.max(...ends) - Math.min(...ends)) * 0.1;
         const extent: [number, number] = [Math.min(...ends) - padding, Math.max(...ends) + padding];
+        const measured = values.filter((value) => value.source !== "declared");
+        // When every value rests on as many observations and none failed, one sentence says so instead of every cell.
+        const sameRuns =
+          measured.length > 0 &&
+          measured.every((value) => value.n === measured[0].n && failuresCell(lookup, value) === "0") &&
+          measured[0].n !== undefined;
         const header = [
           block.rows ? block.rows.charAt(0).toUpperCase() + block.rows.slice(1) : "",
           ...candidates.map((candidate) => `${candidate.name}${candidate.id === lookup.results.baseline ? " · baseline" : ""}`),
@@ -395,40 +614,50 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
 
             const details: string[] = [];
 
-            if (show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
+            if (show.has("ci") && value.ci) details.push(escapeHtml(withUnit(formatInterval(value.ci, decimals), metric.unit)));
 
-            if (show.has("failures") && value.source !== "declared") details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
+            if (!sameRuns && show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
+
+            if (!sameRuns && show.has("failures") && value.source !== "declared")
+              details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
 
             if (show.has("evidence") && value.evidence) details.push(withLinks(value.evidence));
 
-            const shown = `${formatNumber(value.value, decimals)}${value.source === "declared" ? " (declared)" : ""}`;
+            const shown = `${withUnit(formatNumber(value.value, decimals), metric.unit)}${value.source === "declared" ? " (declared)" : ""}`;
 
             return [
               `<td class="value-cell" data-candidate="${escapeHtml(candidate.id)}">`,
               '<span class="cell-line">',
               `<span class="cell-value">${escapeHtml(shown)}</span>`,
               `<span class="cell-bar${candidate.id === lookup.results.baseline ? " baseline" : ""}" style="${barPositionsOf(extent, value.value, show.has("ci") ? value.ci : undefined)}" aria-hidden="true"></span>`,
-              show.has("ci") && value.ci ? `<span class="cell-ci">${escapeHtml(formatInterval(value.ci, decimals))}</span>` : "",
               "</span>",
               details.length > 0 ? `<span class="cell-detail">${details.join(" · ")}</span>` : "",
               "</td>",
             ].join("");
           });
 
-          return `<tr><th scope="row">${escapeHtml(node === undefined ? metric.label : (lookup.nodeLabel.get(node) ?? node))}</th>${cells.join("")}</tr>`;
+          return `<tr><th scope="row">${node === undefined ? escapeHtml(metric.label) : partNameHtml(inputs, node)}</th>${cells.join("")}</tr>`;
         });
-        const caption = `${metric.label}, ${STATISTIC_WORD[metric.statistic].toLowerCase()} in ${metric.unit} · ${directionWords(metric.direction)}`;
+        const statistic = STATISTIC_WORD[metric.statistic].toLowerCase();
+        const unit = UNIT_WORDS[metric.unit] ?? metric.unit;
+        const caption = `${metric.label} · ${statistic} in ${unit} · ${directionWords(metric.direction)}`;
+        const note = sameRuns
+          ? `Each value is the ${statistic} of ${measured[0].n} measurements, none of which failed${show.has("ci") && measured[0].ci_level !== undefined ? `; the line under it is its ${formatLevel(measured[0].ci_level)}% interval` : ""}.`
+          : "";
 
         return [
+          `<h3 class="table-heading">${escapeHtml(metric.label)} <span class="dim">· ${escapeHtml(`${statistic} in ${unit} · ${directionWords(metric.direction)}`)}</span></h3>`,
+          metric.definition ? `<p class="table-definition">${escapeHtml(asSentence(metric.definition))}</p>` : "",
           '<div class="table-scroll"><table class="value-table">',
           `<caption class="visually-hidden">${escapeHtml(caption)}</caption>`,
           `<thead><tr>${header.map((cell, column) => `<th scope="col"${column > 0 ? ` data-candidate="${escapeHtml(candidates[column - 1].id)}"` : ""}>${escapeHtml(cell)}</th>`).join("")}</tr></thead>`,
           `<tbody>\n${rows.join("\n")}\n</tbody>`,
           "</table></div>",
+          note ? `<p class="table-note">${escapeHtml(note)}</p>` : "",
         ].join("\n");
       })
       .join("\n");
-  const body = viewsOf(block, inputs, view);
+  const body = viewsOf(block, inputs, block.cells === "effects" ? (state) => effectsTableView(block, inputs, state) : view);
   const title = block.title
     ? resolveTemplates(block.title, lookup)
     : block.metrics.map((metricId) => lookup.metricById.get(metricId)!.label).join(", ");
@@ -450,9 +679,6 @@ function textHtml(block: Extract<Block, { type: "text" }>, inputs: PageInputs, n
     `<div class="chapter-body prose">\n${paragraphsOf(resolveTemplates(block.description, inputs.lookup))}\n</div>`,
   ].join("\n");
 }
-
-const pluralOf = (word: string) =>
-  /(s|x|sh|ch)$/.test(word) ? `${word}es` : /[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : `${word}s`;
 
 interface PipelineStep {
   figure: string;
@@ -510,6 +736,18 @@ function pipelineOf(lookup: Lookup): PipelineStep[] {
   ];
 }
 
+/** Beyond this many, a list of results is counted in words and folded: the full list stays one click away. */
+const LONGEST_UNFOLDED_LIST = 12;
+
+function foldedVerdictListOf(lookup: Lookup, comparisons: Comparison[]): string {
+  if (comparisons.length <= LONGEST_UNFOLDED_LIST) return verdictListOf(lookup, comparisons);
+
+  return [
+    `<p class="verdict-counts">${escapeHtml(`${comparisons.length} results: ${countsByVerdict(comparisons)}.`)}</p>`,
+    `<details class="aside"><summary>Every result, one by one</summary>\n${verdictListOf(lookup, comparisons)}\n</details>`,
+  ].join("\n");
+}
+
 function verdictListOf(lookup: Lookup, comparisons: Comparison[]): string {
   const rows = comparisonRows(lookup, comparisons).map(([subject, effect, interval, verdict, notes], index) =>
     [
@@ -534,6 +772,49 @@ const factOf = (line: string) => {
 };
 
 const SHOWN_IN_THE_PIPELINE = new Set(["Comparisons", "Observed"]);
+
+/** The structure's nodes that carry a description, by level in the structure's order: what the page lists. */
+function describedPartsOf(lookup: Lookup): { level: string; nodes: { id: string; label: string; description?: string }[] }[] {
+  const structure = lookup.results.structure;
+
+  if (!structure) return [];
+
+  return structure.levels.flatMap((level) => {
+    const nodes = structure.nodes.filter((node) => node.level === level);
+
+    return nodes.some((node) => node.description) ? [{ level, nodes }] : [];
+  });
+}
+
+const partAnchorOf = (node: string) => `part-${node}`;
+
+/** A part's name in a table: a link to its description when the page lists it. */
+function partNameHtml(inputs: PageInputs, node: string): string {
+  const label = escapeHtml(inputs.lookup.nodeLabel.get(node) ?? node);
+  const described = inputs.lookup.results.structure?.nodes.find((entry) => entry.id === node)?.description;
+
+  return inputs.listsParts && described ? `<a class="part-link" href="#${escapeHtml(partAnchorOf(node))}">${label}</a>` : label;
+}
+
+/** Each described part by name, its description one click away, so a reader can learn what a row of a table measured. */
+function partsListHtml(lookup: Lookup): string {
+  return describedPartsOf(lookup)
+    .map(({ level, nodes }) =>
+      [
+        '<div class="parts">',
+        `<p class="mono-label">What was measured<span class="dim"> · ${escapeHtml(`${nodes.length} ${nodes.length === 1 ? level : pluralOf(level)}`)}</span></p>`,
+        '<ul class="part-list">',
+        ...nodes.map((node) =>
+          node.description
+            ? `<li><details id="${escapeHtml(partAnchorOf(node.id))}"><summary>${escapeHtml(node.label)}</summary><p>${withLinks(node.description)}</p></details></li>`
+            : `<li><p class="part-name">${escapeHtml(node.label)}</p></li>`,
+        ),
+        "</ul>",
+        "</div>",
+      ].join("\n"),
+    )
+    .join("\n");
+}
 
 function methodologyHtml(block: Block, inputs: PageInputs): string {
   const { lookup } = inputs;
@@ -562,14 +843,15 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
   return [
     '<h3 class="visually-hidden">Method</h3>',
     `<ol class="pipeline">\n${steps.join("\n")}\n</ol>`,
+    partsListHtml(lookup),
     '<div class="verdicts">',
     `<p class="mono-label">Against ${escapeHtml(lookup.candidateName.get(lookup.results.baseline)!)}<span class="dim"> · the claims</span></p>`,
-    verdictListOf(lookup, primary),
+    foldedVerdictListOf(lookup, primary),
     `<details class="aside"><summary>How a verdict is read</summary><p>${escapeHtml(comparisonsIntro(lookup))}</p></details>`,
     ...(exploratory.length > 0
       ? [
           '<p class="mono-label">Exploratory<span class="dim"> · not claims</span></p>',
-          verdictListOf(lookup, exploratory),
+          foldedVerdictListOf(lookup, exploratory),
           `<p class="aside-note">${escapeHtml(EXPLORATORY_INTRO)}</p>`,
         ]
       : []),
@@ -601,6 +883,8 @@ export function blockHtml(block: Block, inputs: PageInputs, width: number, numbe
   switch (block.type) {
     case "headline":
       return headlineHtml(block, inputs, number);
+    case "summary":
+      return summaryHtml(block, inputs, number);
     case "chart":
       return chartHtml(block, inputs, width, number);
     case "table":

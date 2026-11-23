@@ -301,6 +301,10 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "parent": {
                     "type": "string",
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
@@ -1540,6 +1544,37 @@
               },
               "type": {
                 "type": "string",
+                "const": "summary"
+              },
+              "metric": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "candidates": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "metric"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              },
+              "type": {
+                "type": "string",
                 "const": "chart"
               },
               "chart": {
@@ -1763,6 +1798,13 @@
               "columns": {
                 "type": "string",
                 "const": "candidate"
+              },
+              "cells": {
+                "type": "string",
+                "enum": [
+                  "values",
+                  "effects"
+                ]
               },
               "show": {
                 "minItems": 1,

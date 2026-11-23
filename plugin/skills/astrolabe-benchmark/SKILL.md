@@ -182,7 +182,7 @@ The presentation sections of `benchmark.json` (`style`, `filters`, `layout`, `bl
 1. Each chart answers a question the reader brings and fits the shape of the data (visualization/charts.md); what can be drawn is drawn, not written.
 2. Honest scales: bars from zero, no axis breaks, compared charts on one scale, the direction marked.
 3. Every value that has an interval is drawn with it, and the interval is named.
-4. Titles are short claims and readings one sentence: numbers by template, the verdicts they rely on listed in `asserts`, the headline that answers the goal first.
+4. Titles are short claims and readings one sentence: numbers by template, the verdicts they rely on listed in `asserts`, the headline or summary that answers the goal first.
 5. One colour per candidate, never colour alone, contrast checked by the generator.
 6. The default view tells the whole story, and exports show that view.
 7. Every chart and export reads alone: how to read it, a text alternative, a data table, provenance.

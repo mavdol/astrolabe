@@ -1,7 +1,7 @@
 // Everything on the page is already rendered: every filter state, in every mode and width, in its final place.
 // This script chooses what to show, brings each part in as the reader reaches it, moves marks between
-// states, brings a candidate forward, and marks on the ruler the part being read. Without it, the page
-// shows the default state of every filter, all at once.
+// states, and marks on the ruler the part being read. Without it, the page shows the default state of
+// every filter, all at once.
 
 const root = document.documentElement;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -318,23 +318,17 @@ if (filterInputs.length > 0) {
   show(false);
 }
 
-// ---- Highlight ----
+// ---- Parts ----
 
-// Pointing at a candidate brings it forward on every chart and table, and steps the others back.
-if (window.matchMedia("(hover: hover)").matches) {
-  const tagged = () => document.querySelectorAll("[data-candidate]");
-  let highlighted = null;
+// A link to a part of the structure, from a table row, opens its description.
+const openLinkedPart = () => {
+  const target = window.location.hash ? document.getElementById(decodeURIComponent(window.location.hash.slice(1))) : null;
 
-  document.addEventListener("pointerover", (event) => {
-    const candidate = event.target.closest?.("[data-candidate]")?.dataset.candidate ?? null;
+  if (target instanceof HTMLDetailsElement) target.open = true;
+};
 
-    if (candidate === highlighted) return;
-
-    highlighted = candidate;
-
-    for (const element of tagged()) element.classList.toggle("is-dimmed", candidate !== null && element.dataset.candidate !== candidate);
-  });
-}
+window.addEventListener("hashchange", openLinkedPart);
+openLinkedPart();
 
 // ---- Links ----
 
