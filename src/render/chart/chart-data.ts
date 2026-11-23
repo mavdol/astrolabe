@@ -167,7 +167,10 @@ export function comparisonGroupsOf(block: ChartBlock, benchmark: Benchmark, look
   const declaredOrder = lookup.results.candidates.map((candidate) => candidate.id);
   const comparisonsAt = (node: NodeId) =>
     (lookup.results.comparisons ?? [])
-      .filter((comparison) => comparison.metric === metric.id && comparison.node === node)
+      .filter(
+        (comparison) =>
+          comparison.metric === metric.id && comparison.node === node && comparison.vs === (block.vs ?? lookup.results.baseline),
+      )
       .sort((first, second) => {
         if (block.sort === "declared" || first.effect === second.effect)
           return declaredOrder.indexOf(first.candidate) - declaredOrder.indexOf(second.candidate);

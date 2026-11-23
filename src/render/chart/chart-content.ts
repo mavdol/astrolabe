@@ -150,8 +150,8 @@ export interface ValueAxis {
 }
 
 /**
- * The axis of a metric's values: from zero for bars, or when the block asks for it; otherwise fitted to the
- * values, wide enough that a difference too small to matter cannot fill it; or the powers of ten of a log scale.
+ * The axis of a metric's values: from zero, unless the block asks for an axis fitted to the values (with its reason),
+ * then wide enough that a difference too small to matter cannot fill it; or the powers of ten of a log scale.
  */
 export function valueAxisOf(inputs: ChartInputs, metric: Metric, plotted: number[], drawsBars: boolean): ValueAxis {
   const { block } = inputs;
@@ -168,7 +168,8 @@ export function valueAxisOf(inputs: ChartInputs, metric: Metric, plotted: number
   const dataExtent: [number, number] = [Math.min(...plotted), Math.max(...plotted)];
   const largest = Math.max(...plotted.map(Math.abs));
   const meaningfulInUnits = metric.compare_as === "relative" ? (metric.minimum_meaningful / 100) * largest : metric.minimum_meaningful;
-  const startsAtZero = !isLog && (drawsBars || block.scale?.zero === true);
+  // Results are read against zero; an axis fitted to the values is the exception, and says why (D2, V8).
+  const startsAtZero = !isLog && (drawsBars || block.scale?.zero !== false);
   const ownExtent: [number, number] = isLog
     ? dataExtent
     : startsAtZero

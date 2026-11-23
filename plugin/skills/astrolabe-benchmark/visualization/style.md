@@ -91,9 +91,10 @@ A reader remembers the title more than the chart, so a title states the finding,
 | `rows` | A level of `structure`: one row per node of that level. Left out, one row for `node` (or the whole benchmark) |
 | `columns` | `candidate` |
 | `cells` | `values` (the default): each candidate's value. `effects`: each compared candidate's change against the baseline, with its verdict in its colour and a bar from zero |
+| `vs` | On a table of effects: the candidate the changes are against, the baseline by default (the plan must compare those pairs) |
 | `show` | What sits under each value: `n`, `ci`, `failures`, and `evidence` (a link to the raw file). `n` always, `ci` when values have intervals, `failures` when any attempt failed: `validate` refuses a table without them. A table of effects needs only `ci` |
 
-A **table of effects** is the recommended way to show a long breakdown: one row per node, one column per compared candidate and metric, so thirty files compared on two metrics fit in thirty rows. Past about 8 rows it reads faster than an `effect` chart (charts.md). Without a title, a table is headed by what it holds ("Build time and identical pages compared with markly, size by size"), so two tables on the same metrics never share a heading.
+A **table of effects** is a section of its own, after the results, when the question asks how much changed against one candidate (the version in use today, or the other of the two that decide, with `vs`). It is the recommended way to show a long breakdown of changes: one row per node, one column per compared candidate and metric, so thirty files compared on two metrics fit in thirty rows. Past about 8 rows it reads faster than an `effect` chart (charts.md). Without a title, a table is headed by what it holds ("Build time and identical pages compared with markly, size by size"), so two tables on the same metrics never share a heading.
 
 ```json
 {

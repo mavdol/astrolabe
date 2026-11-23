@@ -150,8 +150,8 @@
       "timestamps": {"first": "2026-11-03T08:00:00Z", "last": "2026-11-04T19:30:00Z", "distinct": 4}
     },
     "computed": {
-      "by": "astrolabe-bench 0.1.0",
-      "methods_version": "7",
+      "by": "astrolabe-bench 0.2.4",
+      "methods_version": "8",
       "resamples": 10000,
       "seed": "ea25e9370ae1223e03d080665e4267f103a7c842e029b97653c4efb4fb5ad990",
       "alpha": 0.05,

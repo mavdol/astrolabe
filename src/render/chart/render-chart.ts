@@ -21,7 +21,7 @@ import {
 import { ChartError, filterStatesOf, type FilterState } from "./chart-data.js";
 import { comparisonRowsContent } from "./comparison-rows.js";
 import { lineContent } from "./line.js";
-import { distributionContent, effectsContent, stackedContent, valuesContent } from "./rows-charts.js";
+import { distributionContent, resultsContent, effectsContent, stackedContent, valuesContent } from "./rows-charts.js";
 import { scatterContent } from "./scatter.js";
 import { shadedTableContent } from "./shaded-table.js";
 
@@ -165,6 +165,8 @@ function contentOf(inputs: ChartInputs): ChartContent {
       return lineContent(inputs);
     case "shaded-table":
       return shadedTableContent(inputs);
+    case "results":
+      return resultsContent(inputs);
   }
 }
 

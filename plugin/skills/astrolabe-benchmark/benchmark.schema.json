@@ -879,6 +879,39 @@
                 "rule"
               ],
               "additionalProperties": false
+            },
+            "pairs": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "baseline",
+                    "all"
+                  ]
+                },
+                {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "candidate": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                      },
+                      "vs": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                      }
+                    },
+                    "required": [
+                      "candidate",
+                      "vs"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -1572,6 +1605,13 @@
                   "value",
                   "declared"
                 ]
+              },
+              "count": {
+                "type": "string",
+                "enum": [
+                  "verdicts",
+                  "best"
+                ]
               }
             },
             "required": [
@@ -1604,7 +1644,8 @@
                   "line",
                   "shaded-table",
                   "stacked-bar",
-                  "comparison-rows"
+                  "comparison-rows",
+                  "results"
                 ]
               },
               "title": {
@@ -1741,6 +1782,10 @@
                   "percent",
                   "times"
                 ]
+              },
+              "vs": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
               }
             },
             "required": [
@@ -1821,6 +1866,10 @@
                   "values",
                   "effects"
                 ]
+              },
+              "vs": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
               },
               "show": {
                 "minItems": 1,

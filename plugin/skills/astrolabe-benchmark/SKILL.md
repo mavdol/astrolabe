@@ -107,15 +107,16 @@ benchmarks/<id>/
 Ask at most these four questions, and only those the request and the repository do not already answer:
 
 1. Which decision should this benchmark inform?
-2. Which candidates are compared, and which one is the baseline (usually what is in use today)?
+2. Which candidates are compared, is one of them what is in use today (the baseline), and which comparison decides: each against that one, the newcomers against each other, or every pair?
 3. Which metrics matter most, how do they weigh against each other, and what is the smallest difference that would change the decision?
 4. What are the constraints: time budget, environment, cold or warm performance?
 
 Decide everything else yourself from the defaults in statistics.md and the measurement files, and announce it as a short plan the user can amend before anything runs. When nobody can answer (you run unattended, or the user said to go ahead), choose reasonable answers, write them in the plan, and list them in your final reply as choices made for the user.
 
-Two answers shape the whole result, so they are worth a question:
+Three answers shape the whole result, so they are worth a question:
 
 - **The goal** is the user's decision, phrased neutrally as one short question: "which parser should the nightly import use?", never "show that X is faster". The page and the README card show it as their title, so keep it to 80 characters; `validate` warns past that. When the user owns or sells a candidate, or asks for one to win, the goal stays neutral and the protocol stays the same for everyone; see the table below.
+- **The comparison that decides** comes from the decision, not from how a request is worded. "Should we leave A for B or for C?" is decided by B against C; "which of these tools?" by every pair. Whatever the pairs, the page shows every candidate's results side by side, as equals; changes in percent against one candidate are a section of their own (visualization/charts.md). Write the pairs in `analysis.pairs` (statistics.md).
 - **The smallest difference that matters** (`minimum_meaningful`, per metric) is what separates "better" from "a real difference too small to care about". It is set before measuring. If the user has none, propose one (10% is a common choice for a run time) and say so.
 
 ## Step 2: research, and read the terms

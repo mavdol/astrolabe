@@ -113,7 +113,12 @@ export function answerPartsOf(benchmark: Benchmark): Answer {
   const stated = "chart" in lead ? comparisonsOfChart(lead.chart) : [lead.comparison];
   const pairs =
     "chart" in lead
-      ? [chartPairOf(lookup, lead.chart), `${lead.chart.summaries.length} candidates compared with ${baseline}`]
+      ? [
+          chartPairOf(lookup, lead.chart),
+          lead.chart.count === "best"
+            ? `${lead.chart.summaries.length} candidates`
+            : `${lead.chart.summaries.length} candidates compared with ${baseline}`,
+        ]
       : [`${lookup.candidateName.get(lead.comparison.candidate)} compared with ${lookup.candidateName.get(lead.comparison.vs)}`];
   const claim =
     "chart" in lead

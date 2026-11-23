@@ -55,7 +55,9 @@ export function comparisonRows(lookup: Lookup, comparisons: Comparison[]): strin
   return comparisons.map((comparison) => {
     const metric = lookup.metricById.get(comparison.metric)!;
     const subject = [
-      lookup.candidateName.get(comparison.candidate),
+      comparison.vs === lookup.results.baseline
+        ? lookup.candidateName.get(comparison.candidate)
+        : `${lookup.candidateName.get(comparison.candidate)} against ${lookup.candidateName.get(comparison.vs)}`,
       lowerFirstLetterOfWord(metric.label),
       comparison.node ? lookup.nodeLabel.get(comparison.node) : undefined,
     ]
@@ -77,7 +79,10 @@ export function comparisonsIntro(lookup: Lookup): string {
       ? ` Their intervals are widened together for the ${primary.length} comparisons (Bonferroni), so they hold jointly.`
       : "";
 
-  return `Each candidate against the baseline, ${baselineName}. A verdict is read from the interval of the effect and the smallest difference that matters to the author: better or worse when the interval lies past it, likely when the direction is clear but the size may fall short, equivalent when the interval lies inside it, inconclusive otherwise. These are the claims of the benchmark.${adjustment}`;
+  const otherPairs = primary.some((comparison) => comparison.vs !== results.baseline);
+  const who = otherPairs ? "Each candidate against the others it is compared with" : `Each candidate against the baseline, ${baselineName}`;
+
+  return `${who}. A verdict is read from the interval of the effect and the smallest difference that matters to the author: better or worse when the interval lies past it, likely when the direction is clear but the size may fall short, equivalent when the interval lies inside it, inconclusive otherwise. These are the claims of the benchmark.${adjustment}`;
 }
 
 export const EXPLORATORY_INTRO =

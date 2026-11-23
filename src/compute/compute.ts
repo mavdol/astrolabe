@@ -14,7 +14,7 @@ export { applyFailureWarnings } from "./comparisons.js";
 export { ComputeError, parseRaw, type RawFile, type RawRow } from "./raw-data.js";
 
 /** Bumped whenever a change to the methods can alter a stored digit. */
-export const METHODS_VERSION = "7";
+export const METHODS_VERSION = "8";
 export const RESAMPLES = 10000;
 export const ALPHA = 0.05;
 
@@ -28,9 +28,46 @@ export interface ComputeOptions {
 
 const valueKey = (metric: string, node: NodeId, candidate: string) => `${metric}\u0000${node ?? ""}\u0000${candidate}`;
 
-export function comparisonId(metric: string, node: NodeId, candidate: string): string {
-  return node === undefined ? `${metric}__${candidate}` : `${metric}__${node}__${candidate}`;
+/** "wall_time__small__quickmark"; a pair without the baseline names its other side: "wall_time__small__quickmark__vs__inkdown". */
+export function comparisonId(metric: string, node: NodeId, candidate: string, against?: string): string {
+  const pair = against === undefined ? candidate : `${candidate}__vs__${against}`;
+
+  return node === undefined ? `${metric}__${pair}` : `${metric}__${node}__${pair}`;
 }
+
+export interface Pair {
+  candidate: string;
+  vs: string;
+}
+
+/**
+ * The pairs a plan compares: each candidate against the baseline by default; every pair, the baseline always on the
+ * "vs" side and otherwise the later candidate against the earlier; or the pairs it names. Pairs with the baseline first.
+ */
+export function pairsOf(plan: Pick<Results, "candidates" | "baseline" | "analysis">): Pair[] {
+  const ids = plan.candidates.map((candidate) => candidate.id);
+  const declared = plan.analysis?.pairs ?? "baseline";
+
+  if (Array.isArray(declared)) return declared;
+
+  const withBaseline = ids.filter((id) => id !== plan.baseline).map((candidate) => ({ candidate, vs: plan.baseline }));
+
+  if (declared === "baseline") return withBaseline;
+
+  const others = ids.filter((id) => id !== plan.baseline);
+
+  return [
+    ...withBaseline,
+    ...others.flatMap((earlier, index) => others.slice(index + 1).map((later) => ({ candidate: later, vs: earlier }))),
+  ];
+}
+
+/**
+ * Resamples for a primary comparison: enough that each end of its adjusted interval still rests on at least a fifth of
+ * the resampled values a single 95% interval has beyond each end (50 of 250 with the default 10,000).
+ */
+export const primaryResamplesOf = (resamples: number, primaryCount: number) =>
+  Math.max(resamples, Math.ceil((resamples * primaryCount) / 5));
 
 /** The declared values the agent wrote itself: those with no declared value on a node below them. */
 export function declaredInputs(results: Results, tree: NodeTree = nodeTreeOf(results)): Value[] {
@@ -230,22 +267,24 @@ interface PlannedComparison {
   metric: Metric;
   node: NodeId;
   candidate: string;
+  vs: string;
   isPrimary: boolean;
 }
 
-/** Every candidate against the baseline, for every metric, at every node where both have a value. */
+/** Every pair the plan compares, for every metric, at every node where both sides have a value. */
 function planComparisons(plan: Results, tree: NodeTree, valueByKey: Map<string, Value>): PlannedComparison[] {
-  const otherCandidates = plan.candidates.map((candidate) => candidate.id).filter((candidate) => candidate !== plan.baseline);
+  const pairs = pairsOf(plan);
   const planned: PlannedComparison[] = [];
 
   for (const metric of plan.metrics) {
-    const nodesWithBaselineValue = tree.nodesInDeclaredOrder.filter((node) => valueByKey.has(valueKey(metric.id, node, plan.baseline)));
-    const primaryNodes = primaryNodesOf(plan, tree, metric, nodesWithBaselineValue);
+    const hasValue = (node: NodeId, candidate: string) => valueByKey.has(valueKey(metric.id, node, candidate));
+    const nodesWithValues = tree.nodesInDeclaredOrder.filter((node) => pairs.some((pair) => hasValue(node, pair.vs)));
+    const primaryNodes = primaryNodesOf(plan, tree, metric, nodesWithValues);
 
-    for (const node of nodesWithBaselineValue) {
-      for (const candidate of otherCandidates) {
-        if (valueByKey.has(valueKey(metric.id, node, candidate)))
-          planned.push({ metric, node, candidate, isPrimary: primaryNodes.has(node) });
+    for (const node of nodesWithValues) {
+      for (const { candidate, vs } of pairs) {
+        if (hasValue(node, candidate) && hasValue(node, vs))
+          planned.push({ metric, node, candidate, vs, isPrimary: primaryNodes.has(node) });
       }
     }
   }
@@ -294,22 +333,36 @@ function compareWithBaseline(
   const severalPrimaries = primaryCount > 1;
   const bonferroniLevel = severalPrimaries ? 1 - ALPHA / primaryCount : 1 - ALPHA;
 
-  const nodesWithAParent = (metric: string, candidate: string) =>
+  const nodesWithAParent = (metric: string, candidate: string, vs: string) =>
     planned.filter(
       (comparison) =>
-        comparison.metric.id === metric && comparison.candidate === candidate && tree.parentOf.get(comparison.node!) !== undefined,
+        comparison.metric.id === metric &&
+        comparison.candidate === candidate &&
+        comparison.vs === vs &&
+        tree.parentOf.get(comparison.node!) !== undefined,
     ).length;
 
-  const comparisons = planned.map(({ metric, node, candidate, isPrimary }): Comparison => {
+  const comparisons = planned.map(({ metric, node, candidate, vs, isPrimary }): Comparison => {
     const level = isPrimary ? bonferroniLevel : 1 - ALPHA;
     const scale = metric.compare_as === "relative" ? PERCENT : scaleOfMetric.get(metric.id)!;
     const observations = observationsByMetric.get(metric.id);
+    const againstBaseline = vs === plan.baseline;
     const unrounded = observations
-      ? measuredEffect({ observations, tree, candidate, baseline: plan.baseline, node, level, seed, resamples })
+      ? measuredEffect({
+          observations,
+          tree,
+          candidate,
+          baseline: vs,
+          node,
+          level,
+          seed,
+          resamples: isPrimary ? primaryResamplesOf(resamples, primaryCount) : resamples,
+          ...(againstBaseline ? {} : { stream: `${candidate}|vs|${vs}` }),
+        })
       : effectOfDeclaredValues(
           metric,
           valueByKey.get(valueKey(metric.id, node, candidate))!,
-          valueByKey.get(valueKey(metric.id, node, plan.baseline))!,
+          valueByKey.get(valueKey(metric.id, node, vs))!,
         );
 
     // The verdict is read from the interval as stored, so anyone can check it from the file alone.
@@ -325,11 +378,11 @@ function compareWithBaseline(
     );
 
     const comparison: Comparison = {
-      id: comparisonId(metric.id, node, candidate),
+      id: comparisonId(metric.id, node, candidate, againstBaseline ? undefined : vs),
       metric: metric.id,
       ...(node !== undefined ? { node } : {}),
       candidate,
-      vs: plan.baseline,
+      vs,
       effect: stored(unrounded.effect, scale),
       ...(storedInterval ? { ci: storedInterval } : {}),
       ci_level: stored(level, 1),
@@ -345,8 +398,9 @@ function compareWithBaseline(
 
     if (observations && metric.failures_count_as === "excluded") {
       comparison.successful_only = true;
-      const nodesCheckedTogether = node !== undefined && tree.parentOf.get(node) !== undefined ? nodesWithAParent(metric.id, candidate) : 1;
-      const failureShare = failureShareOf(observations, tree, candidate, plan.baseline, node, nodesCheckedTogether);
+      const nodesCheckedTogether =
+        node !== undefined && tree.parentOf.get(node) !== undefined ? nodesWithAParent(metric.id, candidate, vs) : 1;
+      const failureShare = failureShareOf(observations, tree, candidate, vs, node, nodesCheckedTogether);
 
       if (failureShare) comparison.failure_share = failureShare;
     }

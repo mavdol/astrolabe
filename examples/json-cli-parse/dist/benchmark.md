@@ -89,4 +89,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `9eb30c078181` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `70c8d8049378` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>

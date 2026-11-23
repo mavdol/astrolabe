@@ -13,7 +13,7 @@ import { answerOf, answerPartsOf, LONGEST_TITLE_PAIR } from "../src/render/site/
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
 import { THEME } from "../src/themes/astrolabe.js";
-import { planOf, rawFileOf, scriptsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
+import { planOf, rawFileOf, scriptsBenchmarkOf, versionsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng } from "./png.js";
 
 const context = { generatorVersion: "0.2.0", buildDate: "2026-11-17" };
@@ -407,6 +407,44 @@ describe("the site", () => {
 
     expect(html).toContain('<span class="stack-rest">1 slower</span>');
     expect(html).toContain('<span class="segment bad" style="left: 0%; width: 2.5%"><i class="firm" style="width: 100%"></i></span>');
+  });
+
+  it("answers a file that compares every pair with who is best on each part, then every result, the candidates named as peers", () => {
+    const versions = versionsBenchmarkOf(4);
+
+    expect(pageRowsOf(versions).map((row) => row.map((block) => (block.type === "chart" ? block.chart : block.type)))).toEqual([
+      ["summary"],
+      ["results"],
+      ["methodology"],
+      ["environment"],
+      ["limitations"],
+      ["provenance"],
+    ]);
+    expect(answerPartsOf(versions)).toEqual({
+      pair: "base, mid and next",
+      description:
+        "base, wall time on 4 scripts: tied for best on 1, behind on 3. mid, wall time on 4 scripts: tied for best on 1, behind on 3. next, wall time on 4 scripts: best on 3, behind on 1.",
+    });
+  });
+
+  it("draws who is best as a bar per candidate around one line, behind on the left, with no range of changes", () => {
+    const versions = {
+      ...versionsBenchmarkOf(4),
+      blocks: [{ id: "summary-time", type: "summary", metric: "wall_time", count: "best" }],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(versions, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(html).toContain(
+      '<li class="bad"><i></i>Behind</li><li class="neutral"><i></i>Tied for best</li><li class="good"><i></i>Best</li>',
+    );
+    expect([...html.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map((match) => match[1])).toEqual(["next", "base", "mid"]);
+    expect(html).toContain(
+      "<li>Each bar: the 4 scripts, by where the candidate stands among the 3; best to the right of the line, behind to the left.</li>",
+    );
+    expect(html).not.toMatch(/<li>(base|mid|next): from /);
   });
 
   it("heads two untitled tables on the same metrics by what each holds", () => {

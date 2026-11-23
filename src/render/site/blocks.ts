@@ -30,7 +30,7 @@ import {
   likelyPartOf,
   type BarLayout,
   summaryChartOf,
-  verdictBarsOf,
+  barsOf,
   type BarSide,
   type Summary,
   type VerdictBar,
@@ -251,19 +251,24 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
   const { lookup } = inputs;
   const chart = summaryChartOf(lookup.results, block);
   const metric = lookup.metricById.get(block.metric)!;
-  const barsOf = (summary: Summary) => verdictBarsOf(metric, summary.comparisons);
+  const barsOfSummary = (summary: Summary) => barsOf(metric, summary);
   const drawn =
     chart.drawing === "grouped-bar"
       ? countGroupsHtml(countGroupsOf(metric, chart), lookup)
       : placedBarsHtml(barLayoutOf(metric, chart), lookup);
-  const label = (summary: Summary) =>
-    chart.summaries.length > 1
-      ? `${lookup.candidateName.get(summary.candidate)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
-      : effectRangeOf(lookup, summary);
+  // The range of the changes says how large they are; standings have no size, so a summary of them has none.
+  const ranges =
+    chart.count === "best"
+      ? []
+      : chart.summaries.map((summary) =>
+          chart.summaries.length > 1
+            ? `${lookup.candidateName.get(summary.candidate)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
+            : effectRangeOf(lookup, summary),
+        );
   const ariaLabel = chart.summaries
     .map(
       (summary) =>
-        `${lookup.candidateName.get(summary.candidate)}: ${barsOf(summary)
+        `${lookup.candidateName.get(summary.candidate)}: ${barsOfSummary(summary)
           .map((bar) => `${bar.words} ${barCountOf(bar)}`)
           .join(", ")}`,
     )
@@ -279,7 +284,7 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
       : `<div class="stacks ${chart.drawing}" role="img" ${imageLabel}>`,
     ...drawn,
     "</div>",
-    `<ul class="details">\n${[summaryKeyOf(lookup, chart), ...chart.summaries.map(label)].map((line) => `<li>${escapeHtml(line)}</li>`).join("\n")}\n</ul>`,
+    `<ul class="details">\n${[summaryKeyOf(lookup, chart), ...ranges].map((line) => `<li>${escapeHtml(line)}</li>`).join("\n")}\n</ul>`,
   ].join("\n");
 }
 
@@ -334,7 +339,11 @@ function showsOnlyExploratory(block: ChartBlock, inputs: PageInputs): boolean {
         ? (() => {
             const nodes = new Set(filterStatesOf(block, benchmark, lookup).flatMap((state) => nodesOf(block, benchmark, lookup, state)));
 
-            return comparisons.filter((comparison) => comparison.metric === block.metric && nodes.has(comparison.node));
+            const vs = block.vs ?? lookup.results.baseline;
+
+            return comparisons.filter(
+              (comparison) => comparison.metric === block.metric && nodes.has(comparison.node) && comparison.vs === vs,
+            );
           })()
         : [];
 
@@ -352,6 +361,7 @@ function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefine
   const { lookup } = inputs;
   const metricLabel = (metricId: string | undefined) => (metricId ? (lookup.metricById.get(metricId)?.label ?? metricId) : "");
   const baseline = lookup.candidateName.get(lookup.results.baseline);
+  const againstOf = (block: { vs?: string }) => lookup.candidateName.get(block.vs ?? lookup.results.baseline);
   const same = (name: string) => ({ short: name, full: name });
 
   switch (block.type) {
@@ -366,15 +376,15 @@ function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefine
 
       if (block.breakdown) return { short: `By ${block.breakdown}${exploratory}`, full: `${metric} by ${block.breakdown}${exploratory}` };
 
-      return same(`${metric}${block.chart === "effect" ? ` against ${baseline}` : ""}${exploratory}`);
+      return same(`${metric}${block.chart === "effect" ? ` against ${againstOf(block)}` : ""}${exploratory}`);
     }
     case "table":
       if (block.cells === "effects") {
         const by = block.rows ? ` · by ${block.rows}` : "";
 
         return {
-          short: `Against ${baseline}${by}`,
-          full: `${block.metrics.map((metricId) => metricLabel(metricId)).join(", ")} against ${baseline}${by}`,
+          short: `Against ${againstOf(block)}${by}`,
+          full: `${block.metrics.map((metricId) => metricLabel(metricId)).join(", ")} against ${againstOf(block)}${by}`,
         };
       }
 
@@ -559,12 +569,12 @@ function readableDecimals(numbers: number[]): number {
 function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterState): string {
   const { lookup, benchmark } = inputs;
   const show = new Set(block.show);
-  const compared = lookup.results.candidates.filter((candidate) => candidate.id !== lookup.results.baseline);
+  const vs = block.vs ?? lookup.results.baseline;
+  const againstVs = (lookup.results.comparisons ?? []).filter((comparison) => comparison.vs === vs);
+  const compared = lookup.results.candidates.filter((candidate) => againstVs.some((comparison) => comparison.candidate === candidate.id));
   const nodes = nodesOf({ id: block.id, node: block.node, breakdown: block.rows, filters: block.filters }, benchmark, lookup, state);
   const comparisonOf = (metricId: string, node: string | undefined, candidate: string) =>
-    (lookup.results.comparisons ?? []).find(
-      (comparison) => comparison.metric === metricId && comparison.node === node && comparison.candidate === candidate,
-    );
+    againstVs.find((comparison) => comparison.metric === metricId && comparison.node === node && comparison.candidate === candidate);
   const largestOf = (metricId: string) =>
     Math.max(
       ...nodes.flatMap((node) => compared.map((candidate) => Math.abs(comparisonOf(metricId, node, candidate.id)?.effect ?? 0))),
@@ -732,7 +742,7 @@ function defaultTableTitleOf(block: TableBlock, lookup: Lookup): string {
     return index === 0 ? label : lowerFirstLetterOfWord(label);
   });
   const listed = labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}` : labels[0];
-  const compared = block.cells === "effects" ? ` compared with ${lookup.candidateName.get(lookup.results.baseline)}` : "";
+  const compared = block.cells === "effects" ? ` compared with ${lookup.candidateName.get(block.vs ?? lookup.results.baseline)}` : "";
 
   return `${listed}${compared}${block.rows ? `, ${block.rows} by ${block.rows}` : ""}`;
 }

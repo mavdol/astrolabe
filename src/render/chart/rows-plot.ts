@@ -68,6 +68,11 @@ export interface RowsPlot {
   zeroLine?: boolean;
   /** What each colour of a stack stands for. */
   legend?: { label: string; colour: string }[];
+  /**
+   * A scale per group, from zero to its own top, when the groups differ too much in size to share one: each group then
+   * says its range beside its heading instead of an axis under the chart.
+   */
+  groupScales?: { top: number; label: string }[];
 }
 
 export const ROW_HEIGHT = { smallest: 22, usual: 44, largest: 52 };
@@ -223,7 +228,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
       );
   }
 
-  for (const tick of scale.ticks) {
+  for (const tick of plot.groupScales ? [] : scale.ticks) {
     const tickX = scale.position(tick);
     const isZeroReference = plot.zeroLine === true && tick === 0;
     const isAxisOrigin = startsAtZero && tick === 0;
@@ -239,28 +244,54 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
     );
   }
 
-  textLines.push(scale.ticks.map((tick) => plot.tickText(tick, scale.tickDecimals)).join("  "));
+  if (!plot.groupScales) textLines.push(scale.ticks.map((tick) => plot.tickText(tick, scale.tickDecimals)).join("  "));
 
   let cursorY = rowsTop;
 
   plot.groups.forEach((group, groupIndex) => {
     if (groupIndex > 0) cursorY += GAP_BETWEEN_GROUPS_ROWS * rowHeight;
 
+    const ownScale = plot.groupScales?.[groupIndex];
+    const groupScale = ownScale ? linearScale([0, ownScale.top], [plotLeft, plotRight], targetTicks) : scale;
+
     if (group.heading) {
       const headingHeight = HEADING_ROWS * rowHeight;
+      const rangeWidth = ownScale ? text.measure(ownScale.label, PLOT_STYLE.tick) : 0;
 
       marks.push(
-        text.draw(text.fit(group.heading, PLOT_STYLE.heading, width), x, baselineIn(cursorY, headingHeight, PLOT_STYLE.heading.size), {
-          ...PLOT_STYLE.heading,
-          fill: colours.ink,
-        }),
+        text.draw(
+          text.fit(group.heading, PLOT_STYLE.heading, width - (rangeWidth > 0 ? rangeWidth + COLUMN_GAP : 0)),
+          x,
+          baselineIn(cursorY, headingHeight, PLOT_STYLE.heading.size),
+          { ...PLOT_STYLE.heading, fill: colours.ink },
+        ),
       );
-      textLines.push(group.heading);
+
+      if (ownScale)
+        marks.push(
+          text.draw(ownScale.label, plotRight, baselineIn(cursorY, headingHeight, PLOT_STYLE.tick.size), {
+            ...PLOT_STYLE.tick,
+            fill: colours.secondary,
+            anchor: "end",
+          }),
+        );
+
+      textLines.push(ownScale ? `${group.heading}  ${ownScale.label}` : group.heading);
       cursorY += headingHeight;
+    }
+
+    if (ownScale) {
+      const groupBottom = cursorY + group.rows.length * rowHeight;
+
+      marks.push(
+        `<path d="M${round(plotLeft)} ${round(cursorY)}V${round(groupBottom)}" stroke="${colours.ruleStrong}" stroke-width="1"/>`,
+        `<path d="M${round(plotRight)} ${round(cursorY)}V${round(groupBottom)}" stroke="${colours.rule}" stroke-width="1"/>`,
+      );
     }
 
     for (const row of group.rows) {
       const centreY = cursorY + rowHeight / 2;
+      const scale = groupScale;
       const valueX = scale.position(row.value);
       const label = text.fit(row.label, PLOT_STYLE.label, labelWidth);
       const interval = row.interval?.map(scale.position);

@@ -28,7 +28,7 @@ import {
   summaryChartOf,
   summaryChartsOf,
   summaryClaimOf,
-  verdictBarsOf,
+  barsOf,
   type BarSide,
   type Summary,
   type SummaryChart,
@@ -116,6 +116,7 @@ interface HeadlineBlock {
   candidates?: string[];
   chart?: SummaryDrawing;
   sort?: "value" | "declared";
+  count?: "verdicts" | "best";
 }
 
 /** Every comparison the card's cells stand for: one per headline, all those a summary counts. */
@@ -285,6 +286,7 @@ function rangeOfChildren(lookup: Lookup, comparison: Comparison): string | null 
     (candidate) =>
       candidate.metric === comparison.metric &&
       candidate.candidate === comparison.candidate &&
+      candidate.vs === comparison.vs &&
       candidate.node !== undefined &&
       children.has(candidate.node),
   );
@@ -643,7 +645,10 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const centreOfLine = (top: number, style: { size: number }) => baselineOf(top, style) - (style.size * CAP_HEIGHT_RATIO) / 2;
 
   const sharedPair = sharedPairOf(lookup, content);
-  const compared = sharedPair ?? `${results.candidates.length - 1} candidates against ${lookup.candidateName.get(results.baseline)}`;
+  const countsWhoIsBest = content.charts?.some((chart) => chart.count === "best") ?? false;
+  const compared = countsWhoIsBest
+    ? `${results.candidates.length} candidates`
+    : (sharedPair ?? `${results.candidates.length - 1} candidates against ${lookup.candidateName.get(results.baseline)}`);
   const eyebrowGroups: EyebrowGroup[] = [
     [
       { text: results.benchmark.id, fill: colours.ink },
@@ -943,15 +948,18 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
           columnWidth,
         ),
         legendLines: legendLines.filter((line) => line.length > 0),
-        details: chart.summaries.flatMap((summary) =>
-          text.wrap(
-            chart.summaries.length > 1
-              ? `${nameOf(summary)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
-              : effectRangeOf(lookup, summary),
-            STYLE.detail,
-            columnWidth,
-          ),
-        ),
+        details:
+          chart.count === "best"
+            ? []
+            : chart.summaries.flatMap((summary) =>
+                text.wrap(
+                  chart.summaries.length > 1
+                    ? `${nameOf(summary)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
+                    : effectRangeOf(lookup, summary),
+                  STYLE.detail,
+                  columnWidth,
+                ),
+              ),
       };
     });
 
@@ -982,7 +990,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
           if (under.length > 0) drawLines([under.join(" · ")], STYLE.detail, colours.secondary, x, barTop + STACK_HEIGHT + 4);
 
           textLines.push(
-            `${nameOf(summary)}  ${verdictBarsOf(cell.metric, summary.comparisons)
+            `${nameOf(summary)}  ${barsOf(cell.metric, summary)
               .map((bar) => `${bar.count} ${bar.words}${likelyPartOf(bar)}`)
               .join("  ")}`,
           );
@@ -1154,7 +1162,9 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const readingOfCells =
     content.charts && content.charts.length > 0
       ? [
-          `Compared with ${lookup.candidateName.get(results.baseline)}; each verdict is read from ${intervalPhrase}.`,
+          content.charts.every((chart) => chart.count === "best")
+            ? `Each candidate compared with every other; each verdict is read from ${intervalPhrase}.`
+            : `Compared with ${lookup.candidateName.get(results.baseline)}; each verdict is read from ${intervalPhrase}.`,
           ...new Set(content.charts.map((chart) => summaryKeyOf(lookup, chart))),
         ]
       : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`];

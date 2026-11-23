@@ -116,8 +116,9 @@ function comparisonsSection(lookup: Lookup): string {
   const primary = comparisons.filter((comparison) => comparison.role === "primary");
   const exploratory = comparisons.filter((comparison) => comparison.role === "exploratory");
   const alignments: ("left" | "right")[] = ["left", "right", "right", "left", "left"];
+  const hasOtherPairs = comparisons.some((comparison) => comparison.vs !== lookup.results.baseline);
   const parts = [
-    `## Against ${lookup.candidateName.get(lookup.results.baseline)}`,
+    hasOtherPairs ? "## Comparisons" : `## Against ${lookup.candidateName.get(lookup.results.baseline)}`,
     comparisonsIntro(lookup),
     table(COMPARISON_HEADER, alignments, comparisonRows(lookup, primary)),
   ];

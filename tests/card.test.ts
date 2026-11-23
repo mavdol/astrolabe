@@ -9,7 +9,7 @@ import { pngOf } from "../src/render/png.js";
 import { SvgTextRenderer } from "../src/render/svg-text.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { seriesStylesOf, THEME } from "../src/themes/astrolabe.js";
-import { withTasksAsPrimary } from "./helpers.js";
+import { versionsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -266,6 +266,15 @@ describe("reading a card at a glance", () => {
       cardContentOf(loadBenchmark("support-assistant-eval")).charts,
       "a total and its parts are never counted together",
     ).toBeUndefined();
+  });
+
+  it("names the candidates as peers when its summary says who is best", () => {
+    const versions = versionsBenchmarkOf(4);
+    const lines = renderCard(versions, cardContentOf(versions), "light", context).textLines;
+
+    expect(lines[0]).toContain("3 CANDIDATES");
+    expect(lines).toContain("next  3 best  0 tied for best  1 behind");
+    expect(lines.join(" ")).toContain("Each candidate compared with every other;");
   });
 
   it("shows either headline or summary cells, never both", () => {

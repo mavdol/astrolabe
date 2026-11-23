@@ -14,13 +14,15 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## Which chart: recommended, then alternatives
 
+**The results come first.** A reader compares what each candidate did on the same task: "quickmark takes 1.2 s, markly 1.5 s", not "quickmark takes 20% less". So every candidate is drawn the same way, the baseline included, and the page shows the measured values side by side. Changes in percent against one candidate are a section of their own, when the question asks how much changed against it; they never frame the whole page. A candidate's role (the version in use today) shows in words and in the order of the candidates, never in how it is drawn.
+
 You choose every chart. For each shape of results, the tables below give the recommended chart, the alternatives that are just as honest, and what each reads better. Take the one that carries the message you want the reader to take: the same numbers arranged another way put another message forward (bars sorted from the largest put the largest values first; a stack puts the whole forward, bars side by side one part). `validate` refuses only what would mislead, such as a bar that does not start at zero, a paired result left to two intervals, or a missing interval; it never asks for one chart over another. A reader understands a drawing faster than a sentence, so whatever can be drawn is drawn.
 
 Start from the question the reader brings, then count the shape from `results` and write it in the outline (page.md):
 
 | Count | What it is |
 | --- | --- |
-| Candidates | Candidates compared with the baseline: 1, 2 to 4, or 5 or more. Four is what the theme tells apart without added colours |
+| Candidates | Every candidate, the baseline included: 2, 3 or 4, or 5 or more. Four is what the theme tells apart without added colours |
 | Criteria | Metrics the reader's question is about: 1, 2 or 3, or 4 or more |
 | Parts | Nodes of the level the comparisons sit on (files, tasks, sizes): 1 when the whole benchmark is compared; a few up to about 8 chart rows (parts times candidates); many beyond |
 | Order | Whether that level has an order (input size, concurrency, version) |
@@ -31,21 +33,20 @@ Two more facts change the choice: a **paired** comparison (the same items or run
 
 | Candidates | Criteria | Parts | Recommended | Alternatives, and what they read better |
 | --- | --- | --- | --- | --- |
-| 1 | 1 | 1 | A headline (page.md) | — |
-| 1 | 2 or 3 | 1 | A headline per criterion, the one the goal names first | `comparison-rows`, when the criteria are read together, each on its own scale (a release against the previous one) |
-| 1 | 4 or more | 1 | The headline on the criterion the goal names, then `comparison-rows` with every criterion (up to 10 rows) | A table past 10 rows |
-| 2 to 4 | 1 | 1 | A headline per candidate, three at most | An `effect` chart with a row per candidate, when the reader asks for a ranking |
-| 5 or more | 1 | 1 | An `effect` chart, a row per candidate | `dot-interval`, or `bar` for a quantity with a true zero, when the comparison is not paired and the reader wants the values rather than the changes; `highlight` the subject (style.md) |
-| Any | Any | Many | A summary per criterion: the pattern across the parts (page.md), drawn as the next table says | Headlines, when only one to three of the comparisons are primary |
+| 2 | 1 | 1 | A headline (page.md): the change, with both values drawn from zero for a quantity that has a true zero | `results`, when the reader wants the two values side by side |
+| 2 | 2 or 3 | 1 | A headline per criterion, the one the goal names first | `comparison-rows`, when the criteria are read together, each on its own scale (a release against the previous one) |
+| 2 | 4 or more | 1 | The headline on the criterion the goal names, then `comparison-rows` with every criterion (up to 10 rows) | A table past 10 rows |
+| 3 or more | Any | 1 | `results`, one chart per criterion: each candidate's value from zero, with its interval, best and behind written | An `effect` chart, as a section of its own, when the question asks how much each changed against one candidate; `highlight` the subject when the page is about one (style.md) |
+| Any | Any | Many | A summary per criterion (page.md): who is best on how many parts when every pair is compared, otherwise each candidate's verdicts against the baseline; then `results` with `breakdown` | Headlines, when only one to three of the comparisons are primary |
 
 ### A pattern across many parts: how to draw the summary
 
-A summary counts each candidate's results as better, about the same or worse. Its `chart` says how they are drawn:
+A summary counts, for each candidate, either where it stands among the candidates on each part (`"count": "best"`: best, tied for best, behind) or its verdicts against the baseline (the default: better, about the same, worse). When the candidates are alternatives to choose between, count who is best; it needs every pair compared (`analysis.pairs`, statistics.md), and the baseline then has a bar of its own. Its `chart` says how the counts are drawn:
 
 | Candidates | Criteria | Recommended `chart` | Alternatives, and what they read better |
 | --- | --- | --- | --- |
-| 1 | 1 | `diverging-bar` (the default): worse to the left of a line, better to its right, about the same centred on it, unclear set apart | `stacked-bar`, when the message is the share of better parts only; an `effect` chart with `"sort": "effect"`, when the size of each change matters more than the count |
-| 2 or more | 1 | `diverging-bar`, the candidate with most better parts first: better and worse both start from the line, so both compare across candidates | `stacked-bar`, when the message is the share of better parts; `grouped-bar`, a group per result and a bar per candidate, when the reader compares one result such as "about the same" or "unclear" across candidates |
+| 2 | 1 | `diverging-bar` (the default): worse (or behind) to the left of a line, better (or best) to its right, about the same (or tied) centred on it, unclear set apart | `stacked-bar`, when the message is the share of better parts only; an `effect` chart with `"sort": "effect"`, when the size of each change matters more than the count |
+| 3 or more | 1 | `diverging-bar`, the candidate with most better or best parts first (`"sort": "declared"` keeps the order of `candidates[]`, for versions): both ends start from the line, so both compare across candidates | `stacked-bar`, when the message is the share of best parts; `grouped-bar`, a group per result and a bar per candidate, when the reader compares one result such as "tied" or "unclear" across candidates |
 | Any | 2 or 3 | One summary per criterion, side by side, the same candidate order in each (`"sort": "declared"` when the order by result would differ from one to the next) | — |
 | Any | 4 or more | A summary on the criterion the goal names, then a table of effects for the others (style.md) | A summary per criterion, up to three |
 
@@ -55,6 +56,7 @@ A summary never mixes criteria in one bar: a part that is faster but heavier wou
 
 | The reader asks | Recommended `chart` | Alternatives, and what they read better |
 | --- | --- | --- |
+| "What did each one measure?", part by part | `results` with `breakdown`: a bar per candidate from zero, its value and interval, "best" and "behind" written where the comparisons between candidates say so; each part gets its own scale and unit when the parts differ in size | `effect` with `breakdown`, or a table of effects, as a section of their own when the question asks how much changed against one candidate (`vs`) |
 | "Is it better, and by how much?" | `effect`, with the band of differences too small to matter | `comparison-rows`, when the comparisons are on different metrics |
 | "Where does the gap come from?": a few parts (up to about 8 rows) | `effect` with `breakdown` (a level: category, task, size) | `grouped-bar` for a quantity with a true zero, up to 4 candidates, when the comparison is not paired and the reader ranks values per part; `line` when the level has an order |
 | The same, many parts | A table of effects, a row per part (style.md) | An `effect` chart with `"sort": "effect"`, when the spread is the message ("most files gain a little, a few gain a lot"): the reader takes in its shape, not each row |
@@ -62,7 +64,7 @@ A summary never mixes criteria in one bar: a part that is faster but heavier wou
 | "Is the gain worth the cost?": two metrics in tension (accuracy and cost, speed and memory) | `scatter` (`x`, `y`, `node`) | Two `effect` charts side by side, rows in the same order |
 | "What will one run, one request look like?" (run times, latencies, flaky tasks) | `distribution`, which shows every run up to 20 and a box beyond | Percentiles in a table |
 | "How does it change as the input grows?": a level with an order | `line` (`breakdown`, at least two nodes) | `effect` with `breakdown` when the level has three nodes or fewer |
-| "How do they rank?": one metric, one part | `dot-interval`; `bar` only for a quantity with a true zero (memory, cost, a count) | `effect` when the comparison is paired |
+| "How do they rank?": one metric, one part | `results` for a quantity with a true zero (time, memory, cost, a count); `dot-interval` otherwise | `effect` when the comparison is paired |
 | "Which candidate is good at what?": many candidates, many parts | `shaded-table` | `grouped-bar` for a few cells |
 | "Where does the total go?": parts of one total (cost by stage) | `stacked-bar` (`metric` the total, `breakdown` the level of the parts) | `grouped-bar` to compare one part across candidates |
 | "Did this release improve, metric by metric?" | `comparison-rows` (`comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2×) | A table past 10 rows |
@@ -97,6 +99,7 @@ Whatever you choose:
 | Field | Content |
 | --- | --- |
 | `metric`, or `x` and `y` | Metric ids from `metrics[]` |
+| `vs` | On an `effect` chart: the candidate the changes are against, the baseline by default. The plan must compare that pair (`analysis.pairs`) |
 | `node` | The node shown; left out, the root of the structure, or the whole benchmark when there is no structure |
 | `breakdown` | A level of `structure` (`category`, `task`, `size`): one group or one row per node of that level |
 | `comparisons` | Comparison ids, for `comparison-rows`. An id reads `metric__candidate`, or `metric__node__candidate` when the plan has a structure; compute writes them in `results.comparisons` |
@@ -116,7 +119,9 @@ The direction ("lower is better"), how to read the chart, the interval's level a
 Every axis is a decision that changes how large a difference looks. The generator makes it from the data and the smallest difference that matters, and writes it on the chart; you only override it, and say why.
 
 - **Bars start at zero**, always; a bar that cannot (a negative value) is a `dot-interval` instead.
-- **Dots, lines and scatters fit their axes to the values** by default, so that close candidates can be told apart, and the chart says so. The range never shrinks below twice `minimum_meaningful`, so a difference too small to matter cannot fill the axis, and it never goes below zero for values that cannot. Set `"scale": { "zero": true }` when the reader needs the distance from zero (a count, a share out of 100%); `"zero": false` with a `reason` only adds that reason to the chart.
+- **Results start at zero**: bars always, dots and lines too. The zoom is at the top: the axis ends on a round number just above the largest interval (results between 2.1 and 2.3 s get an axis of 0 to 2.5 s). A gap that is small then looks small, because it is; the printed values and the verdicts carry it.
+- **A `results` chart gives each part its own scale and unit** when the parts differ in size more than about five times (a task of milliseconds beside one of seconds), and says so; bars are then compared within a part, not across parts.
+- **An axis fitted to the values** is the exception: `"scale": { "zero": false, "reason": "…" }` on a dot or line chart, when zero is arbitrary or a difference that matters would be invisible. The range never shrinks below twice `minimum_meaningful`, and the chart prints the reason. Scatters fit their axes to their points.
 - **Linear by default.** `type: "log"` needs a `reason` (values spanning orders of magnitude, a long-tailed latency, a question about ratios); bars and effects refuse it.
 - **Charts meant to be compared share a scale**: list their ids in `shared_with`. A filter keeps its chart's axis fixed across options by itself.
 - **No axis breaks**, and never an axis turned upside down to make lower look bigger: the direction is written on the chart, and candidates are sorted best first.
@@ -149,7 +154,7 @@ Every axis is a decision that changes how large a difference looks. The generato
 | V10 | Should | Sort candidates best-first according to the metric's direction, or keep one declared order on every chart of the page; never choose the order chart by chart to favour one candidate. | The subject always shown first or last by construction | blocks[].sort |
 | V11 | Must | Draw the interval on every charted value that has one, and name it in the chart with its real level, read from `ci_level` ("95% confidence interval, 10 runs"; "98.75% interval, adjusted for 4 primary comparisons"). | Error bars read as something else: standard error, standard deviation and confidence interval look the same | blocks[].uncertainty |
 | V12 | Should | When the point of the chart is a comparison, prefer a dot with its interval to a bar with an error bar. | Values inside the bar are judged likelier than values above it, and the interval is read as all-or-nothing | blocks[].chart |
-| V13 | Should | To show who wins, chart the difference itself with its interval and the minimum meaningful difference as a band, rather than leaving the reader to compare two overlapping intervals. When the comparison is paired, two separate intervals cannot show the result at all: the page must then show it as an effect chart, a comparison-rows chart or a headline. | Winners read from overlapping or non-overlapping error bars | comparisons[].paired (checked by the generator) |
+| V13 | Should | To show who wins, chart the difference itself with its interval and the minimum meaningful difference as a band, rather than leaving the reader to compare two overlapping intervals. When the comparison is paired, two separate intervals cannot show the result at all: the page must then show it as an effect chart, a comparison-rows chart, a headline, or a results chart whose candidates are compared pair by pair. | Winners read from overlapping or non-overlapping error bars | comparisons[].paired (checked by the generator) |
 | V14 | Should | When the reader's question is what one run or one request will look like (latency, flaky tasks), show the spread of outcomes (distribution, percentiles), not only the interval of the mean. | A narrow confidence interval read as "every run is better": readers overestimate the effect and underestimate variability | raw_data[], values[] percentiles |
 | V15 | Should | With few measurements per candidate (about 10 or fewer), plot every point next to the summary. | The same mean and error bar produced by very different data (an outlier, two clusters, three points) | raw_data[] |
 | V52 | Should | Use stacked bars only to show the parts of one total. To compare one part across candidates, use grouped bars or one chart per part. Radar and 3D charts are not in the chart set. | A part compared across floating segments, which readers judge far less accurately than aligned bars | blocks[].chart |

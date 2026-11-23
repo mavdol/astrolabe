@@ -1,5 +1,6 @@
 import type { Comparison, Metric, Results } from "../schema/benchmark.js";
 import type { SUMMARY_CHARTS } from "../schema/presentation.js";
+import { comparesEveryPair, primaryNodesOf, standingsOn, type Standing } from "./standing.js";
 import { effectAndInterval, lowerFirstLetterOfWord, verdictLabel, type Lookup } from "./describe.js";
 
 export const VERDICTS_IN_READING_ORDER = ["better", "likely better", "equivalent", "inconclusive", "likely worse", "worse"];
@@ -27,11 +28,17 @@ export interface Summary {
   candidate: string;
   metric: string;
   comparisons: Comparison[];
+  /** Where the candidate stands among the others on each part, when the summary counts who is best. */
+  standings?: Standing[];
 }
 
 export function summaryOf(results: Results, candidate: string, metric: string): Summary {
   const comparisons = (results.comparisons ?? []).filter(
-    (comparison) => comparison.role === "primary" && comparison.candidate === candidate && comparison.metric === metric,
+    (comparison) =>
+      comparison.role === "primary" &&
+      comparison.candidate === candidate &&
+      comparison.metric === metric &&
+      comparison.vs === results.baseline,
   );
 
   return { candidate, metric, comparisons };
@@ -39,10 +46,14 @@ export function summaryOf(results: Results, candidate: string, metric: string): 
 
 export type SummaryDrawing = (typeof SUMMARY_CHARTS)[number];
 
-/** What one summary block draws: a bar per candidate, each counting its primary comparisons on one metric. */
+/**
+ * What one summary block draws: a bar per candidate, counting either its primary comparisons with the baseline by
+ * verdict, or the parts where it is best, tied for best or behind among the candidates shown.
+ */
 export interface SummaryChart {
   metric: string;
   drawing: SummaryDrawing;
+  count: "verdicts" | "best";
   summaries: Summary[];
 }
 
@@ -51,31 +62,70 @@ interface SummaryRequest {
   candidates?: string[];
   chart?: SummaryDrawing;
   sort?: "value" | "declared";
+  count?: "verdicts" | "best";
 }
 
-const countOf = (summary: Summary, verdict: string) => summary.comparisons.filter((comparison) => comparison.verdict === verdict).length;
+/** The candidate with most better (or best) parts first, then the one with fewest worse; ties keep the declared order. */
+function byResults(metric: Metric, summaries: Summary[]): Summary[] {
+  const countOn = (summary: Summary, side: BarSide) => barsOf(metric, summary).find((bar) => bar.side === side)?.count ?? 0;
 
-/** The candidate with most better results first, then the one with fewest worse; ties keep the declared order. */
-const byResults = (summaries: Summary[]) =>
-  [...summaries].sort(
-    (first, second) => countOf(second, "better") - countOf(first, "better") || countOf(first, "worse") - countOf(second, "worse"),
+  return [...summaries].sort(
+    (first, second) => countOn(second, "better") - countOn(first, "better") || countOn(first, "worse") - countOn(second, "worse"),
   );
-
-function chartOf(metric: string, summaries: Summary[], request: { chart?: SummaryDrawing; sort?: "value" | "declared" }): SummaryChart {
-  return { metric, drawing: request.chart ?? "diverging-bar", summaries: request.sort === "declared" ? summaries : byResults(summaries) };
 }
 
-/** The candidates a summary block draws: those it names, or every candidate compared with the baseline. */
-export function summaryCandidatesOf(results: Results, block: { candidates?: string[] }): string[] {
-  return block.candidates ?? results.candidates.map((candidate) => candidate.id).filter((candidate) => candidate !== results.baseline);
+function chartOf(results: Results, metric: string, summaries: Summary[], request: Omit<SummaryRequest, "metric">): SummaryChart {
+  const metricEntry = results.metrics.find((entry) => entry.id === metric)!;
+
+  return {
+    metric,
+    drawing: request.chart ?? "diverging-bar",
+    count: request.count ?? "verdicts",
+    summaries: request.sort === "declared" ? summaries : byResults(metricEntry, summaries),
+  };
+}
+
+/** The candidates a summary block draws: those it names; otherwise every candidate compared with the baseline, or all of them when it counts who is best. */
+export function summaryCandidatesOf(results: Results, block: { candidates?: string[]; count?: "verdicts" | "best" }): string[] {
+  const every = results.candidates.map((candidate) => candidate.id);
+
+  return block.candidates ?? (block.count === "best" ? every : every.filter((candidate) => candidate !== results.baseline));
+}
+
+/** The parts of a metric where every pair of the candidates was compared, with each candidate's standing there. */
+export function bestSummariesOf(results: Results, metric: string, candidates: string[]): Summary[] {
+  const standingsByNode = primaryNodesOf(results, metric).flatMap((node) => {
+    const standings = standingsOn(results, metric, node, candidates);
+
+    return standings ? [{ node, standings }] : [];
+  });
+  const shown = new Set(candidates);
+  const counted = new Set(standingsByNode.map(({ node }) => node));
+
+  return candidates.map((candidate) => ({
+    candidate,
+    metric,
+    comparisons: (results.comparisons ?? []).filter(
+      (comparison) =>
+        comparison.role === "primary" &&
+        comparison.metric === metric &&
+        counted.has(comparison.node) &&
+        shown.has(comparison.candidate) &&
+        shown.has(comparison.vs) &&
+        (comparison.candidate === candidate || comparison.vs === candidate),
+    ),
+    standings: standingsByNode.map(({ standings }) => standings.get(candidate)!),
+  }));
 }
 
 export function summaryChartOf(results: Results, block: SummaryRequest): SummaryChart {
-  return chartOf(
-    block.metric,
-    summaryCandidatesOf(results, block).map((candidate) => summaryOf(results, candidate, block.metric)),
-    block,
-  );
+  const candidates = summaryCandidatesOf(results, block);
+  const summaries =
+    block.count === "best"
+      ? bestSummariesOf(results, block.metric, candidates)
+      : candidates.map((candidate) => summaryOf(results, candidate, block.metric));
+
+  return chartOf(results, block.metric, summaries, block);
 }
 
 /** The levels of the structure a summary's comparisons sit on: one, so that a total is never counted with its own parts. */
@@ -90,32 +140,50 @@ export function isCountable(results: Results, summary: Summary): boolean {
   return summary.comparisons.length > 1 && levels.size === 1 && !levels.has(undefined);
 }
 
-/** One chart per metric with something to count, metrics in declared order, each with the candidates it can count. */
+/**
+ * One chart per metric with something to count, metrics in declared order: where every candidate stands on each part
+ * when the plan compares every pair, otherwise each candidate's verdicts against the baseline.
+ */
 export function summaryChartsOf(results: Results): SummaryChart[] {
+  if (comparesEveryPair(results))
+    return results.metrics.flatMap((metric) => {
+      const summaries = bestSummariesOf(
+        results,
+        metric.id,
+        results.candidates.map((candidate) => candidate.id),
+      );
+      const countable = summaries.length > 0 && (summaries[0].standings?.length ?? 0) > 1 && isCountable(results, summaries[0]);
+
+      return countable ? [chartOf(results, metric.id, summaries, { count: "best", sort: "declared" })] : [];
+    });
+
   return results.metrics.flatMap((metric) => {
     const summaries = results.candidates
       .map((candidate) => summaryOf(results, candidate.id, metric.id))
       .filter((summary) => isCountable(results, summary));
 
-    return summaries.length > 0 ? [chartOf(metric.id, summaries, {})] : [];
+    return summaries.length > 0 ? [chartOf(results, metric.id, summaries, {})] : [];
   });
 }
 
 /** Every comparison a summary chart counts. */
 export const comparisonsOfChart = (chart: SummaryChart) => chart.summaries.flatMap((summary) => summary.comparisons);
 
-/** "Model A and Model C compared with Model B": who a summary chart compares, with whom. */
-export function chartPairOf(lookup: Lookup, chart: SummaryChart): string {
-  const names = chart.summaries.map((summary) => lookup.candidateName.get(summary.candidate) ?? summary.candidate);
-  const listed = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+/** "Model A, Model B and Model C". */
+export const listedNames = (names: string[]) =>
+  names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
 
-  return `${listed} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
+/** "Model A and Model C compared with Model B": who a summary chart compares, with whom; the candidates alone when it counts who is best. */
+export function chartPairOf(lookup: Lookup, chart: SummaryChart): string {
+  const listed = listedNames(chart.summaries.map((summary) => lookup.candidateName.get(summary.candidate) ?? summary.candidate));
+
+  return chart.count === "best" ? listed : `${listed} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
 }
 
 /** "12 files": how many parts the summary counts, named after their level. */
 export function partsOf(lookup: Lookup, summary: Summary): string {
   const level = lookup.results.structure?.nodes.find((node) => node.id === summary.comparisons[0]?.node)?.level;
-  const count = summary.comparisons.length;
+  const count = summary.standings?.length ?? summary.comparisons.length;
 
   return level ? `${count} ${count === 1 ? level : pluralOf(level)}` : `${count} comparisons`;
 }
@@ -191,6 +259,20 @@ export function verdictBarsOf(metric: Metric, comparisons: Comparison[]): Verdic
   });
 }
 
+/** The bars of a summary: its verdicts against the baseline, or where it stands among the others: best, tied for best, behind. */
+export function barsOf(metric: Metric, summary: Summary): VerdictBar[] {
+  if (!summary.standings) return verdictBarsOf(metric, summary.comparisons);
+
+  const standings = summary.standings;
+  const countOf = (standing: Standing) => standings.filter((entry) => entry === standing).length;
+
+  return [
+    { side: "better", words: "best", count: countOf("best"), likely: 0 },
+    { side: "same", words: "tied for best", count: countOf("tied"), likely: 0 },
+    { side: "worse", words: "behind", count: countOf("behind"), likely: 0 },
+  ];
+}
+
 /** What follows a bar's count when some of it is only likely: " likely" when all of it is, " · 1 likely" otherwise. */
 export const likelyPartOf = (bar: VerdictBar) => (bar.likely === 0 ? "" : bar.likely === bar.count ? " likely" : ` · ${bar.likely} likely`);
 
@@ -235,8 +317,10 @@ export function effectRangeOf(lookup: Lookup, summary: Summary): string {
 /** "quickmark compared with markly, build time on 12 files: faster on 3 (1 likely), about the same on 8, slower on 1." */
 export function summaryClaimOf(lookup: Lookup, summary: Summary): string {
   const metric = lookup.metricById.get(summary.metric)!;
-  const pair = `${lookup.candidateName.get(summary.candidate)} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
-  const counts = verdictBarsOf(metric, summary.comparisons)
+  const pair = summary.standings
+    ? lookup.candidateName.get(summary.candidate)
+    : `${lookup.candidateName.get(summary.candidate)} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
+  const counts = barsOf(metric, summary)
     .filter((bar) => bar.count > 0)
     .map((bar) => `${bar.words} on ${bar.count}${bar.likely > 0 ? ` (${bar.likely} likely)` : ""}`);
 
@@ -248,6 +332,19 @@ export function summaryKeyOf(lookup: Lookup, chart: SummaryChart): string {
   const parts = partsOf(lookup, chart.summaries[0]);
   const baseline = lookup.candidateName.get(lookup.results.baseline);
   const words = directionWordsOf(lookup.metricById.get(chart.metric)!);
+
+  if (chart.count === "best") {
+    const among = `among the ${chart.summaries.length}`;
+
+    switch (chart.drawing) {
+      case "diverging-bar":
+        return `Each bar: the ${parts}, by where the candidate stands ${among}; best to the right of the line, behind to the left.`;
+      case "stacked-bar":
+        return `Each bar: the ${parts}, by where the candidate stands ${among}.`;
+      case "grouped-bar":
+        return `Each bar: on how many of the ${parts} the candidate stood there, ${among}.`;
+    }
+  }
 
   switch (chart.drawing) {
     case "diverging-bar":
@@ -261,8 +358,8 @@ export function summaryKeyOf(lookup: Lookup, chart: SummaryChart): string {
 
 /** The legend of a summary chart, in the order its bars read from left to right; "likely" when some part only likely is. */
 export function legendOf(metric: Metric, chart: SummaryChart): { side: BarSide | "likely"; words: string }[] {
-  const everyBar = chart.summaries.flatMap((summary) => verdictBarsOf(metric, summary.comparisons));
-  const present = verdictBarsOf(metric, chart.summaries[0].comparisons).filter(
+  const everyBar = chart.summaries.flatMap((summary) => barsOf(metric, summary));
+  const present = barsOf(metric, chart.summaries[0]).filter(
     (bar) => bar.side !== "unclear" || everyBar.some((other) => other.side === "unclear" && other.count > 0),
   );
   const order: BarSide[] =
@@ -300,9 +397,7 @@ const UNCLEAR_GAP_SHARE = 0.05;
  * set apart after the bar. A likely part sits next to the line and its firm part outside, as the stronger answers do.
  */
 export function barLayoutOf(metric: Metric, chart: SummaryChart): BarLayout {
-  const barsBySide = chart.summaries.map(
-    (summary) => new Map(verdictBarsOf(metric, summary.comparisons).map((bar) => [bar.side, bar] as const)),
-  );
+  const barsBySide = chart.summaries.map((summary) => new Map(barsOf(metric, summary).map((bar) => [bar.side, bar] as const)));
   const countOn = (bars: Map<BarSide, VerdictBar>, side: BarSide) => bars.get(side)?.count ?? 0;
 
   if (chart.drawing !== "diverging-bar") {
@@ -366,7 +461,7 @@ export function countGroupsOf(
     words,
     bars: chart.summaries.map((summary) => ({
       summary,
-      bar: verdictBarsOf(metric, summary.comparisons).find((bar) => bar.side === side) ?? {
+      bar: barsOf(metric, summary).find((bar) => bar.side === side) ?? {
         side: side as BarSide,
         words,
         count: 0,

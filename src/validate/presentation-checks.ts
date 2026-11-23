@@ -21,6 +21,7 @@ interface Block {
   node?: string;
   filters?: string[];
   candidates?: unknown;
+  count?: string;
   metric?: string;
   show?: string[];
   effect_format?: EffectFormat;
@@ -167,17 +168,41 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
 
     if (block.type === "summary") {
       const named = Array.isArray(block.candidates) ? (block.candidates as unknown[]) : undefined;
-      const strangers = (named ?? []).filter((candidate) => !knownIds.candidate.has(String(candidate)) || candidate === results.baseline);
+      const countsBest = block.count === "best";
+      const strangers = (named ?? []).filter(
+        (candidate) => !knownIds.candidate.has(String(candidate)) || (!countsBest && candidate === results.baseline),
+      );
 
       if (strangers.length > 0)
         error(
           "S7",
           `${path}.candidates`,
-          `${strangers.map((candidate) => `"${String(candidate)}"`).join(", ")}: not a candidate compared with the baseline`,
+          `${strangers.map((candidate) => `"${String(candidate)}"`).join(", ")}: not a candidate ${countsBest ? "of the benchmark" : "compared with the baseline"}`,
         );
       else if (!knownIds.metric.has(block.metric ?? ""))
         error("S7", `${path}.metric`, `"${String(block.metric)}" is not the id of a metric`);
-      else
+      else if (countsBest) {
+        const [summary] = summaryChartOf(results, {
+          metric: block.metric!,
+          candidates: named as string[] | undefined,
+          count: "best",
+        }).summaries;
+        const parts = summary?.standings?.length ?? 0;
+        const levels = summary ? [...levelsOf(results, summary)] : [];
+
+        if (parts === 0)
+          error(
+            "S11",
+            path,
+            `a summary that counts who is best needs every pair of its candidates compared on "${String(block.metric)}": set analysis.pairs to "all", or name the pairs, and run astrolabe compute`,
+          );
+        else if (levels.length > 1)
+          error(
+            "S11",
+            path,
+            `the parts counted on "${String(block.metric)}" sit on several levels (${levels.map((level) => level ?? "the whole benchmark").join(", ")}): a summary counts one level, so that a total is not counted with its parts`,
+          );
+      } else
         for (const summary of summaryChartOf(results, { metric: block.metric!, candidates: named as string[] | undefined }).summaries) {
           const counted = summary.comparisons;
           const levels = [...levelsOf(results, summary)];

@@ -873,7 +873,7 @@
   {
     "id": "V13",
     "level": "should",
-    "text": "To show who wins, chart the difference itself with its interval and the minimum meaningful difference as a band, rather than leaving the reader to compare two overlapping intervals. When the comparison is paired, two separate intervals cannot show the result at all: the page must then show it as an effect chart, a comparison-rows chart or a headline.",
+    "text": "To show who wins, chart the difference itself with its interval and the minimum meaningful difference as a band, rather than leaving the reader to compare two overlapping intervals. When the comparison is paired, two separate intervals cannot show the result at all: the page must then show it as an effect chart, a comparison-rows chart, a headline, or a results chart whose candidates are compared pair by pair.",
     "pitfall": "Winners read from overlapping or non-overlapping error bars",
     "proved_by": "comparisons[].paired (checked by the generator)",
     "explained_in": "visualization/charts.md"

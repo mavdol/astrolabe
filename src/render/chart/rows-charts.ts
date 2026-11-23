@@ -42,6 +42,8 @@ import {
   type ValueGroup,
 } from "./chart-data.js";
 import { rowsPlot, type Box, type PlotGroup, type PlotRow } from "./rows-plot.js";
+import { standingsOn } from "../standing.js";
+import { displayUnitOf, roundTopAbove } from "../units.js";
 
 /** Bars side by side stop being told apart beyond the ink and three greys. */
 const LARGEST_GROUPED_BAR_CANDIDATES = THEME.light.series.length;
@@ -149,6 +151,123 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
 }
 
 /** The change of each candidate against the baseline, with its interval and the band of changes too small to matter. */
+/** Rows whose tops differ more than this share one scale badly: each then gets its own, from zero. */
+const LARGEST_SHARED_SCALE_RATIO = 5;
+
+/**
+ * What each candidate measured on each part, side by side: a bar from zero per candidate, its interval and its figure,
+ * on the same footing for every candidate. Parts of very different sizes each get their own scale and unit; "best"
+ * and "behind" are written where the comparisons between the candidates say so, and candidates too close to separate
+ * are left unmarked, as most usually are.
+ */
+export function resultsContent(inputs: ChartInputs): ChartContent {
+  const { block, lookup } = inputs;
+  const metric = metricOf(block, lookup);
+
+  if (block.scale?.type === "log") throw new ChartError("V9", `block "${block.id}": results are bars from zero, so they have no log scale`);
+
+  if (block.scale?.zero === false)
+    throw new ChartError("D1", `block "${block.id}": results are bars from zero; remove scale.zero, or use dot-interval`);
+
+  const groups = valueGroupsOf({ ...block, sort: block.sort ?? "declared" }, inputs.benchmark, lookup, inputs.filterState);
+  const values = groups.flatMap((group) => group.values);
+
+  if (values.some((value) => value.value < 0))
+    throw new ChartError("D1", `block "${block.id}": a bar starts at zero, so it cannot show a negative value; use dot-interval`);
+
+  const series = seriesOf(inputs);
+  const colours = THEME[inputs.mode];
+  const highestOf = (group: ValueGroup) => Math.max(...group.values.map((value) => value.ci?.[1] ?? value.value));
+  const tops = groups.map((group) => highestOf(group));
+  const sharesOneScale = groups.length === 1 || Math.max(...tops) < LARGEST_SHARED_SCALE_RATIO * Math.min(...tops);
+  const sharedUnit = displayUnitOf(metric.unit, Math.max(...tops));
+  const unitOfGroup = (index: number) => (sharesOneScale ? sharedUnit : displayUnitOf(metric.unit, tops[index]));
+  const decimalsIn = (value: Value, factor: number) => {
+    const decimals = labelDecimals(metric, value);
+
+    return decimals === null ? null : Math.max(0, decimals - Math.round(Math.log10(factor)));
+  };
+  const plotGroups: PlotGroup[] = groups.map((group, index) => {
+    const { unit, factor } = unitOfGroup(index);
+    const digits = finestDecimals(group.values.map((value) => decimalsIn(value, factor)));
+    const standings = standingsOn(
+      lookup.results,
+      metric.id,
+      group.node,
+      group.values.map((value) => value.candidate),
+    );
+
+    return {
+      heading: group.heading,
+      rows: group.values.map((value) => {
+        const standing = standings?.get(value.candidate);
+
+        return {
+          label: candidateNameOf(lookup, value.candidate),
+          key: `${group.node ?? ""}|${value.candidate}`,
+          candidate: value.candidate,
+          series: series.get(value.candidate)!,
+          value: value.value * factor,
+          interval: value.ci ? [value.ci[0] * factor, value.ci[1] * factor] : undefined,
+          valueText: `${formatNumber(value.value * factor, digits)} ${unit}`,
+          note:
+            [standing === "best" || standing === "behind" ? standing : "", value.source === "declared" ? "declared" : ""]
+              .filter(Boolean)
+              .join(", ") || undefined,
+          noteColour: standing === "best" ? colours.good : undefined,
+        };
+      }),
+    };
+  });
+  const groupScales = sharesOneScale
+    ? undefined
+    : groups.map((_group, index) => {
+        const { unit, factor } = unitOfGroup(index);
+        const top = roundTopAbove(tops[index] * factor);
+
+        return { top, label: `0 to ${formatNumber(top, null)} ${unit}` };
+      });
+  const sharedTop = roundTopAbove(Math.max(...tops) * sharedUnit.factor);
+  const observations = values.filter((value) => value.n !== undefined).map((value) => value.n!);
+  const standingWritten = plotGroups.some((group) => group.rows.some((row) => /best|behind/.test(row.note ?? "")));
+  const howToReadParts: ReadingPart[] = [
+    { text: inputs.compact ? "" : sentence(metric.definition) },
+    {
+      mark: "bar",
+      markName: "Each bar",
+      text: `the ${statisticWord(metric)}${observations.length > 0 ? ` of ${rangeOf(observations)} observations` : ""}, from zero; ${directionWords(metric)}.`,
+    },
+    intervalPart(values),
+    {
+      text: groupScales
+        ? `Each ${groups[0].heading ? "part" : "row"} has its own scale, from zero to the figure beside its name, so bars are compared within a part, not across parts.`
+        : "",
+    },
+    {
+      text: standingWritten
+        ? "Best: better than every other candidate on that part; behind: another candidate is better there. The others are too close to separate."
+        : "",
+    },
+    { text: caveatSentences(lookup, metric, comparisonsOn(metric, lookup)) },
+  ];
+
+  return {
+    plot: rowsPlot({
+      groups: plotGroups,
+      mark: "bar",
+      extent: [0, sharedTop],
+      tickText: (value, tickDecimals) => formatNumber(value, tickDecimals),
+      ...(groupScales ? { groupScales } : {}),
+    }),
+    subtitle: `${metric.label}, ${statisticWord(metric)}${groupScales ? "" : ` in ${sharedUnit.unit}`} · ${directionWords(metric)}`,
+    howToRead: howToReadOf(howToReadParts),
+    howToReadParts,
+    kind: `Bar chart of ${lowerFirstLetterOfWord(metric.label)}, every candidate side by side${groups.length > 1 ? " on each part" : ""}`,
+    table: valueTable(inputs, groups, finestDecimals(values.map((value) => valueDecimals(metric, value)))),
+    axisExtent: [0, sharedTop],
+  };
+}
+
 export function effectsContent(inputs: ChartInputs): ChartContent {
   const { block, lookup } = inputs;
   const metric = metricOf(block, lookup);

@@ -239,6 +239,11 @@ export const resultsSchema = z.strictObject({
       outliers: z
         .strictObject({ rule: z.enum(["none", "tukey"]), k: z.number().positive().optional(), metrics: z.array(id).optional() })
         .optional(),
+      /**
+       * Which candidates are compared with which: each against the baseline (the default), every pair, or the pairs
+       * the question names, each "candidate" against "vs".
+       */
+      pairs: z.union([z.enum(["baseline", "all"]), z.array(z.strictObject({ candidate: id, vs: id })).min(1)]).optional(),
     })
     .optional(),
 

@@ -7,7 +7,7 @@ You plan the repetition and declare what is compared. `astrolabe compute` does a
 - How many runs
 - Levels of repetition (`runs.levels`)
 - What compute writes, and how to read a verdict
-- Primary and exploratory comparisons (`analysis.primary`)
+- Primary and exploratory comparisons (`analysis.primary`, `analysis.pairs`)
 - Outliers (`analysis.outliers`)
 - Failures
 - Variants tried
@@ -42,7 +42,7 @@ Repeat where the variance is. Ten iterations inside one process are not ten runs
 
 ## What compute writes, and how to read a verdict
 
-For every metric, candidate and node: the value, its interval, n, and the failures with their denominator. A run time also gets its lowest and highest run, and so does any value with too few observations for an interval: the report then shows that range in place of the interval. For every candidate against the baseline: the effect with the baseline in the denominator, its interval, and a verdict. A metric declares how it is compared: `"compare_as": "relative"` (percent of the baseline, for times, memory, cost) or `"difference"` (in the metric's unit, for shares and scores, where it reads in points).
+For every metric, candidate and node: the value, its interval, n, and the failures with their denominator. A run time also gets its lowest and highest run, and so does any value with too few observations for an interval: the report then shows that range in place of the interval. For every pair it compares (each candidate against the baseline by default, `analysis.pairs` below): the effect with the `vs` side in the denominator, its interval, and a verdict. A metric declares how it is compared: `"compare_as": "relative"` (percent of the baseline, for times, memory, cost) or `"difference"` (in the metric's unit, for shares and scores, where it reads in points).
 
 The verdict depends only on where the interval of the effect sits against the metric's `minimum_meaningful`, never on the point estimate:
 
@@ -57,7 +57,7 @@ An "inconclusive" or "equivalent" result is a result. Report it as it is; do not
 
 A usability comparison with fewer than 20 participants per candidate is marked indicative, and "better" or "worse" become "inconclusive".
 
-## Primary and exploratory comparisons (`analysis.primary`)
+## Primary and exploratory comparisons (`analysis.primary`, `analysis.pairs`)
 
 With many candidates, metrics and sub-groups, some "better" verdicts appear by chance. So the plan names, before measuring, the few comparisons the decision rests on:
 
@@ -66,7 +66,10 @@ With many candidates, metrics and sub-groups, some "better" verdicts appear by c
 ```
 
 - Without `analysis.primary`, every metric is primary, at the highest node where it has values. With a `structure`, each entry names its node. For run time, memory, CPU or energy over scripts of different sizes, name each script, not their parent (measurement/time.md).
-- Each entry is compared for every candidate against the baseline, so 2 entries and 4 candidates make 6 primary comparisons. Their intervals are widened together so that they hold jointly (95% becomes 97.5% for two, 98.75% for four): each added one costs precision. Keep them few.
+- Each entry is compared for every pair the plan compares: by default each candidate against the baseline, so 2 entries and 4 candidates make 6 primary comparisons. Their intervals are widened together so that they hold jointly (95% becomes 97.5% for two, 98.75% for four): each added one costs precision. Keep them few.
+- **Which pairs** comes from the question, not from the role of a candidate. For "leave A for B or C", the comparison that decides is B against C; A against each answers "how much do I gain by moving at all". For "which of these tools?", every pair counts. `"pairs": "all"` compares every pair (the baseline always on the `vs` side, otherwise the later candidate in `candidates[]` against the earlier); a list names them: `"pairs": [{ "candidate": "c", "vs": "b" }]`. A summary that says who is best on each part needs every pair.
+- The cost: k candidates make k − 1 comparisons against one baseline, k(k − 1)/2 for every pair (3 for three candidates instead of 2, 6 for four, 10 for five). Each widens every primary interval a little: with three candidates on twelve parts and two metrics, 48 primary comparisons become 72 and each interval is about 3% wider. Past four candidates, name the pairs that decide rather than every pair, and say what the extra comparisons cost.
+- The more primary comparisons, the more resamples compute draws for each, so that the ends of their adjusted intervals stay steady (96,000 each for 48 comparisons): compute takes longer, never less precise.
 - Every other comparison is computed too and labelled exploratory. An exploratory result can be shown and can suggest what to test next; it never carries a headline, a recommendation or the word "winner".
 - When the data already exists (logs someone hands you), choose the primary comparisons before looking at the breakdown, and say in `limitations` that they were chosen after the measurement.
 

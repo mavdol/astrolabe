@@ -8,7 +8,7 @@ import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { checkCharts } from "../src/validate/chart-checks.js";
 import { checkPresentation } from "../src/validate/presentation-checks.js";
 import { validate } from "../src/validate/validate.js";
-import { planOf, rawFileOf, scriptsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
+import { planOf, rawFileOf, scriptsBenchmarkOf, versionsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 
 const ALL_EXAMPLES = readdirSync("examples").filter((folder) => existsSync(`examples/${folder}/benchmark.json`));
 const isComputed = (id: string) => JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")).results.computed !== undefined;
@@ -560,5 +560,56 @@ describe("validate after compute on a hand-built file", () => {
 
     expect(report.issues).toEqual([]);
     expect(results.comparisons![0]).toMatchObject({ effect: 5, verdict: "better" });
+  });
+});
+
+describe("pairs of candidates", () => {
+  it("refuses a pair naming a stranger, a candidate against itself, or the same pair twice", () => {
+    const pairs = [
+      { candidate: "new", vs: "nobody" },
+      { candidate: "new", vs: "new" },
+      { candidate: "new", vs: "base" },
+      { candidate: "base", vs: "new" },
+    ];
+    const { issues } = validate({ schema_version: "0.5", results: planOf({ analysis: { pairs } }) } as Benchmark, {});
+
+    expect(issues.filter((issue) => issue.path.startsWith("results.analysis.pairs")).map((issue) => [issue.path, issue.message])).toEqual([
+      ["results.analysis.pairs[0]", '"nobody": not the id of a candidate'],
+      ["results.analysis.pairs[1]", '"new" is compared with itself'],
+      ["results.analysis.pairs[3]", '"base" and "new" are already compared: each pair once'],
+    ]);
+  });
+
+  it("refuses a summary of who is best when its candidates are not all compared with each other", () => {
+    const summary = { id: "summary", type: "summary", metric: "wall_time", count: "best" };
+    const againstTheBaseline = { ...versionsBenchmarkOf(3, { pairs: "baseline" }), blocks: [summary] } as Benchmark;
+    const everyPair = { ...versionsBenchmarkOf(3), blocks: [summary] } as Benchmark;
+
+    expect(checkPresentation(againstTheBaseline).map((issue) => [issue.rule, issue.message])).toEqual([
+      [
+        "S11",
+        'a summary that counts who is best needs every pair of its candidates compared on "wall_time": set analysis.pairs to "all", or name the pairs, and run astrolabe compute',
+      ],
+    ]);
+    expect(checkPresentation(everyPair)).toEqual([]);
+  });
+});
+
+describe("results drawn side by side", () => {
+  const results = { id: "results", type: "chart", chart: "results", metric: "wall_time", breakdown: "script", title: "Wall time" };
+  const paired = (benchmark: Benchmark) => {
+    for (const comparison of benchmark.results.comparisons!) comparison.paired = true;
+
+    return { ...benchmark, blocks: [results] } as Benchmark;
+  };
+
+  it("states paired results in words where every pair is compared, and leaves them to V13 where only the baseline is", () => {
+    const everyPair = checkCharts(paired(versionsBenchmarkOf(2)), {});
+    const againstTheBaseline = checkCharts(paired(versionsBenchmarkOf(2, { pairs: "baseline" })), {});
+
+    expect(everyPair.filter((issue) => issue.rule === "V13")).toEqual([]);
+    expect(againstTheBaseline.filter((issue) => issue.rule === "V13").map((issue) => issue.message)).toContain(
+      '"wall_time__script-1__mid" is paired, so two separate intervals cannot show its result: show it as a headline, an effect chart or a comparison-rows chart too',
+    );
   });
 });
