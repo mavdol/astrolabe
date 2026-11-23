@@ -1,5 +1,5 @@
-import { parseRaw, type RawFile } from "../src/compute/compute.js";
-import { resultsSchema, type Benchmark, type Results } from "../src/schema/benchmark.js";
+import { compute, parseRaw, type RawFile } from "../src/compute/compute.js";
+import { resultsSchema, SCHEMA_VERSION, type Benchmark, type Results } from "../src/schema/benchmark.js";
 
 type RawRowInput = Record<string, string | number | null>;
 
@@ -89,4 +89,43 @@ export function withTasksAsPrimary(support: Benchmark): Benchmark {
   );
 
   return support;
+}
+
+/**
+ * A computed benchmark of several scripts side by side, "new" against "base" on wall time: script i takes
+ * 0.1 × (i + 1) s on base, and new is 20% faster on even scripts, 20% slower on odd ones.
+ */
+export function scriptsBenchmarkOf(scriptCount: number): Benchmark {
+  const scripts = Array.from({ length: scriptCount }, (_, index) => `script-${index + 1}`);
+  const plan = planOf({
+    structure: { levels: ["script"], nodes: scripts.map((id, index) => ({ id, level: "script", label: `Script ${index + 1}` })) },
+    metrics: [
+      {
+        id: "wall_time",
+        label: "Wall time",
+        unit: "s",
+        direction: "lower",
+        kind: "run_time",
+        statistic: "median",
+        compare_as: "relative",
+        minimum_meaningful: 10,
+        failures_count_as: "excluded",
+        from: { raw: "data", measure: "wall_time" },
+      },
+    ],
+    levels: [{ level: "process", field: "run", planned: 12 }],
+  });
+  const rows = scripts.flatMap((node, scriptIndex) =>
+    (["base", "new"] as const).flatMap((candidate) =>
+      Array.from({ length: 12 }, (_, run) => ({
+        candidate,
+        node,
+        measure: "wall_time",
+        value: 0.1 * (scriptIndex + 1) * (candidate === "new" ? (scriptIndex % 2 === 0 ? 0.8 : 1.2) : 1) * (1 + (run - 6) / 1000),
+        run: run + 1,
+      })),
+    ),
+  );
+
+  return { schema_version: SCHEMA_VERSION, results: compute(plan, { data: rawFileOf(rows) }) } as Benchmark;
 }

@@ -1016,7 +1016,7 @@
   {
     "id": "V31",
     "level": "must",
-    "text": "In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures.",
+    "text": "In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures; in a table of effects, each effect's interval.",
     "pitfall": "A bare score with nothing to weigh it by",
     "proved_by": "blocks[].show",
     "explained_in": "visualization/style.md"
@@ -1088,7 +1088,7 @@
   {
     "id": "V40",
     "level": "should",
-    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, or filter.",
+    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, or show it as a table: an effect chart of more than 8 rows becomes a table of effects.",
     "pitfall": "A chart that shows everything and says nothing",
     "proved_by": "blocks[]",
     "explained_in": "visualization/page.md"

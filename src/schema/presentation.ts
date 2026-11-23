@@ -89,6 +89,8 @@ const tableBlock = z.strictObject({
   node: id.optional(),
   rows: text.optional(),
   columns: z.literal("candidate").optional(),
+  /** What each cell holds: the values (the default), or each candidate's change against the baseline with its verdict. */
+  cells: z.enum(["values", "effects"]).optional(),
   show: z.array(z.enum(["n", "ci", "failures", "evidence"])).min(1),
 });
 

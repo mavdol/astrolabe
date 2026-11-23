@@ -89,9 +89,20 @@ A reader remembers the title more than the chart, so a title states the finding,
 | `metrics` | One or more metric ids |
 | `rows` | A level of `structure`: one row per node of that level. Left out, one row for `node` (or the whole benchmark) |
 | `columns` | `candidate` |
-| `show` | What sits under each value: `n`, `ci`, `failures`, and `evidence` (a link to the raw file). `n` always, `ci` when values have intervals, `failures` when any attempt failed: `validate` refuses a table without them |
+| `cells` | `values` (the default): each candidate's value. `effects`: each compared candidate's change against the baseline, with its verdict in its colour and a bar from zero |
+| `show` | What sits under each value: `n`, `ci`, `failures`, and `evidence` (a link to the raw file). `n` always, `ci` when values have intervals, `failures` when any attempt failed: `validate` refuses a table without them. A table of effects needs only `ci` |
 
-The generator aligns figures on the right with the same decimals down a column, rounds each value to what its interval supports, marks declared values as declared and writes "successful attempts only" where failures are left out. Past about 20 rows or 8 columns, prefer a `shaded-table` chart or a sort, and keep the full table in `dist/benchmark.md`.
+A **table of effects** is how a long breakdown is shown: one row per node, one column per compared candidate and metric, so twelve scripts compared on two metrics fit in twelve rows. Use it instead of an `effect` chart beyond 8 rows; `validate` warns past that.
+
+```json
+{
+  "blocks": [
+    { "id": "table-effects", "type": "table", "metrics": ["wall_time", "peak_rss"], "rows": "script", "cells": "effects", "show": ["ci"] }
+  ]
+}
+```
+
+The generator aligns figures on the right with the same decimals down a column, rounds each value to what its interval supports, marks declared values as declared and writes "successful attempts only" where failures are left out. Past about 20 rows or 8 columns, prefer a table of effects, a `shaded-table` chart or a sort, and keep the full table in `dist/benchmark.md`.
 
 ## Rules
 
@@ -112,6 +123,6 @@ The generator aligns figures on the right with the same decimals down a column, 
 | V28 | Should | Label candidates on the chart itself instead of a separate legend. Put the overall message in the title, and statistics or context next to the data point they describe. | Eyes going back and forth to a legend; a message stated far from its evidence | blocks[].annotations |
 | V29 | Should | Lay tables out for comparison: numbers right-aligned with the same number of decimals down a column, text left-aligned, the unit once in the header, headers set apart, light dividers, the row or cell that matters highlighted. | Numbers that cannot be compared by eye down a column | enforced by the generator |
 | V30 | Should | Show no more digits than the uncertainty supports: round a value to the decimal of the first significant digit of its standard error, and show the interval with the same decimals. Percentages: whole numbers, one decimal below 10%. | 82.4137% displayed for a result known to within 5 points | enforced by the generator |
-| V31 | Must | In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures. | A bare score with nothing to weigh it by | blocks[].show |
+| V31 | Must | In any table of results, keep the columns that let the reader judge the number: items, runs, interval, failures; in a table of effects, each effect's interval. | A bare score with nothing to weigh it by | blocks[].show |
 | V32 | Should | When a table grows past about 20 rows or 8 columns, shade the cells (V23), sort it, or replace it with a chart; keep the full table one click away. | A wall of numbers nobody reads | blocks[].type |
 | V56 | Must | Never present a declared figure like a computed one. The generator marks every declared value "declared" wherever it appears (label, table cell, headline, export), writes "likely" and "exploratory" with the verdicts they qualify, writes "successful attempts only" next to every result that leaves failures out and a visible warning when the candidates' failure shares differ, and lists in the methodology block what was computed from raw data and what was only declared, with the number of comparisons of each kind. | A typed-in figure or an unchecked declaration read with the same trust as a computed result | values[].source, comparisons[].qualifier and .role (generated) |

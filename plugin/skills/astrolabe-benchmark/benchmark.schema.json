@@ -1792,6 +1792,13 @@
                 "type": "string",
                 "const": "candidate"
               },
+              "cells": {
+                "type": "string",
+                "enum": [
+                  "values",
+                  "effects"
+                ]
+              },
               "show": {
                 "minItems": 1,
                 "type": "array",

@@ -223,6 +223,19 @@ td:not(.text) { white-space: nowrap; }
 .value-table .cell-detail { margin-top: 4px; white-space: normal; min-width: 160px; }
 .value-table thead th[data-candidate]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--series, var(--ink)); }
 .cell-line { display: flex; align-items: center; gap: 10px; }
+.effects-table thead td { border: 0; }
+.effects-table thead th[scope="colgroup"] { font-family: ${MONO}; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 400; color: var(--secondary); }
+.effects-table .effect-cell { color: var(--secondary); }
+.effects-table .effect-cell.good { color: var(--good); }
+.effects-table .effect-cell.bad { color: var(--bad); }
+.effects-table .effect-cell .cell-value { min-width: 52px; color: inherit; }
+.effects-table .cell-detail { min-width: 0; white-space: nowrap; }
+.effects-table .cell-detail.dim { margin-top: 2px; color: var(--quiet); }
+.effect-bar { position: relative; flex: 0 0 56px; height: 10px; background: linear-gradient(var(--rule-strong), var(--rule-strong)) 50% 0 / 1px 100% no-repeat; }
+.effect-bar i { position: absolute; top: 2px; height: 6px; border-radius: 1px; background: currentColor; opacity: 0.85; }
+.effect-cell:not(.firm) .effect-bar i { opacity: 0.45; }
+.effect-verdict { font-family: ${MONO}; font-size: 12px; white-space: nowrap; }
+.table-note { margin: 14px 0 0; font-family: ${MONO}; font-size: 12px; line-height: 18px; color: var(--secondary); }
 .value-table .cell-value { min-width: 44px; font-family: ${MONO}; font-weight: 500; font-size: 14px; }
 .cell-ci { font-family: ${MONO}; font-size: 12px; color: var(--quiet); white-space: nowrap; }
 .cell-bar { position: relative; flex: 1 1 110px; min-width: 90px; max-width: 160px; height: 10px; background: linear-gradient(var(--rule-strong), var(--rule-strong)) center / 100% 1px no-repeat; color: var(--series, var(--ink)); }

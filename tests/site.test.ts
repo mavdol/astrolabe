@@ -13,7 +13,7 @@ import { answerOf } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
 import { THEME } from "../src/themes/astrolabe.js";
-import { planOf, rawFileOf, withTasksAsPrimary } from "./helpers.js";
+import { planOf, rawFileOf, scriptsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng } from "./png.js";
 
 const context = { generatorVersion: "0.2.0", buildDate: "2026-11-17" };
@@ -242,6 +242,31 @@ describe("the site", () => {
     expect(
       pageRowsOf({ ...loadBenchmark("support-assistant-eval"), blocks: undefined, layout: undefined })[0].map((block) => block.type),
     ).toEqual(["headline", "headline", "headline"]);
+  });
+
+  it("lays a table of effects out as one row per node: the change, its verdict in its colour, a bar from zero", () => {
+    const scripts = {
+      ...scriptsBenchmarkOf(3),
+      blocks: [{ id: "table-effects", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] }],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const cells = [...html.matchAll(/<td class="effect-cell ([^"]*)"[^>]*>(.*?)<\/td>/g)].map(([, classes, inside]) => [
+      classes,
+      /<span class="cell-value">([^<]*)</.exec(inside)![1],
+      /effect-verdict">([^<]*)</.exec(inside)![1],
+      /<span class="effect-bar"/.test(inside),
+    ]);
+
+    expect(html).toContain("Against base · by script");
+    expect([...html.matchAll(/<th scope="row">([^<]*)<\/th>/g)].map((match) => match[1])).toEqual(["Script 1", "Script 2", "Script 3"]);
+    expect(cells).toEqual([
+      ["good firm", "−20%", "better", true],
+      ["bad firm", "+20%", "worse", true],
+      ["good firm", "−20%", "better", true],
+    ]);
   });
 
   it("names the script of each claim when scripts sit side by side at the top of the structure", () => {

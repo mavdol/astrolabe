@@ -8,7 +8,7 @@ import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { checkCharts } from "../src/validate/chart-checks.js";
 import { checkPresentation } from "../src/validate/presentation-checks.js";
 import { validate } from "../src/validate/validate.js";
-import { planOf, rawFileOf, withTasksAsPrimary } from "./helpers.js";
+import { planOf, rawFileOf, scriptsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 
 const ALL_EXAMPLES = readdirSync("examples").filter((folder) => existsSync(`examples/${folder}/benchmark.json`));
 const isComputed = (id: string) => JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")).results.computed !== undefined;
@@ -272,6 +272,33 @@ describe("summaries in the presentation", () => {
     expect(
       rulesOf(checkPresentation({ ...benchmark, blocks: [...benchmark.blocks!, summary], layout: [[...headlineIds, "summary"]] })),
     ).not.toContain("V39");
+  });
+});
+
+describe("tables of effects", () => {
+  const withBlocks = (scriptCount: number, blocks: Record<string, unknown>[]) =>
+    checkPresentation(benchmarkSchema.parse({ ...scriptsBenchmarkOf(scriptCount), blocks }));
+
+  it("an effect chart longer than eight rows is a warning that points to a table of effects", () => {
+    const chart = { id: "chart", type: "chart", chart: "effect", metric: "wall_time", breakdown: "script", title: "Wall time by script" };
+
+    expect(
+      withBlocks(9, [chart])
+        .filter((issue) => issue.rule === "V40")
+        .map((issue) => issue.message),
+    ).toEqual([
+      'the effect chart draws 9 rows: beyond 8, a table of effects reads better, one row per script: a table block with "rows": "script", "cells": "effects"',
+    ]);
+    expect(rulesOf(withBlocks(8, [chart]))).not.toContain("V40");
+  });
+
+  it("a table of effects shows each effect's interval, and needs neither n nor failures", () => {
+    const table = (show: string[]) => ({ id: "table", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show });
+
+    expect(errorsOf(withBlocks(3, [table(["n"])])).map((issue) => [issue.rule, issue.message])).toEqual([
+      ["V31", 'the table of effects leaves out "ci": an effect is only weighed with its interval'],
+    ]);
+    expect(errorsOf(withBlocks(3, [table(["ci"])]))).toEqual([]);
   });
 });
 

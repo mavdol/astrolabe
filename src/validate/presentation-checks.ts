@@ -3,6 +3,7 @@ import { lookupOf, resolveTemplates, type EffectFormat } from "../render/describ
 import type { Benchmark, Comparison } from "../schema/benchmark.js";
 import { isAnswerBlock } from "../schema/presentation.js";
 import { levelsOf, summaryOf } from "../render/summary.js";
+import { defaultFilterState, nodesOf } from "../render/chart/chart-data.js";
 
 const TEMPLATE = /\{(\w+):([^}]+)\}/g;
 const TRUST_BLOCK_TYPES = new Set(["methodology", "environment", "limitations", "provenance"]);
@@ -16,6 +17,11 @@ interface Block {
   comparisons?: unknown;
   asserts?: unknown;
   metrics?: string[];
+  cells?: string;
+  chart?: string;
+  breakdown?: string;
+  node?: string;
+  filters?: string[];
   candidate?: string;
   metric?: string;
   show?: string[];
@@ -26,6 +32,8 @@ const LARGEST_ROW = 2;
 const LARGEST_HEADLINE_COUNT = 3;
 /** A claim read at a glance: one line on the page, the card and the images. */
 const LONGEST_TITLE = 60;
+/** An effect chart's rows (nodes times compared candidates): beyond them, the rows look alike and a table reads faster. */
+const LONGEST_EFFECT_CHART = 8;
 const BLOCKS_WITH_WRITTEN_TITLES = new Set(["headline", "chart", "text"]);
 
 function verdictLabel(comparison: Comparison): string {
@@ -100,6 +108,18 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
 
     const metrics = new Set(block.metrics ?? []);
     const show = new Set(block.show ?? []);
+
+    if (block.cells === "effects") {
+      const effects = (results.comparisons ?? []).filter((comparison) => metrics.has(comparison.metric));
+
+      if (effects.length === 0)
+        error("V31", `blocks[${blockIndex}].cells`, "a table of effects needs comparisons on its metrics: run astrolabe compute");
+      else if (!show.has("ci") && effects.some((comparison) => comparison.ci))
+        error("V31", `blocks[${blockIndex}].show`, 'the table of effects leaves out "ci": an effect is only weighed with its interval');
+
+      return;
+    }
+
     const values = (results.values ?? []).filter((value) => metrics.has(value.metric));
     const missing = [
       show.has("n") ? "" : "n",
@@ -167,6 +187,23 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
         `${path}.title`,
         "a number is typed in the title: numbers come from {effect:id}, and names that contain a digit from {metric:id}",
       );
+    }
+
+    if (block.type === "chart" && block.chart === "effect") {
+      const nodes = nodesOf(
+        { id: block.id, node: block.node, breakdown: block.breakdown, filters: block.filters },
+        benchmark,
+        lookup,
+        defaultFilterState(benchmark),
+      );
+      const rows = nodes.length * (results.candidates.length - 1);
+
+      if (rows > LONGEST_EFFECT_CHART)
+        warning(
+          "V40",
+          path,
+          `the effect chart draws ${rows} rows: beyond ${LONGEST_EFFECT_CHART}, a table of effects reads better, one row per ${block.breakdown ?? "node"}: a table block with ${block.breakdown ? `"rows": "${block.breakdown}", ` : ""}"cells": "effects"`,
+        );
     }
 
     if (BLOCKS_WITH_WRITTEN_TITLES.has(block.type) && typeof block.title === "string") {

@@ -248,6 +248,15 @@ function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefine
       return same(`${metric}${block.chart === "effect" ? ` against ${baseline}` : ""}${exploratory}`);
     }
     case "table":
+      if (block.cells === "effects") {
+        const by = block.rows ? ` · by ${block.rows}` : "";
+
+        return {
+          short: `Against ${baseline}${by}`,
+          full: `${block.metrics.map((metricId) => metricLabel(metricId)).join(", ")} against ${baseline}${by}`,
+        };
+      }
+
       return {
         short: "The numbers",
         full: `The numbers · ${block.metrics.map((metricId) => lowerFirstLetterOfWord(metricLabel(metricId))).join(", ")}`,
@@ -399,6 +408,87 @@ function barPositionsOf(extent: [number, number], value: number, interval: [numb
   return `--from: ${from}%; --to: ${to}%; --at: ${share(value)}%`;
 }
 
+/**
+ * Each candidate's change against the baseline, one row per node: the figure, its verdict in its colour and a bar
+ * from zero on one scale per metric, so a long breakdown reads down a column instead of across many chart rows.
+ */
+function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterState): string {
+  const { lookup, benchmark } = inputs;
+  const show = new Set(block.show);
+  const compared = lookup.results.candidates.filter((candidate) => candidate.id !== lookup.results.baseline);
+  const nodes = nodesOf({ id: block.id, node: block.node, breakdown: block.rows, filters: block.filters }, benchmark, lookup, state);
+  const comparisonOf = (metricId: string, node: string | undefined, candidate: string) =>
+    (lookup.results.comparisons ?? []).find(
+      (comparison) => comparison.metric === metricId && comparison.node === node && comparison.candidate === candidate,
+    );
+  const largestOf = (metricId: string) =>
+    Math.max(
+      ...nodes.flatMap((node) => compared.map((candidate) => Math.abs(comparisonOf(metricId, node, candidate.id)?.effect ?? 0))),
+      Number.EPSILON,
+    );
+  const several = block.metrics.length > 1;
+  const metricHeader = block.metrics.map((metricId) => {
+    const metric = lookup.metricById.get(metricId)!;
+
+    return `<th scope="colgroup" colspan="${compared.length}">${escapeHtml(`${metric.label} · ${directionWords(metric.direction)}`)}</th>`;
+  });
+  const candidateHeader = block.metrics.flatMap(() =>
+    compared.map((candidate) => `<th scope="col" data-candidate="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</th>`),
+  );
+  const rows = nodes.map((node) => {
+    const cells = block.metrics.flatMap((metricId) => {
+      const metric = lookup.metricById.get(metricId)!;
+      const largest = largestOf(metricId);
+
+      return compared.map((candidate) => {
+        const comparison = comparisonOf(metricId, node, candidate.id);
+
+        if (!comparison) return `<td data-candidate="${escapeHtml(candidate.id)}">—</td>`;
+
+        const { effect, interval } = effectAndInterval(metric, comparison);
+        const share = (Math.abs(comparison.effect) / largest) * 50;
+        const start = comparison.effect < 0 ? 50 - share : 50;
+        const exploratory = comparison.role === "exploratory" ? " (exploratory)" : "";
+
+        return [
+          `<td class="effect-cell ${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}" data-candidate="${escapeHtml(candidate.id)}">`,
+          '<span class="cell-line">',
+          `<span class="cell-value">${escapeHtml(effect)}</span>`,
+          `<span class="effect-bar" aria-hidden="true"><i style="left: ${start.toFixed(1)}%; width: ${share.toFixed(1)}%"></i></span>`,
+          "</span>",
+          `<span class="cell-detail effect-verdict">${escapeHtml(verdictLabel(comparison) + exploratory)}</span>`,
+          show.has("ci") && interval ? `<span class="cell-detail dim">${escapeHtml(interval)}</span>` : "",
+          "</td>",
+        ].join("");
+      });
+    });
+
+    return `<tr><th scope="row">${escapeHtml(node === undefined ? "All" : (lookup.nodeLabel.get(node) ?? node))}</th>${cells.join("")}</tr>`;
+  });
+  const shown = nodes.flatMap((node) =>
+    block.metrics.flatMap((metricId) => compared.flatMap((candidate) => comparisonOf(metricId, node, candidate.id) ?? [])),
+  );
+  const levels = [...new Set(shown.map((comparison) => comparison.ci_level).filter((level) => level !== undefined))];
+  const adjusted = shown.length > 0 && shown.every((comparison) => comparison.adjusted);
+  const baselineName = lookup.candidateName.get(lookup.results.baseline);
+  const note = [
+    `The change against ${baselineName}; each verdict is read from its interval`,
+    levels.length === 1
+      ? ` (${formatLevel(levels[0]!)}%${adjusted ? `, adjusted for ${lookup.results.computed?.primary_comparisons ?? shown.length} primary comparisons` : ""})`
+      : "",
+    ` and the smallest difference that matters. Bars are drawn from zero, on one scale per metric.`,
+  ].join("");
+  const levelName = block.rows ? block.rows.charAt(0).toUpperCase() + block.rows.slice(1) : "";
+
+  return [
+    '<div class="table-scroll"><table class="value-table effects-table">',
+    `<thead>${several ? `<tr><td></td>${metricHeader.join("")}</tr>` : ""}<tr><th scope="col">${escapeHtml(levelName)}</th>${candidateHeader.join("")}</tr></thead>`,
+    `<tbody>\n${rows.join("\n")}\n</tbody>`,
+    "</table></div>",
+    `<p class="table-note">${escapeHtml(note)}</p>`,
+  ].join("\n");
+}
+
 function tableHtml(block: TableBlock, inputs: PageInputs, number: string): string {
   const { lookup, benchmark } = inputs;
   const show = new Set(block.show);
@@ -458,7 +548,7 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
         ].join("\n");
       })
       .join("\n");
-  const body = viewsOf(block, inputs, view);
+  const body = viewsOf(block, inputs, block.cells === "effects" ? (state) => effectsTableView(block, inputs, state) : view);
   const title = block.title
     ? resolveTemplates(block.title, lookup)
     : block.metrics.map((metricId) => lookup.metricById.get(metricId)!.label).join(", ");
