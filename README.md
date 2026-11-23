@@ -21,7 +21,7 @@
 
 Astrolabe lets your agent run benchmarks and showcase the results. Ask how your options compare for your use case, including whether one is actually better. Your agent designs the comparison, measures the differences, then turns the results into a page, a card for your README and charts.
 
-It combines a skill and a command-line tool. The skill brings together best practices for measurement, statistics and presentation, each traced to its [sources](plugin/skills/astrolabe-benchmark/sources.md), so the agent has a clear process to follow. The `astrolabe` command computes every number from the raw data and renders the outputs. Since the agent writes code and declarations but never numbers, every claim can be checked.
+It combines a skill and a command-line tool. The skill brings together best practices for measurement, statistics and presentation so the agent has a clear process to follow. The `astrolabe` command computes every number from the raw data and renders the outputs. Since the agent writes code and declarations but never numbers, every claim can be checked.
 
 <table>
   <tr>
