@@ -66,7 +66,7 @@ export interface PageInputs {
   sectionLabels: Map<string, string>;
   /** Whether the page lists the described parts of the structure, so that tables can link each part to its description. */
   listsParts: boolean;
-  /** Who the top of the page names as compared ("Node 24 compared with Node 22"), so a block below does not say it again. */
+  /** Who the top of the page names as compared ("quickmark compared with markly"), so a block below does not say it again. */
   titlePair?: string;
 }
 

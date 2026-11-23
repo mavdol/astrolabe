@@ -19,7 +19,7 @@ Start from the question the reader brings, not from the data you have: write it 
 | The reader asks | `chart` | Fields it needs | Not when |
 | --- | --- | --- | --- |
 | "So which one?": one comparison answers the goal | no chart: a headline block | `comparison` (see page.md) | |
-| "So which one, across all these scripts?": the answer is a pattern over more than three primary comparisons on one level | a summary block: a stacked bar per candidate counting its results | `metric`; `candidates` to show fewer (see page.md) | three comparisons or fewer: headlines |
+| "So which one, across all these tasks?": the answer is a pattern over more than three primary comparisons on one level | a summary block: a stacked bar per candidate counting its results | `metric`; `candidates` to show fewer (see page.md) | three comparisons or fewer: headlines |
 | "Is it better, and by how much?" | `effect` | `metric` | the comparisons are on different metrics: `comparison-rows` |
 | "Where does the gap come from?" | `effect` with `breakdown` | `metric`, `breakdown` (a level: category, task, size) | the level has one node: the headline already says it; more than 8 rows (nodes times compared candidates): a table of effects (style.md) |
 | "Did this release improve, metric by metric?" | `comparison-rows` | `comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2× | more than 10 rows: a table |

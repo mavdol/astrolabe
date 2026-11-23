@@ -20,7 +20,7 @@ export const pluralOf = (word: string) =>
 
 /**
  * The answer when it is a pattern rather than one result: every primary comparison of one candidate on one
- * metric, such as a new version's run time on each of twelve scripts.
+ * metric, such as one candidate's build time on each of thirty files.
  */
 export interface Summary {
   candidate: string;
@@ -80,7 +80,7 @@ export function summaryChartsOf(results: Results): SummaryChart[] {
 /** Every comparison a summary chart counts. */
 export const comparisonsOfChart = (chart: SummaryChart) => chart.summaries.flatMap((summary) => summary.comparisons);
 
-/** "Node.js 24 and Node.js 26 compared with Node.js 22": who a summary chart compares, with whom. */
+/** "Model A and Model C compared with Model B": who a summary chart compares, with whom. */
 export function chartPairOf(lookup: Lookup, chart: SummaryChart): string {
   const names = chart.summaries.map((summary) => lookup.candidateName.get(summary.candidate) ?? summary.candidate);
   const listed = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
@@ -88,7 +88,7 @@ export function chartPairOf(lookup: Lookup, chart: SummaryChart): string {
   return `${listed} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
 }
 
-/** "12 workloads": how many parts the summary counts, named after their level. */
+/** "12 files": how many parts the summary counts, named after their level. */
 export function partsOf(lookup: Lookup, summary: Summary): string {
   const level = lookup.results.structure?.nodes.find((node) => node.id === summary.comparisons[0]?.node)?.level;
   const count = summary.comparisons.length;
@@ -208,7 +208,7 @@ export function effectRangeOf(lookup: Lookup, summary: Summary): string {
   return `From ${sizeOf(bestText.effectNumber)} ${sideOf(best.effect)} to ${sizeOf(worstText.effectNumber)} ${sideOf(worst.effect)}`;
 }
 
-/** "Node.js 24 compared with Node.js 22, run time on 12 workloads: faster on 3 (1 likely), about the same on 8, slower on 1." */
+/** "quickmark compared with markly, build time on 12 files: faster on 3 (1 likely), about the same on 8, slower on 1." */
 export function summaryClaimOf(lookup: Lookup, summary: Summary): string {
   const metric = lookup.metricById.get(summary.metric)!;
   const pair = `${lookup.candidateName.get(summary.candidate)} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
@@ -219,7 +219,7 @@ export function summaryClaimOf(lookup: Lookup, summary: Summary): string {
   return `${pair}, ${lowerFirstLetterOfWord(metric.label)} on ${partsOf(lookup, summary)}: ${counts.join(", ")}.`;
 }
 
-/** "Each bar: the 12 workloads, by their result against Node.js 22.": what a bar of a summary chart stands for. */
+/** "Each bar: the 12 files, by their result against markly.": what a bar of a summary chart stands for. */
 export function stacksKeyOf(lookup: Lookup, chart: SummaryChart): string {
   return `Each bar: the ${partsOf(lookup, chart.summaries[0])}, by their result against ${lookup.candidateName.get(lookup.results.baseline)}.`;
 }

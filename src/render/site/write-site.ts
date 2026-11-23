@@ -96,7 +96,7 @@ export const LONGEST_TITLE_PAIR = 50;
 
 /** The top of the page: a short pair after the question, and the answer in words for link previews and search results. */
 export interface Answer {
-  /** "Node.js 24 compared with Node.js 22", left out when longer than LONGEST_TITLE_PAIR. */
+  /** "quickmark compared with markly", left out when longer than LONGEST_TITLE_PAIR. */
   pair?: string;
   /** The claim the page leads with, then a count of the other primary comparisons. */
   description?: string;
