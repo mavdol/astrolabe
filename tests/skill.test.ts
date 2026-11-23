@@ -108,6 +108,22 @@ describe("the rules in the skill", () => {
     expect(differing).toEqual([]);
   });
 
+  it("names where every rule comes from: a source, or our own decision", () => {
+    const listed = new Set<string>();
+
+    for (const [, prefix, first, last] of textOf("sources.md").matchAll(
+      /(?<![A-Za-z0-9-])([A-Z])(\d{1,2})(?:–[A-Z](\d{1,2}))?(?![A-Za-z0-9])/g,
+    )) {
+      for (let number = Number(first); number <= Number(last ?? first); number++) listed.add(`${prefix}${number}`);
+    }
+
+    expect(
+      allRules()
+        .filter((entry) => !listed.has(entry.id))
+        .map((entry) => entry.id),
+    ).toEqual([]);
+  });
+
   it("mentions no rule that does not exist", () => {
     const unknown = markdownFiles.flatMap((file) =>
       [...textOf(file).matchAll(/(?<![A-Za-z0-9-])([A-Z]\d{1,2})(?![A-Za-z0-9])/g)]

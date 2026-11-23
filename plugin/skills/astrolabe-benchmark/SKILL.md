@@ -50,6 +50,7 @@ If the request is about a benchmark that already exists (drop runs, clean outlie
 | [presentation.md](presentation.md) | Steps 6 and 7, before writing a title or any sentence about the results |
 | [deploy.md](deploy.md) | Only when the user asks to put the site online |
 | [benchmark.schema.json](benchmark.schema.json) | Only to look up a field's exact type; `validate` is quicker |
+| [sources.md](sources.md) | Only when the user asks where a rule or a default comes from, or questions one |
 
 Most benchmarks need two or three measurement files: a speed comparison of two libraries reads time, resources and quality (is the output right?).
 
