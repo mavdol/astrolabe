@@ -105,7 +105,7 @@ export function answerPartsOf(benchmark: Benchmark): Answer {
 
   if (others.length === 0) return { claim };
 
-  return { claim, others: `${others.length} more primary comparison${others.length === 1 ? "" : "s"}: ${countsByVerdict(others)}.` };
+  return { claim, others: `${others.length} more result${others.length === 1 ? "" : "s"} below: ${countsByVerdict(others)}.` };
 }
 
 export const answerOf = (benchmark: Benchmark) => {

@@ -118,7 +118,7 @@ describe("what a card shows", () => {
 
     expect(content.headlines).toHaveLength(MAX_HEADLINES);
     expect(content.omitted).toHaveLength(1);
-    expect(lines.join(" ")).toContain("1 more primary comparison in the full results: 1 worse.");
+    expect(lines.join(" ")).toContain("1 more result in the full report: 1 worse.");
     expect(lines.join(" ")).toContain("Median, n = 62 (Notes B), 58 (Notes A)");
   });
 
@@ -146,7 +146,7 @@ describe("what a card shows", () => {
 
     expect(content.omitted).toHaveLength(2);
     expect(lines, "counted by verdict, so leaving a loss out hides nothing").toContain(
-      "2 more primary comparisons in the full results: 1 likely worse, 1 worse.",
+      "2 more results in the full report: 1 likely worse, 1 worse.",
     );
   });
 });
@@ -233,13 +233,13 @@ describe("reading a card at a glance", () => {
 
     expect(content.summaries!.map((summary) => summary.comparisons.length)).toEqual([3]);
     expect(content.omitted.map((comparison) => comparison.metric)).toEqual(["cost_per_item"]);
-    expect(card.textLines).toContain("1 better · 2 inconclusive");
-    expect(card.textLines).toContain("Across 3 tasks");
+    expect(card.textLines).toContain("1 better · 2 unclear");
+    expect(card.textLines).toContain("Out of 3 tasks");
     expect(card.textLines.join(" ")).toContain(
-      "One square per comparison: filled when the verdict is firm, outlined when likely or inconclusive.",
+      "One square per task: green when it does better than Model B, orange when it does worse, grey when it is about the same; outlined when the difference is not certain yet.",
     );
     expect(card.svg.match(/<rect [^>]*rx="3"/g)).toHaveLength(3);
-    expect(card.altText).toBe("Model A against Model B, accuracy across 3 tasks: 1 better, 2 inconclusive.");
+    expect(card.altText).toBe("Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2.");
   });
 
   it("draws summary cells by default when the comparisons are too many for headlines and share one level", () => {

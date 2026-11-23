@@ -20,7 +20,9 @@ import {
   effectRangeOf,
   inReadingOrder,
   partsOf,
+  plainCountsOf,
   pluralOf,
+  squaresKeyOf,
   summariesOf,
   summaryClaimOf,
   summaryOf,
@@ -857,23 +859,17 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         ...(sharedPair ? [] : [lookup.candidateName.get(summary.candidate)!]),
         ...(sharedDirection ? [] : [directionWords(metric)]),
       ].map((part) => part.toUpperCase());
-      const counts = inReadingOrder(summary.comparisons).reduce<{ verdict: string; count: number; comparison: Comparison }[]>(
-        (groups, comparison) => {
-          const last = groups[groups.length - 1];
-
-          if (last && last.verdict === verdictLabel(comparison)) last.count++;
-          else groups.push({ verdict: verdictLabel(comparison), count: 1, comparison });
-
-          return groups;
-        },
-        [],
-      );
+      const counts = plainCountsOf(metric, summary.comparisons).map(({ words, count, sample }) => ({
+        verdict: words,
+        count,
+        comparison: sample,
+      }));
 
       return {
         summary,
         labelLines: text.wrapParts(labelParts, STYLE.label, columnWidth),
         counts,
-        details: [`Across ${partsOf(lookup, summary)}`, effectRangeOf(lookup, summary)].flatMap((detail) =>
+        details: [`Out of ${partsOf(lookup, summary)}`, effectRangeOf(lookup, summary)].flatMap((detail) =>
           text.wrap(detail, STYLE.detail, columnWidth),
         ),
       };
@@ -971,8 +967,8 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const readingOfCells =
     content.summaries && content.summaries.length > 0
       ? [
-          `Verdicts against ${lookup.candidateName.get(results.baseline)}, read from ${intervalPhrase}.`,
-          "One square per comparison: filled when the verdict is firm, outlined when likely or inconclusive.",
+          `Compared with ${lookup.candidateName.get(results.baseline)}; each verdict is read from ${intervalPhrase}.`,
+          squaresKeyOf(lookup, content.summaries),
         ]
       : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`];
   const legendSentences = [
@@ -981,7 +977,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     ...(drawsStrips ? ["Shaded band: too small to matter."] : []),
     ...(content.omitted.length > 0
       ? [
-          `${content.omitted.length} more primary comparison${content.omitted.length === 1 ? "" : "s"} in the full results: ${countsByVerdict(content.omitted)}.`,
+          `${content.omitted.length} more result${content.omitted.length === 1 ? "" : "s"} in the full report: ${countsByVerdict(content.omitted)}.`,
         ]
       : []),
   ];

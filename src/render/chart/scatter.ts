@@ -276,7 +276,8 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
         (isBetter(xMetric, other.x, point.x) || isBetter(yMetric, other.y, point.y)),
     );
   const frontier = points.filter((point) => !isBeaten(point)).sort((first, second) => first.x - second.x);
-  const startsAtZero = block.scale?.zero !== false;
+  // Dots, not bars: the axes fit the values unless the author asks for zero, so that close candidates can be told apart.
+  const startsAtZero = block.scale?.zero === true;
   const extentOf = (metric: Metric, values: Value[]): [number, number] => {
     const plotted = values.flatMap((value) => [value.value, ...(value.ci ?? [])]);
     const [low, high] = [Math.min(...plotted), Math.max(...plotted)];
@@ -303,9 +304,20 @@ export function scatterContent(inputs: ChartInputs): ChartContent {
       ? { mark: "frontier", markName: "Dashed line", text: "the candidates that no other candidate beats on both measures." }
       : { text: "" },
     { text: `The marked corner is better: ${towards(xMetric)} and ${towards(yMetric)}.` },
-    { text: startsAtZero ? "" : `The axes do not start at zero: ${sentence(block.scale!.reason!)}` },
+    {
+      text: startsAtZero
+        ? ""
+        : `The axes do not start at zero: ${block.scale?.reason ? sentence(block.scale.reason) : "they are fitted to the values, so that the candidates can be told apart."}`,
+    },
     { text: caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup)) },
-    { text: caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)) },
+    // Both axes often carry the same caveat (failures left out on each): it is said once.
+    {
+      text:
+        caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)) ===
+        caveatSentences(lookup, xMetric, comparisonsOn(xMetric, lookup))
+          ? ""
+          : caveatSentences(lookup, yMetric, comparisonsOn(yMetric, lookup)),
+    },
   ];
   const howToRead = howToReadOf(howToReadParts);
   const fixedHeight = FIXED_HEIGHT;

@@ -148,6 +148,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 .verdict-squares .neutral.firm { opacity: 0.55; }
 .verdict-counts { margin: 0; font-family: ${MONO}; font-size: 13px; line-height: 20px; color: var(--secondary); }
 .verdict-counts > span { white-space: nowrap; }
+.squares-key { grid-column: 1 / -1; margin: 0; padding: 14px ${GUTTER}px 18px; border-top: 1px solid var(--rule); font-family: ${MONO}; font-size: 12px; line-height: 18px; color: var(--secondary); }
 .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .chip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
 .chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
@@ -235,6 +236,10 @@ td:not(.text) { white-space: nowrap; }
 .effect-bar i { position: absolute; top: 2px; height: 6px; border-radius: 1px; background: currentColor; opacity: 0.85; }
 .effect-cell:not(.firm) .effect-bar i { opacity: 0.45; }
 .effect-verdict { font-family: ${MONO}; font-size: 12px; white-space: nowrap; }
+.table-heading { margin: 0 0 12px; font-size: 15px; font-weight: 500; }
+.table-heading .dim { color: var(--secondary); font-weight: 400; }
+.table-definition { margin: -6px 0 14px; max-width: 64ch; font-size: 13px; line-height: 19px; color: var(--secondary); }
+.table-scroll + .table-note + .table-heading, .table-scroll + .table-heading { margin-top: 36px; }
 .table-note { margin: 14px 0 0; font-family: ${MONO}; font-size: 12px; line-height: 18px; color: var(--secondary); }
 .value-table .cell-value { min-width: 44px; font-family: ${MONO}; font-weight: 500; font-size: 14px; }
 .cell-ci { font-family: ${MONO}; font-size: 12px; color: var(--quiet); white-space: nowrap; }

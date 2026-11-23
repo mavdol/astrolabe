@@ -23,7 +23,7 @@ Start from the question the reader brings, not from the data you have: write it 
 | "Is it better, and by how much?" | `effect` | `metric` | the comparisons are on different metrics: `comparison-rows` |
 | "Where does the gap come from?" | `effect` with `breakdown` | `metric`, `breakdown` (a level: category, task, size) | the level has one node: the headline already says it; more than 8 rows (nodes times compared candidates): a table of effects (style.md) |
 | "Did this release improve, metric by metric?" | `comparison-rows` | `comparisons`, up to 10; `effect_format: "times"` only when effects reach about 2× | more than 10 rows: a table |
-| "Is the gain worth the cost?": two metrics in tension (accuracy and cost, speed and memory) | `scatter` | `x`, `y` (metric ids), `node` | the two metrics do not trade against each other: two headlines |
+| "Is the gain worth the cost?": two metrics in tension (accuracy and cost, speed and memory) | `scatter` | `x`, `y` (metric ids), `node` | the two metrics do not trade against each other: two headlines; `node` would average scripts or tasks of different sizes (T13): the table of effects shows each one |
 | "What will one run, one request look like?" (run times, latencies, flaky tasks) | `distribution` | `metric`; reads the raw file | the question is about the average: `effect` |
 | "How does it change as the input grows?": an ordered level (input size, concurrency, version) | `line` | `metric`, `breakdown` (the level, at least two nodes) | the level has no order (categories): `effect` with `breakdown` |
 | "How do they rank?": one metric, a few candidates | `dot-interval`; `bar` only for a quantity with a true zero (memory, cost, a count) | `metric`, `node` | the comparison is paired: `effect` |
@@ -55,7 +55,7 @@ Pies, donuts, bubbles, radar charts, two y-axes and 3D are not in the chart set:
       "series": "candidate",
       "uncertainty": "ci",
       "title": "{candidate:quickmark} is faster than {candidate:markly}",
-      "description": "Wall time {effect:wall_time__quickmark}, beyond the smallest difference that matters.",
+      "description": "Build time {effect:wall_time__quickmark}, beyond the smallest difference that matters.",
       "asserts": { "wall_time__quickmark": "better" }
     }
   ]
@@ -100,6 +100,7 @@ Every axis is a decision that changes how large a difference looks, so it is dec
 ```
 
 - **Bars start at zero**, always; a bar that cannot (a negative value) is a `dot-interval` instead.
+- **A scatter fits its axes to the values** by default, and its key says so; `zero: true` keeps zero on both axes.
 - **Dots and lines may leave zero** with `zero: false` and a `reason`, when zero is arbitrary or a difference the user cares about would be invisible. Pick the range so that a difference of `minimum_meaningful` is visible and a smaller one does not look large.
 - **Linear by default.** `type: "log"` needs a `reason` (values spanning orders of magnitude, a long-tailed latency, a question about ratios); bars and effects refuse it.
 - **Charts meant to be compared share a scale**: list their ids in `shared_with`. A filter keeps its chart's axis fixed across options by itself.

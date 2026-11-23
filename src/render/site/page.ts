@@ -2,7 +2,7 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import { isAnswerBlock, TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
-import { summariesOf } from "../summary.js";
+import { squaresKeyOf, summariesOf, summaryOf } from "../summary.js";
 import { blockHtml, downloadLinksOf, sectionLabel, sectionLabelsOf, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
 import type { Answer } from "./write-site.js";
@@ -212,6 +212,7 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
     closeTrustRun();
 
     const headlines = row.filter(isAnswerBlock);
+    const summaries = headlines.flatMap((block) => (block.type === "summary" ? [block] : []));
 
     if (headlines.length > 0) {
       const numbers = headlines.map(() => nextNumber());
@@ -223,6 +224,16 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels">,
             (block, index) =>
               `<article class="block stat headline" id="${escapeHtml(block.id)}">\n${blockHtml(block, pageInputs, 0, numbers[index])}\n</article>`,
           ),
+          ...(summaries.length > 0
+            ? [
+                `<p class="squares-key">${escapeHtml(
+                  squaresKeyOf(
+                    pageInputs.lookup,
+                    summaries.map((block) => summaryOf(pageInputs.lookup.results, block.candidate, block.metric)),
+                  ),
+                )}</p>`,
+              ]
+            : []),
           "</section>",
         ].join("\n"),
       );

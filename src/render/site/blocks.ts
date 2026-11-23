@@ -13,9 +13,9 @@ import {
   optionsOf,
   type FilterState,
 } from "../chart/chart-data.js";
-import { asSentence, capitalised, keyMarkOf, type KeyPaint } from "../chart/chart-content.js";
+import { asSentence, capitalised, keyMarkOf, withUnit, type KeyPaint } from "../chart/chart-content.js";
 import { renderChart, type RenderedChart } from "../chart/render-chart.js";
-import { effectRangeOf, inReadingOrder, partsOf, pluralOf, summaryOf, VERDICTS_IN_READING_ORDER } from "../summary.js";
+import { countsByVerdict, effectRangeOf, inReadingOrder, partsOf, plainCountsOf, pluralOf, summaryOf } from "../summary.js";
 import {
   effectAndInterval,
   finestDecimals,
@@ -143,22 +143,19 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
   const { lookup } = inputs;
   const summary = summaryOf(lookup.results, block.candidate, block.metric);
   const metric = lookup.metricById.get(block.metric)!;
-  const ordered = inReadingOrder(summary.comparisons);
-  const squares = ordered.map((comparison) => `<span class="${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}"></span>`);
-  const counts = VERDICTS_IN_READING_ORDER.flatMap((verdict) => {
-    const withVerdict = ordered.filter((comparison) => verdictLabel(comparison) === verdict);
-
-    return withVerdict.length > 0 ? [`<span class="${toneOf(withVerdict[0])}">${withVerdict.length} ${escapeHtml(verdict)}</span>`] : [];
-  });
-  const countsInWords = counts.map((count) => count.replace(/<[^>]+>/g, "")).join(", ");
-  const pair = `${lookup.candidateName.get(block.candidate)} against ${lookup.candidateName.get(lookup.results.baseline)}`;
+  const squares = inReadingOrder(summary.comparisons).map(
+    (comparison) => `<span class="${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}"></span>`,
+  );
+  const counts = plainCountsOf(metric, summary.comparisons);
+  const pair = `${lookup.candidateName.get(block.candidate)} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
+  const countsInWords = counts.map(({ words, count }) => `${count} ${words}`).join(", ");
 
   return [
     sectionLabel(number, `${metric.label} · ${directionWords(metric.direction)}`),
-    `<div class="verdict-squares" style="--squares: ${Math.min(squares.length, SQUARES_PER_LINE)}" role="img" aria-label="${escapeHtml(`${countsInWords}, across ${partsOf(lookup, summary)}`)}">${squares.join("")}</div>`,
-    `<p class="verdict-counts">${counts.join(' <span class="dim">·</span> ')}</p>`,
     anchoredTitle(block, pair),
-    `<ul class="details">\n<li>Across ${escapeHtml(partsOf(lookup, summary))}</li>\n<li>${escapeHtml(effectRangeOf(lookup, summary))}</li>\n</ul>`,
+    `<div class="verdict-squares" style="--squares: ${Math.min(squares.length, SQUARES_PER_LINE)}" role="img" aria-label="${escapeHtml(`${countsInWords}, out of ${partsOf(lookup, summary)}`)}">${squares.join("")}</div>`,
+    `<p class="verdict-counts">${counts.map(({ words, count, sample }) => `<span class="${toneOf(sample)}">${count} ${escapeHtml(words)}</span>`).join(' <span class="dim">·</span> ')}</p>`,
+    `<ul class="details">\n<li>Out of ${escapeHtml(partsOf(lookup, summary))}</li>\n<li>${escapeHtml(effectRangeOf(lookup, summary))}</li>\n</ul>`,
   ].join("\n");
 }
 
@@ -408,6 +405,29 @@ function barPositionsOf(extent: [number, number], value: number, interval: [numb
   return `--from: ${from}%; --to: ${to}%; --at: ${share(value)}%`;
 }
 
+/** Units a reader knows by their name rather than their symbol. */
+const UNIT_WORDS: Record<string, string> = {
+  s: "seconds",
+  ms: "milliseconds",
+  µs: "microseconds",
+  us: "microseconds",
+  min: "minutes",
+  h: "hours",
+  "%": "percent",
+};
+
+/** At most three significant figures for the typical value: a reader compares 0.902 with 0.905, not 0.9024 with 0.9048. */
+function readableDecimals(numbers: number[]): number {
+  const sizes = numbers
+    .map(Math.abs)
+    .filter((size) => size > 0)
+    .sort((first, second) => first - second);
+
+  if (sizes.length === 0) return 0;
+
+  return Math.max(0, 2 - Math.floor(Math.log10(sizes[Math.floor(sizes.length / 2)])));
+}
+
 /**
  * Each candidate's change against the baseline, one row per node: the figure, its verdict in its colour and a bar
  * from zero on one scale per metric, so a long breakdown reads down a column instead of across many chart rows.
@@ -499,10 +519,17 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
         const metric = lookup.metricById.get(metricId)!;
         const nodes = nodesOf({ id: block.id, node: block.node, breakdown: block.rows, filters: block.filters }, benchmark, lookup, state);
         const values = (lookup.results.values ?? []).filter((value) => value.metric === metricId && nodes.includes(value.node));
-        const decimals = finestDecimals(values.map((value) => valueDecimals(metric, value)));
+        const readable = readableDecimals(values.map((value) => value.value));
+        const decimals = Math.min(finestDecimals(values.map((value) => valueDecimals(metric, value))) ?? readable, readable);
         const ends = values.flatMap((value) => (value.ci && show.has("ci") ? value.ci : [value.value]));
         const padding = (Math.max(...ends) - Math.min(...ends)) * 0.1;
         const extent: [number, number] = [Math.min(...ends) - padding, Math.max(...ends) + padding];
+        const measured = values.filter((value) => value.source !== "declared");
+        // When every value rests on as many observations and none failed, one sentence says so instead of every cell.
+        const sameRuns =
+          measured.length > 0 &&
+          measured.every((value) => value.n === measured[0].n && failuresCell(lookup, value) === "0") &&
+          measured[0].n !== undefined;
         const header = [
           block.rows ? block.rows.charAt(0).toUpperCase() + block.rows.slice(1) : "",
           ...candidates.map((candidate) => `${candidate.name}${candidate.id === lookup.results.baseline ? " · baseline" : ""}`),
@@ -515,20 +542,22 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
 
             const details: string[] = [];
 
-            if (show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
+            if (show.has("ci") && value.ci) details.push(escapeHtml(withUnit(formatInterval(value.ci, decimals), metric.unit)));
 
-            if (show.has("failures") && value.source !== "declared") details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
+            if (!sameRuns && show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
+
+            if (!sameRuns && show.has("failures") && value.source !== "declared")
+              details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
 
             if (show.has("evidence") && value.evidence) details.push(withLinks(value.evidence));
 
-            const shown = `${formatNumber(value.value, decimals)}${value.source === "declared" ? " (declared)" : ""}`;
+            const shown = `${withUnit(formatNumber(value.value, decimals), metric.unit)}${value.source === "declared" ? " (declared)" : ""}`;
 
             return [
               `<td class="value-cell" data-candidate="${escapeHtml(candidate.id)}">`,
               '<span class="cell-line">',
               `<span class="cell-value">${escapeHtml(shown)}</span>`,
               `<span class="cell-bar${candidate.id === lookup.results.baseline ? " baseline" : ""}" style="${barPositionsOf(extent, value.value, show.has("ci") ? value.ci : undefined)}" aria-hidden="true"></span>`,
-              show.has("ci") && value.ci ? `<span class="cell-ci">${escapeHtml(formatInterval(value.ci, decimals))}</span>` : "",
               "</span>",
               details.length > 0 ? `<span class="cell-detail">${details.join(" · ")}</span>` : "",
               "</td>",
@@ -537,14 +566,22 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
 
           return `<tr><th scope="row">${escapeHtml(node === undefined ? metric.label : (lookup.nodeLabel.get(node) ?? node))}</th>${cells.join("")}</tr>`;
         });
-        const caption = `${metric.label}, ${STATISTIC_WORD[metric.statistic].toLowerCase()} in ${metric.unit} · ${directionWords(metric.direction)}`;
+        const statistic = STATISTIC_WORD[metric.statistic].toLowerCase();
+        const unit = UNIT_WORDS[metric.unit] ?? metric.unit;
+        const caption = `${metric.label} · ${statistic} in ${unit} · ${directionWords(metric.direction)}`;
+        const note = sameRuns
+          ? `Each value is the ${statistic} of ${measured[0].n} measurements, none of which failed${show.has("ci") && measured[0].ci_level !== undefined ? `; the line under it is its ${formatLevel(measured[0].ci_level)}% interval` : ""}.`
+          : "";
 
         return [
+          `<h3 class="table-heading">${escapeHtml(metric.label)} <span class="dim">· ${escapeHtml(`${statistic} in ${unit} · ${directionWords(metric.direction)}`)}</span></h3>`,
+          metric.definition ? `<p class="table-definition">${escapeHtml(asSentence(metric.definition))}</p>` : "",
           '<div class="table-scroll"><table class="value-table">',
           `<caption class="visually-hidden">${escapeHtml(caption)}</caption>`,
           `<thead><tr>${header.map((cell, column) => `<th scope="col"${column > 0 ? ` data-candidate="${escapeHtml(candidates[column - 1].id)}"` : ""}>${escapeHtml(cell)}</th>`).join("")}</tr></thead>`,
           `<tbody>\n${rows.join("\n")}\n</tbody>`,
           "</table></div>",
+          note ? `<p class="table-note">${escapeHtml(note)}</p>` : "",
         ].join("\n");
       })
       .join("\n");
@@ -627,6 +664,18 @@ function pipelineOf(lookup: Lookup): PipelineStep[] {
   ];
 }
 
+/** Beyond this many, a list of results is counted in words and folded: the full list stays one click away. */
+const LONGEST_UNFOLDED_LIST = 12;
+
+function foldedVerdictListOf(lookup: Lookup, comparisons: Comparison[]): string {
+  if (comparisons.length <= LONGEST_UNFOLDED_LIST) return verdictListOf(lookup, comparisons);
+
+  return [
+    `<p class="verdict-counts">${escapeHtml(`${comparisons.length} results: ${countsByVerdict(comparisons)}.`)}</p>`,
+    `<details class="aside"><summary>Every result, one by one</summary>\n${verdictListOf(lookup, comparisons)}\n</details>`,
+  ].join("\n");
+}
+
 function verdictListOf(lookup: Lookup, comparisons: Comparison[]): string {
   const rows = comparisonRows(lookup, comparisons).map(([subject, effect, interval, verdict, notes], index) =>
     [
@@ -681,12 +730,12 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
     `<ol class="pipeline">\n${steps.join("\n")}\n</ol>`,
     '<div class="verdicts">',
     `<p class="mono-label">Against ${escapeHtml(lookup.candidateName.get(lookup.results.baseline)!)}<span class="dim"> · the claims</span></p>`,
-    verdictListOf(lookup, primary),
+    foldedVerdictListOf(lookup, primary),
     `<details class="aside"><summary>How a verdict is read</summary><p>${escapeHtml(comparisonsIntro(lookup))}</p></details>`,
     ...(exploratory.length > 0
       ? [
           '<p class="mono-label">Exploratory<span class="dim"> · not claims</span></p>',
-          verdictListOf(lookup, exploratory),
+          foldedVerdictListOf(lookup, exploratory),
           `<p class="aside-note">${escapeHtml(EXPLORATORY_INTRO)}</p>`,
         ]
       : []),

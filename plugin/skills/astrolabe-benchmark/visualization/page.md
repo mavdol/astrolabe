@@ -30,9 +30,9 @@ The framing step already asked what the benchmark decides. Ask at most two more 
 Then propose the page as a short outline, before writing any block: one line per block, each chart with the reader's question it answers (charts.md), and no text block unless no chart can carry it:
 
 ```
-Headlines   wall time first (the answer), then identical pages; quickmark against markly, both primary
-Chart       "Is it faster, and by how much?": the effect on wall time, with the band too small to matter
-Chart       "What will one run look like?": every run, wall time (12 runs per candidate)
+Headlines   build time first (the answer), then identical pages; quickmark against markly, both primary
+Chart       "Is it faster, and by how much?": the effect on build time, with the band too small to matter
+Chart       "What will one run look like?": every run, build time (12 runs per candidate)
 Table       both metrics by file size, with n, intervals and failures (exploratory)
 Exports     the README card (light and dark), a wide image of the effect chart
 ```

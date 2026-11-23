@@ -531,6 +531,20 @@ describe("a scatter chart", () => {
     expect(chart.svg).not.toContain("stroke-dasharray");
   });
 
+  it("fits its axes to the values and says so, unless the author asks for zero", () => {
+    const fitted = draw(support, costAccuracy);
+    const fromZero = draw(support, { ...costAccuracy, scale: { zero: true } });
+    const lowestTick = (chart: { textLines: string[] }) =>
+      chart.textLines.find((line) => /^[\d.]+( {2}[\d.]+)+$/.test(line))!.split("  ")[0];
+
+    expect(fitted.howToRead).toContain(
+      "The axes do not start at zero: they are fitted to the values, so that the candidates can be told apart.",
+    );
+    expect(fromZero.howToRead).not.toContain("do not start at zero");
+    expect(lowestTick(fromZero)).toBe("0");
+    expect(lowestTick(fitted)).not.toBe("0");
+  });
+
   it("refuses a breakdown and a log scale", () => {
     expect(() => draw(support, { ...costAccuracy, breakdown: "category" })).toThrow(/a scatter chart shows one node/);
     expect(() => draw(support, { ...costAccuracy, scale: { type: "log", reason: "Wide range" } })).toThrow(ChartError);
