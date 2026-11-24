@@ -579,7 +579,7 @@ describe("the site", () => {
     buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
     const html = readFileSync(join(folder, "site", "index.html"), "utf8");
 
-    expect(html).toContain('What was measured<span class="dim"> · 3 scripts</span>');
+    expect(html).toContain('<p class="mono-label">Scripts<span class="dim"> · 3</span></p>');
     expect(html).toContain(`<details id="part-${nodes[0].id}"><summary>Script 1</summary><p>Sorts a million numbers.</p></details>`);
     expect(html).toContain('<p class="part-name">Script 3</p>');
     expect(html).toContain(`<th scope="row"><a class="part-link" href="#part-${nodes[0].id}">Script 1</a></th>`);

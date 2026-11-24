@@ -904,7 +904,8 @@ function partsListHtml(lookup: Lookup): string {
     .map(({ level, nodes }) =>
       [
         '<div class="parts">',
-        `<p class="mono-label">What was measured<span class="dim"> · ${escapeHtml(`${nodes.length} ${nodes.length === 1 ? level : pluralOf(level)}`)}</span></p>`,
+        // Named after its parts: the method's heading already says what was measured.
+        `<p class="mono-label">${escapeHtml(capitalised(pluralOf(level)))}<span class="dim"> · ${nodes.length}</span></p>`,
         '<ul class="part-list">',
         ...nodes.map((node) =>
           node.description

@@ -25,16 +25,21 @@ const SPRING = (() => {
 
 // ---- Arrival ----
 
+/** The longest wait, in ms, between the first mark of a drawing growing and the last. */
+const LONGEST_STAGGER = 700;
+
 /** Grows the marks of a drawing into place: lines from zero or from their estimate, markers on a spring, lines drawn. */
 function playMarks(scope, delay) {
-  for (const [index, group] of [...scope.querySelectorAll("[data-grow-from]")].entries()) {
-    if (group.closest("[hidden]")) continue;
+  const growing = [...scope.querySelectorAll("[data-grow-from]")].filter((group) => !group.closest("[hidden]"));
+  // One mark after another, but a long chart arrives as fast as a short one.
+  const step = Math.min(90, LONGEST_STAGGER / Math.max(1, growing.length));
 
+  for (const [index, group] of growing.entries()) {
     group.style.transformBox = "view-box";
     group.style.transformOrigin = `${group.dataset.growFrom}px 0px`;
     group.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
       duration: 1100,
-      delay: delay + index * 90,
+      delay: delay + index * step,
       easing: EASE_OUT,
       fill: "backwards",
     });

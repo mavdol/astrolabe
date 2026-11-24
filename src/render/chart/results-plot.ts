@@ -217,16 +217,20 @@ function drawResults(plot: ResultsPlot, text: SvgTextRenderer, colours: Colours,
       marks.push(
         `<g data-key="${escapeXml(bar.key)}" data-candidate="${escapeXml(bar.candidate)}" data-y="${round(middle)}"${tip}>`,
         `<g class="mark" data-x="${round(end)}">`,
+        // The interval grows with its bar, so it never waits at the end of a bar not drawn yet.
         growsFrom(
           scale.position(0),
-          `<rect x="${round(plotLeft)}" y="${round(middle - barHeight / 2)}" width="${round(Math.max(0, end - plotLeft))}" height="${round(barHeight)}" fill="${bar.colour}"/>`,
+          [
+            `<rect x="${round(plotLeft)}" y="${round(middle - barHeight / 2)}" width="${round(Math.max(0, end - plotLeft))}" height="${round(barHeight)}" fill="${bar.colour}"/>`,
+            ...(interval
+              ? [
+                  intervalAcross(interval[0], interval[1], middle, colours.background, INTERVAL_STROKE + 2.5),
+                  intervalAcross(interval[0], interval[1], middle, colours.ink, INTERVAL_STROKE),
+                ]
+              : []),
+          ].join(""),
         ),
       );
-
-      if (interval) {
-        marks.push(intervalAcross(interval[0], interval[1], middle, colours.background, INTERVAL_STROKE + 2.5));
-        marks.push(intervalAcross(interval[0], interval[1], middle, colours.ink, INTERVAL_STROKE));
-      }
 
       marks.push("</g>");
       marks.push(
