@@ -77,22 +77,57 @@ function nodesAllowedBy(filter: Filter, option: string, lookup: Lookup): Set<str
 }
 
 /**
+ * The level whose parts hold the claims on these metrics: the level of their primary comparisons, when they sit on
+ * several parts of one level. A block of changes that names no part shows this level, so that it shows the claims
+ * rather than the one part at the top of the structure.
+ */
+export function claimsLevelOf(lookup: Lookup, metricIds: (string | undefined)[]): string | undefined {
+  const structure = lookup.results.structure;
+
+  if (!structure) return undefined;
+
+  const levelOf = new Map(structure.nodes.map((node) => [node.id, node.level]));
+  const claimedNodes = new Set(
+    (lookup.results.comparisons ?? [])
+      .filter((comparison) => comparison.role === "primary" && metricIds.includes(comparison.metric))
+      .map((comparison) => comparison.node),
+  );
+
+  if (claimedNodes.size < 2 || claimedNodes.has(undefined)) return undefined;
+
+  const levels = new Set([...claimedNodes].map((node) => levelOf.get(node!)));
+
+  return levels.size === 1 ? [...levels][0] : undefined;
+}
+
+/**
  * The nodes a block shows, in declared order: the nodes of its breakdown level under its node,
  * narrowed by the filters it listens to; or its single node; or the top of the structure.
+ * An effect chart that names neither shows the level of its claims.
  */
 export interface NodeSelection {
   id: string;
+  chart?: string;
+  metric?: string;
   node?: string;
   breakdown?: string;
   filters?: string[];
 }
 
+/** The level a block breaks down by; for an effect chart that names no part, the level of its claims. */
+export function breakdownOf(block: NodeSelection, lookup: Lookup): string | undefined {
+  if (block.breakdown || block.node || block.chart !== "effect") return block.breakdown;
+
+  return claimsLevelOf(lookup, [block.metric]);
+}
+
 export function nodesOf(block: NodeSelection, benchmark: Benchmark, lookup: Lookup, filterState: FilterState): NodeId[] {
   const structure = lookup.results.structure;
+  const breakdown = breakdownOf(block, lookup);
 
   if (!structure) return [undefined];
 
-  if (!block.breakdown) return [block.node ?? structure.nodes.find((node) => node.parent === undefined)!.id];
+  if (!breakdown) return [block.node ?? structure.nodes.find((node) => node.parent === undefined)!.id];
 
   const underBlockNode = block.node ? new Set(descendantsOf(lookup.tree, block.node)) : null;
   const allowedByFilters = (block.filters ?? []).map((filterId) => {
@@ -102,7 +137,7 @@ export function nodesOf(block: NodeSelection, benchmark: Benchmark, lookup: Look
   });
 
   return structure.nodes
-    .filter((node) => node.level === block.breakdown)
+    .filter((node) => node.level === breakdown)
     .filter((node) => !underBlockNode || underBlockNode.has(node.id))
     .filter((node) => allowedByFilters.every((allowed) => !allowed || allowed.has(node.id)))
     .map((node) => node.id);

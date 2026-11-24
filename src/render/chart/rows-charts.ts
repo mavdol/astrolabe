@@ -33,6 +33,7 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import {
+  breakdownOf,
   candidateOrder,
   ChartError,
   comparisonGroupsOf,
@@ -397,13 +398,19 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
       tickText: (value, tickDecimals: Decimals) => `${formatNumber(value, tickDecimals, { signed: true })}${unit === "%" ? "%" : ""}`,
       band: [-minimum, minimum],
       zeroLine: true,
+      columnHeadings: {
+        names: onlyCandidate ? capitalised(breakdownOf(block, lookup) ?? "") : "",
+        marks: onlyCandidate ? `${onlyCandidate} against ${baselineName}` : `Against ${baselineName}`,
+        ...(onlyCandidate ? { marksSeries: series.get(comparedCandidates[0])! } : {}),
+        figures: "Change",
+      },
     }),
     subtitle: `${metric.label}: change ${onlyCandidate ? `of ${onlyCandidate} ` : ""}against ${baselineName}${unit === "%" ? ", in %" : `, in${unit}`} · ${directionWords(metric)}`,
     howToRead,
     howToReadParts,
     kind: `Effects on ${lowerFirstLetterOfWord(metric.label)} against ${baselineName}, with their intervals`,
     table: {
-      header: [...(withGroup ? ["Group"] : []), "Candidate", "Effect", "Interval", "Verdict"],
+      header: [...(withGroup ? [capitalised(breakdownOf(block, lookup) ?? "Group")] : []), "Candidate", "Effect", "Interval", "Verdict"],
       rows: groups.flatMap((group) =>
         group.comparisons.map((comparison) => {
           const { effect, interval, level } = effectAndInterval(metric, comparison);

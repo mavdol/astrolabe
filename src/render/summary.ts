@@ -399,7 +399,11 @@ const STANDING_WORDS: Record<Standing, string> = { best: "best", tied: "tied for
 export const LONGEST_SUMMARY_TITLE = 50;
 
 /** "3 (1 likely)": a bar's count, saying how much of it is only likely. */
-const countWithLikelyOf = (bar: VerdictBar) => `${bar.count}${bar.likely > 0 ? ` (${bar.likely} likely)` : ""}`;
+/** "faster on 4", "likely faster on 4" when none is certain, "faster on 4 (1 likely)" when some are. */
+const sideWordsOf = (bar: VerdictBar, word: string, than = "") =>
+  bar.likely === bar.count
+    ? `likely ${word}${than} on ${bar.count}`
+    : `${word}${than} on ${bar.count}${bar.likely > 0 ? ` (${bar.likely} likely)` : ""}`;
 
 /** Who is best on most parts, in wordings from the fullest to the shortest. */
 function bestTitlesOf(lookup: Lookup, chart: SummaryChart): string[] {
@@ -451,21 +455,28 @@ function verdictTitlesOf(lookup: Lookup, chart: SummaryChart): string[] {
   const [better, worse, same] = [barOn(leader, "better"), barOn(leader, "worse"), barOn(leader, "same")];
   const outOf = `of ${total} ${nameFor(total)}`;
 
-  if (better.count > 0)
-    return [
-      ...(worse.count > 0
-        ? [`${name} is ${words.better} on ${countWithLikelyOf(better)} ${outOf}, ${words.worse} on ${countWithLikelyOf(worse)}`]
-        : []),
-      `${name} is ${words.better} than ${baseline} on ${countWithLikelyOf(better)} ${outOf}`,
-      `${name} is ${words.better} on ${countWithLikelyOf(better)} ${outOf}`,
-      `${name} is ${words.better} on ${countWithLikelyOf(better)} of ${total}`,
-    ];
+  if (better.count > 0 && worse.count > 0) {
+    const certainOf = (bar: VerdictBar) => bar.count - bar.likely;
+    const [first, second] =
+      certainOf(worse) > certainOf(better)
+        ? [sideWordsOf(worse, words.worse), sideWordsOf(better, words.better)]
+        : [sideWordsOf(better, words.better), sideWordsOf(worse, words.worse)];
 
-  if (worse.count > 0)
     return [
-      `${name} is ${words.worse} than ${baseline} on ${countWithLikelyOf(worse)} ${outOf}`,
-      `${name} is ${words.worse} on ${countWithLikelyOf(worse)} ${outOf}`,
-      `${name} is ${words.worse} on ${countWithLikelyOf(worse)} of ${total}`,
+      `${name} is ${first}, ${second} ${outOf}`,
+      `${name}: ${first}, ${second} ${outOf}`,
+      `${name}: ${first}, ${second} of ${total}`,
+      `${capitalised(first)}, ${second} of ${total}`,
+    ];
+  }
+
+  const side = better.count > 0 ? { bar: better, word: words.better } : worse.count > 0 ? { bar: worse, word: words.worse } : undefined;
+
+  if (side)
+    return [
+      `${name} is ${sideWordsOf(side.bar, side.word, ` than ${baseline}`)} ${outOf}`,
+      `${name} is ${sideWordsOf(side.bar, side.word)} ${outOf}`,
+      `${name} is ${sideWordsOf(side.bar, side.word)} of ${total}`,
     ];
 
   if (same.count === total)

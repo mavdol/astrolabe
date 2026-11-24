@@ -4,6 +4,7 @@ Kind `quality`: outputs checked against a reference (right or wrong, a pass rate
 
 ## Contents
 
+- Which form of quality
 - Checking that outputs are right
 - Items, repeats and groups
 - Suites: `structure`
@@ -11,6 +12,17 @@ Kind `quality`: outputs checked against a reference (right or wrong, a pass rate
 - Judges
 - Contamination
 - Rules
+
+## Which form of quality (F19)
+
+"Better answers" has several forms. When the user names none, propose the one or two that fit the decision, from what changed between the candidates:
+
+| Form | What it answers | Points to it |
+| --- | --- | --- |
+| Overall accuracy or pass rate | How often is it right across the whole suite? | The default |
+| Worst group | Where is it weakest? | A change of model or prompt that may trade one kind of question for another |
+| Consistency across repeats | Does it give the same answer twice? | A non-deterministic system, a sampling setting |
+| Severity of failures | When wrong, how wrong or how costly? | Answers acted on without review |
 
 ## Checking that outputs are right
 

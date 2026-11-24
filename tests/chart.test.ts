@@ -226,6 +226,24 @@ describe("a chart broken down by node", () => {
     expect(groupsOf({ ...block, sort: "effect" })).toEqual(["Script 1", "Script 3", "Script 2", "Script 4"]);
   });
 
+  it("shows the parts that hold the claims when an effect chart names neither a part nor a level", () => {
+    const scripts = scriptsBenchmarkOf(3);
+    const block = { id: "chart-scripts", type: "chart", chart: "effect", metric: "wall_time", title: "By script" } as ChartBlock;
+    const partsOf = (chart: ChartBlock) => [...new Set(draw(scripts, chart).table.rows.map((row) => row[0]))];
+
+    expect(draw(scripts, block).table.header[0]).toBe("Script");
+    expect(partsOf(block)).toEqual(["Script 1", "Script 2", "Script 3"]);
+    expect(draw(scripts, { ...block, node: "script-2" }).table.rows.map((row) => row[0])).toEqual(["new"]);
+  });
+
+  it("heads an effect chart with what its names are and what its marks compare, as a table heads its columns", () => {
+    const block = { id: "chart-scripts", type: "chart", chart: "effect", metric: "wall_time", title: "By script" } as ChartBlock;
+    const headingsOf = (benchmark: Benchmark) => draw(benchmark, block).textLines.find((line) => line.endsWith("Change"));
+
+    expect(headingsOf(scriptsBenchmarkOf(3))).toBe("Script  new against base  Change");
+    expect(headingsOf(versionsBenchmarkOf(3))).toBe("Against base  Change");
+  });
+
   it("resolves the templates of the author's reading", () => {
     expect(draw(notes, tasks).textLines.join(" ")).toContain("Overall: inconclusive.");
   });

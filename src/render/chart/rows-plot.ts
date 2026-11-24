@@ -6,6 +6,8 @@ import {
   INTERVAL_STROKE,
   intervalAcross,
   linkedName,
+  marker,
+  MARKER_RADIUS,
   PLOT_STYLE,
   poppingMarker,
   round,
@@ -79,6 +81,11 @@ export interface RowsPlot {
    * says its range beside its heading instead of an axis under the chart.
    */
   groupScales?: { top: number; label: string }[];
+  /**
+   * A heading row over the columns, as a table has: what the names are, what the marks compare (with the colour of
+   * the candidate they show, when there is one), and what the figures are.
+   */
+  columnHeadings?: { names: string; marks: string; marksSeries?: SeriesStyle; figures: string };
 }
 
 export const ROW_HEIGHT = { smallest: 22, usual: 44, largest: 52 };
@@ -96,6 +103,7 @@ const CENTRE_TICK_SHARE_OF_ROW = 0.7;
 const LEGEND_LINE_HEIGHT = 20;
 const LEGEND_SWATCH = 10;
 const LEGEND_GAP = 16;
+const COLUMN_HEADINGS_HEIGHT = 30;
 
 function rowUnitsOf(plot: RowsPlot): number {
   return plot.groups.reduce(
@@ -189,7 +197,8 @@ function columnsOf(plot: RowsPlot, text: SvgTextRenderer, width: number) {
 function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
   const { x, width } = area;
   const legend = legendLayout(plot, text, width);
-  const fixedHeight = legend.height + AXIS_HEIGHT;
+  const headingsHeight = plot.columnHeadings ? COLUMN_HEADINGS_HEIGHT : 0;
+  const fixedHeight = legend.height + headingsHeight + AXIS_HEIGHT;
   const rowHeight = (area.height - fixedHeight) / rowUnitsOf(plot);
   const rows = plot.groups.flatMap((group) => group.rows);
   const { labelWidth, valueWidth, noteWidth, notesBelow, noteLinesOf } = columnsOf(plot, text, width);
@@ -203,7 +212,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
   const scale = plot.logScale ? logScale(scaleExtent, [plotLeft, plotRight]) : linearScale(scaleExtent, [plotLeft, plotRight], targetTicks);
   const marks: string[] = [];
   const textLines: string[] = [];
-  const rowsTop = area.y + legend.height;
+  const rowsTop = area.y + legend.height + headingsHeight;
   const rowsBottom = rowsTop + rowUnitsOf(plot) * rowHeight;
   const baselineIn = (top: number, height: number, size: number) => top + height / 2 + (size * CAP_HEIGHT_RATIO) / 2;
   const rowSpans = rowSpansOf(plot, rowsTop, rowHeight);
@@ -224,6 +233,32 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
   }
 
   if (legend.entries.length > 0) textLines.push(legend.entries.map((entry) => entry.label).join("  "));
+
+  if (plot.columnHeadings) {
+    const headings = plot.columnHeadings;
+    const style = { ...PLOT_STYLE.caption, fill: colours.secondary };
+    const baseline = rowsTop - headingsHeight / 2 + (PLOT_STYLE.caption.size * CAP_HEIGHT_RATIO) / 2 - 2;
+    const figures = headings.figures.toUpperCase();
+    const figuresRight = notesBelow ? x + width : x + width - (noteWidth > 0 ? noteWidth + 8 : 0);
+    const markerSpace = headings.marksSeries ? 2 * MARKER_RADIUS + 6 : 0;
+    const marksRoom = figuresRight - text.measure(figures, PLOT_STYLE.caption) - COLUMN_GAP - plotLeft - markerSpace;
+    const marksHeading = text.fit(headings.marks.toUpperCase(), PLOT_STYLE.caption, marksRoom);
+
+    if (headings.names) marks.push(text.draw(text.fit(headings.names.toUpperCase(), PLOT_STYLE.caption, labelWidth), x, baseline, style));
+
+    if (headings.marksSeries) {
+      const { shape, colour } = headings.marksSeries;
+
+      marks.push(
+        marker(shape, plotLeft + MARKER_RADIUS, baseline - (PLOT_STYLE.caption.size * CAP_HEIGHT_RATIO) / 2, colour, colours.background),
+      );
+    }
+
+    marks.push(text.draw(marksHeading, plotLeft + markerSpace, baseline, style));
+    marks.push(text.draw(figures, figuresRight, baseline, { ...style, anchor: "end" }));
+    marks.push(`<path d="M${round(x)} ${round(rowsTop - 0.5)}H${round(x + width)}" stroke="${colours.rule}" stroke-width="1"/>`);
+    textLines.push([headings.names, headings.marks, headings.figures].filter(Boolean).join("  "));
+  }
 
   if (plot.band) {
     const [from, to] = plot.band.map((value) => Math.min(Math.max(scale.position(value), plotLeft), plotRight));
@@ -436,7 +471,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
 export function rowsPlot(plot: RowsPlot): Plot {
   return {
     heightsAt(width, text) {
-      const fixedHeight = legendLayout(plot, text, width).height + AXIS_HEIGHT;
+      const fixedHeight = legendLayout(plot, text, width).height + (plot.columnHeadings ? COLUMN_HEADINGS_HEIGHT : 0) + AXIS_HEIGHT;
       const units = rowUnitsOf(plot);
       const columns = columnsOf(plot, text, width);
       const extra = columns.notesBelow ? columns.noteLineCount * NOTE_BELOW_HEIGHT : 0;

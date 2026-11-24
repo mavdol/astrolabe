@@ -100,7 +100,7 @@ Whatever you choose:
 | --- | --- |
 | `metric`, or `x` and `y` | Metric ids from `metrics[]` |
 | `vs` | On an `effect` chart: the candidate the changes are against, the baseline by default. The plan must compare that pair (`analysis.pairs`) |
-| `node` | The node shown; left out, the root of the structure, or the whole benchmark when there is no structure |
+| `node` | The node shown; left out, the root of the structure, or the whole benchmark when there is no structure. An `effect` chart or a table of effects with neither `node` nor `breakdown` shows the level its primary comparisons sit on, so it shows the claims |
 | `breakdown` | A level of `structure` (`category`, `task`, `size`): one group or one row per node of that level |
 | `comparisons` | Comparison ids, for `comparison-rows`. An id reads `metric__candidate`, or `metric__node__candidate` when the plan has a structure; compute writes them in `results.comparisons` |
 | `series` | `candidate`, the only value: one colour and one label per candidate |

@@ -131,7 +131,7 @@ Each source lists the rules it backs, by the ids used in the rule tables of the 
 
 Rules and values we chose, with no outside source. Say so when the user asks about them: they are reasoned defaults, open to change.
 
-- Derived from other rules: U4 (from F15 and Q5), V4 (V20 and V21), V31 (S1, T8 and Q5), V44 (S1 applied to the Markdown report), V54 (D1 and V1 applied row by row).
+- Derived from other rules: F19 (F3 and R8 applied to a criterion named without its form, after test runs measured only what their tool reported), U4 (from F15 and Q5), V4 (V20 and V21), V31 (S1, T8 and Q5), V44 (S1 applied to the Markdown report), V54 (D1 and V1 applied row by row).
 - Design decisions: V3, V16, V24, V26, V36, V39, V42, V43, V51; T13, from what our own benchmarks of script suites showed; publishing, H1–H9.
 - From an outside review of the specs: F18 (raw data written by the program that measures, every number computed by astrolabe), V56 (declared figures marked as declared), and S11 (primary comparisons declared before measuring, as clinical trials declare their primary endpoints).
 - Thresholds within sourced rules: about 10 measurements or fewer for plotting every point (V15), 8 colours (V20), the table sizes of V32, the row limit of V54, the 2× threshold of V55, the order of V38, and the 80- and 60-character limits of F2 and V25.

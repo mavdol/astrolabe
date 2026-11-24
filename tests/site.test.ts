@@ -516,6 +516,20 @@ describe("the site", () => {
     expect(LONGEST_SUMMARY_TITLE).toBe(50);
   });
 
+  it("titles a summary of verdicts with the certain side first, and says likely when none of a side is certain", () => {
+    const scripts = scriptsBenchmarkOf(4);
+    const titleOf = (results: Benchmark["results"]) => summaryTitleOf(lookupOf(results), summaryChartOf(results, { metric: "wall_time" }));
+    const fasterOnlyLikely = {
+      ...scripts.results,
+      comparisons: scripts.results.comparisons!.map((comparison) =>
+        comparison.verdict === "better" ? { ...comparison, qualifier: "likely" as const } : comparison,
+      ),
+    };
+
+    expect(titleOf(scripts.results)).toBe("new is faster on 2, slower on 2 of 4 scripts");
+    expect(titleOf(fasterOnlyLikely)).toBe("new: slower on 2, likely faster on 2 of 4 scripts");
+  });
+
   it("links the name of each part on a chart of the page to its description in the method, never in an image", () => {
     const versions = versionsBenchmarkOf(2);
 

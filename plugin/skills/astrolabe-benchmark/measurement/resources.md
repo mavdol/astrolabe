@@ -17,6 +17,19 @@ Kinds `memory`, `cpu` and `energy`. The main trap is comparing numbers that do n
 - `unit` is unambiguous: MiB or MB, not "megs".
 - A usage expressed in percent (CPU share) is compared as `relative`: from 6% to 13% is more than double, not "7 points". `validate` refuses `difference` there.
 
+## Which form of memory (F19)
+
+"Memory" alone has several forms, and candidates can differ on one and not another. When the user names none, propose the one or two that fit the decision, from what changed between the candidates:
+
+| Form | What it answers | Points to it |
+| --- | --- | --- |
+| Peak | Will it fit in the machine or container it gets? | A memory limit; a change in how much is loaded at once |
+| Steady state | What does it hold while running normally? | A long-running process, a server |
+| Returned after a load spike | Does memory come back down once the load is gone, or does the process keep it? | A change of allocator or garbage collector; a service with bursts of traffic |
+| Growth over a long run | Does it climb run after run? | A cache, a pool, a suspected leak |
+
+Peak is what hyperfine reports, which is a reason to check it fits rather than a reason to choose it. The last two need memory sampled during the run (`"kind": "timeseries"`), each reduced to one figure per run by the script that measures ("resident memory 10 s after the load stopped", "growth per 1,000 requests"), so they are compared like any metric.
+
 ## How to measure
 
 - Peak memory of a command: hyperfine reports it and `astrolabe import hyperfine` writes it as `peak_rss` (MiB). Otherwise `/usr/bin/time -v` on Linux or `/usr/bin/time -l` on macOS (mind the units: kilobytes on Linux, bytes on macOS), or `process.resourceUsage().maxRSS` inside Node.js; the script converts and writes the row.

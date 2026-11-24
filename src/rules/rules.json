@@ -285,6 +285,14 @@
     "explained_in": "SKILL.md"
   },
   {
+    "id": "F19",
+    "level": "should",
+    "text": "When a criterion is named without its form (memory, speed, quality, cost), turn it into its precise forms (each measurement file lists them) and propose the one or two that fit the decision, ranked by what changed between the candidates in their release notes or changelogs. The user decides; running unattended, add them as exploratory. A form the user named is taken as given.",
+    "pitfall": "A metric chosen because the tool reports it, while the candidates differ somewhere else",
+    "proved_by": "metrics[].definition, domain_research",
+    "explained_in": "SKILL.md"
+  },
+  {
     "id": "H1",
     "level": "must",
     "text": "Publish only when the user asks. Never push, change repository settings or create an account on your own initiative",

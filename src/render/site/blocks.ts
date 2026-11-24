@@ -4,7 +4,9 @@ import type { Block, ChartBlock, HeadlineBlock, SummaryBlock, TableBlock } from 
 import type { Mode } from "../../themes/astrolabe.js";
 import { addsInformation, detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
 import {
+  breakdownOf,
   ChartError,
+  claimsLevelOf,
   defaultFilterState,
   EVERY_OPTION,
   filterOf,
@@ -390,13 +392,16 @@ function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefine
 
       const metric = metricLabel(block.metric);
 
-      if (block.breakdown) return { short: `By ${block.breakdown}${exploratory}`, full: `${metric} by ${block.breakdown}${exploratory}` };
+      const breakdown = breakdownOf(block, lookup);
+
+      if (breakdown) return { short: `By ${breakdown}${exploratory}`, full: `${metric} by ${breakdown}${exploratory}` };
 
       return same(`${metric}${block.chart === "effect" ? ` against ${againstOf(block)}` : ""}${exploratory}`);
     }
     case "table":
       if (block.cells === "effects") {
-        const by = block.rows ? ` · by ${block.rows}` : "";
+        const rows = effectRowsOf(block, lookup);
+        const by = rows ? ` · by ${rows}` : "";
 
         return {
           short: `Against ${againstOf(block)}${by}`,
@@ -585,6 +590,13 @@ function readableDecimals(numbers: number[]): number {
   return Math.max(0, 2 - Math.floor(Math.log10(sizes[Math.floor(sizes.length / 2)])));
 }
 
+/** The level a table breaks its rows down by; for a table of effects that names no part, the level of its claims. */
+function effectRowsOf(block: TableBlock, lookup: Lookup): string | undefined {
+  if (block.rows || block.node || block.cells !== "effects") return block.rows;
+
+  return claimsLevelOf(lookup, block.metrics);
+}
+
 /**
  * Each candidate's change against the baseline, one row per node: the figure, its verdict in its colour and a bar
  * from zero on one scale per metric, so a long breakdown reads down a column instead of across many chart rows.
@@ -595,7 +607,12 @@ function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterSt
   const vs = block.vs ?? lookup.results.baseline;
   const againstVs = (lookup.results.comparisons ?? []).filter((comparison) => comparison.vs === vs);
   const compared = lookup.results.candidates.filter((candidate) => againstVs.some((comparison) => comparison.candidate === candidate.id));
-  const nodes = nodesOf({ id: block.id, node: block.node, breakdown: block.rows, filters: block.filters }, benchmark, lookup, state);
+  const nodes = nodesOf(
+    { id: block.id, node: block.node, breakdown: effectRowsOf(block, lookup), filters: block.filters },
+    benchmark,
+    lookup,
+    state,
+  );
   const comparisonOf = (metricId: string, node: string | undefined, candidate: string) =>
     againstVs.find((comparison) => comparison.metric === metricId && comparison.node === node && comparison.candidate === candidate);
   const largestOf = (metricId: string) =>
@@ -767,7 +784,9 @@ function defaultTableTitleOf(block: TableBlock, lookup: Lookup): string {
   const listed = labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}` : labels[0];
   const compared = block.cells === "effects" ? ` compared with ${lookup.candidateName.get(block.vs ?? lookup.results.baseline)}` : "";
 
-  return `${listed}${compared}${block.rows ? `, ${block.rows} by ${block.rows}` : ""}`;
+  const rows = effectRowsOf(block, lookup);
+
+  return `${listed}${compared}${rows ? `, ${rows} by ${rows}` : ""}`;
 }
 
 function textHtml(block: Extract<Block, { type: "text" }>, inputs: PageInputs, number: string): string {
