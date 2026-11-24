@@ -240,8 +240,8 @@ export const resultsSchema = z.strictObject({
         .strictObject({ rule: z.enum(["none", "tukey"]), k: z.number().positive().optional(), metrics: z.array(id).optional() })
         .optional(),
       /**
-       * Which candidates are compared with which: each against the baseline (the default), every pair, or the pairs
-       * the question names, each "candidate" against "vs".
+       * Which candidates are compared with which: every pair (the default), each against the baseline only, or the
+       * pairs the question names, each "candidate" against "vs".
        */
       pairs: z.union([z.enum(["baseline", "all"]), z.array(z.strictObject({ candidate: id, vs: id })).min(1)]).optional(),
     })

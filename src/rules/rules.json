@@ -1088,8 +1088,8 @@
   {
     "id": "V40",
     "level": "should",
-    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, sort it by effect, or show it as a table of effects.",
-    "pitfall": "A chart that shows everything and says nothing",
+    "text": "Give each chart one message, and each block something the page has not shown yet. When too many elements compete in one chart, split it, aggregate, filter, sort it by effect, or show it as a table of effects; a table of values beside results charts of the same metrics and parts, or a second section of changes on them, repeats the page.",
+    "pitfall": "A chart that shows everything and says nothing; a page that says the same thing twice and buries what it adds",
     "proved_by": "blocks[]",
     "explained_in": "visualization/page.md"
   },
@@ -1220,5 +1220,13 @@
     "pitfall": "A typed-in figure or an unchecked declaration read with the same trust as a computed result",
     "proved_by": "values[].source, comparisons[].qualifier and .role (generated)",
     "explained_in": "visualization/style.md"
+  },
+  {
+    "id": "V57",
+    "level": "must",
+    "text": "Compare every candidate in its own right. With three candidates or more, compare every pair (the default) or name the pairs the decision rests on, never only each against the baseline; draw every candidate's results side by side, from zero, before any change against one of them; and count across parts where each candidate stands among them all (best, tied for best, behind).",
+    "pitfall": "A page framed on one candidate: the others appear only as changes against it, and the alternatives the reader chooses between are never compared",
+    "proved_by": "analysis.pairs, blocks[] (checked by validate)",
+    "explained_in": "visualization/charts.md"
   }
 ]

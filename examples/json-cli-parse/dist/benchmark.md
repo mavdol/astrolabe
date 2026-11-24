@@ -30,21 +30,23 @@ Peak resident set size of the process. The median, in MiB; lower is better. Inte
 | fastjson | 894.8 | 887.6 to 908.1 | 10 | 0 |
 | tinyjson | 117.8 | 116.9 to 119.6 | 10 | 0 |
 
-## Against stdjson
+## Comparisons
 
-Each candidate against the baseline, stdjson. A verdict is read from the interval of the effect and the smallest difference that matters to the author: better or worse when the interval lies past it, likely when the direction is clear but the size may fall short, equivalent when the interval lies inside it, inconclusive otherwise. These are the claims of the benchmark. Their intervals are widened together for the 4 comparisons (Bonferroni), so they hold jointly.
+Each candidate against the others it is compared with. A verdict is read from the interval of the effect and the smallest difference that matters to the author: better or worse when the interval lies past it, likely when the direction is clear but the size may fall short, equivalent when the interval lies inside it, inconclusive otherwise. These are the claims of the benchmark. Their intervals are widened together for the 6 comparisons (Bonferroni), so they hold jointly.
 
 | Comparison | Effect | Interval | Verdict | Notes |
 | --- | ---: | ---: | --- | --- |
-| fastjson, wall time | −50% | −50 to −48% (98.75%) | better |  |
-| tinyjson, wall time | −4.3% | −7.1 to −1.5% (98.75%) | equivalent |  |
-| fastjson, peak memory | +188% | +186 to +198% (98.75%) | worse |  |
-| tinyjson, peak memory | −62% | −62 to −61% (98.75%) | better |  |
+| fastjson, wall time | −50% | −50 to −48% (99.17%) | better |  |
+| tinyjson, wall time | −4.3% | −7.3 to −1.4% (99.17%) | equivalent |  |
+| tinyjson against fastjson, wall time | +90% | +84 to +93% (99.17%) | worse |  |
+| fastjson, peak memory | +188% | +185 to +198% (99.17%) | worse |  |
+| tinyjson, peak memory | −62% | −62 to −61% (99.17%) | better |  |
+| tinyjson against fastjson, peak memory | −87% | −87.1 to −86.6% (99.17%) | better |  |
 
 ## Method
 
 - Computed from raw data by astrolabe: Wall time, Peak memory.
-- Comparisons: 4 primary, 0 exploratory.
+- Comparisons: 6 primary, 0 exploratory.
 - Observed: process 10 (planned 10).
 - Warm-up: 3 untimed runs to fill the file cache; state: warm.
 - Order: interleaved, randomized.
@@ -89,4 +91,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `70c8d8049378` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `88b3a2211616` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>

@@ -218,6 +218,14 @@ const PROOFS: Record<string, Proof> = {
     },
     field: "values[0].evidence",
   },
+  V57: {
+    plan: "three candidates compared only with the baseline",
+    change: (plan) => {
+      plan.candidates.push({ ...plan.candidates[1], id: "third", name: "third" });
+      plan.analysis = { pairs: "baseline" };
+    },
+    field: "analysis.pairs",
+  },
 };
 
 const mustRules = allRules().filter((entry) => entry.level === "must");

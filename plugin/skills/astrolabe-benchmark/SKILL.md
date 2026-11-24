@@ -59,7 +59,7 @@ Most benchmarks need two or three measurement files: a speed comparison of two l
 1. A neutral goal tied to a decision (F1, F2).
 2. Metrics, units, direction and weights the user confirmed (F3, D9).
 3. The domain researched and a workload that represents the user's real use (F4, F5, U1).
-4. The right baseline, named (F7, S3).
+4. Every candidate compared in its own right: every pair compared, each one's results drawn beside the others' before any change against one; the version in use today named as the baseline (F7, S3, V57).
 5. The same effort and a documented configuration for every candidate (F8).
 6. The environment recorded, including where it ran (bare metal, a virtual machine, a container, a CI runner), with timestamps for services you do not control; scripts and raw data published (F11, F15, F16).
 7. Repeated runs; variability and sample size beside every value; winners named from effects and their intervals (S1, S7).
@@ -116,7 +116,7 @@ Decide everything else yourself from the defaults in statistics.md and the measu
 Three answers shape the whole result, so they are worth a question:
 
 - **The goal** is the user's decision, phrased neutrally as one short question: "which parser should the nightly import use?", never "show that X is faster". The page and the README card show it as their title, so keep it to 80 characters; `validate` warns past that. When the user owns or sells a candidate, or asks for one to win, the goal stays neutral and the protocol stays the same for everyone; see the table below.
-- **The comparison that decides** comes from the decision, not from how a request is worded. "Should we leave A for B or for C?" is decided by B against C; "which of these tools?" by every pair. Whatever the pairs, the page shows every candidate's results side by side, as equals; changes in percent against one candidate are a section of their own (visualization/charts.md). Write the pairs in `analysis.pairs` (statistics.md).
+- **The comparison that decides** comes from the decision, not from how a request is worded. "Should we leave A for B or for C?" is decided by B against C; "which of these tools?" by every pair. Every pair is compared by default, and whatever the pairs, the page shows every candidate's results side by side, as equals, before any change in percent against one of them (V57, visualization/charts.md). Name pairs in `analysis.pairs` only to compare fewer (statistics.md).
 - **The smallest difference that matters** (`minimum_meaningful`, per metric) is what separates "better" from "a real difference too small to care about". It is set before measuring. If the user has none, propose one (10% is a common choice for a run time) and say so.
 
 ## Step 2: research, and read the terms

@@ -259,7 +259,7 @@ describe("a chart of effects", () => {
   });
 
   it("names the level of its intervals, adjusted or not", () => {
-    expect(chart.howToRead).toContain("Lines: 98.75% confidence intervals, adjusted for 4 primary comparisons.");
+    expect(chart.howToRead).toContain("Lines: 99.17% confidence intervals, adjusted for 6 primary comparisons.");
   });
 
   it("labels its rows by node when a single candidate is compared across nodes", () => {

@@ -65,6 +65,8 @@ describe("the rows of the page", () => {
       ["chart"],
       ["chart"],
       ["chart"],
+      ["chart"],
+      ["chart"],
       ["methodology"],
       ["environment"],
       ["limitations"],
@@ -295,6 +297,7 @@ describe("the site", () => {
     const third = { ...benchmark.results.candidates[0], id: "model_c", name: "Model C" };
 
     benchmark.results.candidates = [third, ...benchmark.results.candidates];
+    benchmark.results.analysis = { ...benchmark.results.analysis, pairs: "baseline" };
     benchmark.results.comparisons = [
       ...benchmark.results.comparisons!,
       ...benchmark.results
@@ -321,6 +324,7 @@ describe("the site", () => {
     const third = { ...benchmark.results.candidates[0], id: "model_c", name: "Model C" };
 
     benchmark.results.candidates = [...benchmark.results.candidates, third];
+    benchmark.results.analysis = { ...benchmark.results.analysis, pairs: "baseline" };
     benchmark.results.comparisons = [
       ...benchmark.results.comparisons!,
       ...benchmark.results
@@ -442,7 +446,7 @@ describe("the site", () => {
     );
     expect([...html.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map((match) => match[1])).toEqual(["next", "base", "mid"]);
     expect(html).toContain(
-      "<li>Each bar: the 4 scripts, by where the candidate stands among the 3; best to the right of the line, behind to the left.</li>",
+      "<li>Each bar: the 4 scripts; best to the right of the line, behind to the left.</li>",
     );
     expect(html).not.toMatch(/<li>(base|mid|next): from /);
   });

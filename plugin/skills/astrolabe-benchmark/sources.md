@@ -118,6 +118,8 @@ Each source lists the rules it backs, by the ids used in the rule tables of the 
 - Cole, *Too many digits: the presentation of numerical data*, Archives of Disease in Childhood 2015. [article](https://pmc.ncbi.nlm.nih.gov/articles/PMC4483789). V30
 - Schwabish, *Ten Guidelines for Better Tables*, Journal of Benefit-Cost Analysis 2020. [DOI](https://doi.org/10.1017/bca.2020.11). V29, V32 (through a summary only)
 - Aisch, *In Defense of Interactive Graphics*. [post](http://www.vis4.net/blog/in-defense-of-interactive-graphics/). V33, V37
+- Gigerenzer, Gaissmaier, Kurz-Milcke, Schwartz & Woloshin, *Helping Doctors and Patients Make Sense of Health Statistics*, Psychological Science in the Public Interest 2007. [DOI](https://doi.org/10.1111/j.1539-6053.2008.00033.x), [PDF](https://www.stat.berkeley.edu/~aldous/157/Papers/health_stats.pdf). V57: relative figures are nontransparent and look big; give the absolute values (passages on relative and absolute risks)
+- Goldstein & Spiegelhalter, *League Tables and Their Limitations*, Journal of the Royal Statistical Society A 1996. [DOI](https://doi.org/10.2307/2983325), [preprint](https://www.bristol.ac.uk/media-library/sites/cmm/migrated/documents/limitations-of-league-tables.pdf). V57: a winner is never read from overlapping intervals, and candidates that cannot be separated are said to be so (preprint; figures not seen)
 - Shneiderman, *The Eyes Have It*, 1996. [DOI](https://doi.org/10.1109/VL.1996.545307). V38 ("overview first, details on demand"; not read)
 
 ## Exports

@@ -276,7 +276,8 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
   const imageLabel = `aria-label="${escapeHtml(`${ariaLabel}; out of ${partsOf(lookup, chart.summaries[0])}`)}"`;
 
   return [
-    sectionLabel(number, `${metric.label} · ${directionWords(metric.direction)}`),
+    // Counts of best and behind already carry the direction; only verdicts against the baseline need it said.
+    sectionLabel(number, chart.count === "best" ? metric.label : `${metric.label} · ${directionWords(metric.direction)}`),
     chartPairOf(lookup, chart) === inputs.titlePair ? "" : anchoredTitle(block, chartPairOf(lookup, chart)),
     legendHtml(legendOf(metric, chart)),
     chart.drawing === "grouped-bar"

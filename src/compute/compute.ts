@@ -41,12 +41,13 @@ export interface Pair {
 }
 
 /**
- * The pairs a plan compares: each candidate against the baseline by default; every pair, the baseline always on the
- * "vs" side and otherwise the later candidate against the earlier; or the pairs it names. Pairs with the baseline first.
+ * The pairs a plan compares: every pair by default, the baseline always on the "vs" side and otherwise the later
+ * candidate against the earlier, so that each candidate is compared in its own right; each candidate against the
+ * baseline only; or the pairs the plan names. Pairs with the baseline first.
  */
 export function pairsOf(plan: Pick<Results, "candidates" | "baseline" | "analysis">): Pair[] {
   const ids = plan.candidates.map((candidate) => candidate.id);
-  const declared = plan.analysis?.pairs ?? "baseline";
+  const declared = plan.analysis?.pairs ?? "all";
 
   if (Array.isArray(declared)) return declared;
 

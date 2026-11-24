@@ -62,7 +62,7 @@ export function standingsOn(
 /** True when the plan compares every pair of candidates, so that the page can say who is best rather than who beats the baseline. */
 export function comparesEveryPair(results: Results): boolean {
   const ids = results.candidates.map((candidate) => candidate.id);
-  const pairs = results.analysis?.pairs ?? "baseline";
+  const pairs = results.analysis?.pairs ?? "all";
 
   if (pairs === "all") return true;
 

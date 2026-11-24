@@ -46,8 +46,8 @@ describe("the README card", () => {
       "Interval +1.0 to +1.2%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons. Lower is better.",
-      "Machine: Apple M2, 8 cores, 8 GB RAM · macOS 26.6.2 · Bare metal: a developer laptop",
+      "Effects against Node.js, with 97.5% intervals. Lower is better.",
+      "Measured on Apple M2 · macOS 26.6.2 · Bare metal",
       expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
@@ -274,7 +274,8 @@ describe("reading a card at a glance", () => {
 
     expect(lines[0]).toContain("3 CANDIDATES");
     expect(lines).toContain("next  3 best  0 tied for best  1 behind");
-    expect(lines.join(" ")).toContain("Each candidate compared with every other;");
+    expect(lines.join(" ")).toContain("best to the right of the line, behind to the left. Verdicts from 99.58% intervals.");
+    expect(lines.join(" ")).not.toMatch(/lower is better/i);
   });
 
   it("shows either headline or summary cells, never both", () => {
@@ -319,17 +320,17 @@ describe("reading a card at a glance", () => {
     expect(mixedLines.join(" ")).not.toMatch(/(Lower|Higher) is better\./);
   });
 
-  it("names the machine where its numbers were measured, only for measurements on your own machines", () => {
+  it("names the machine where its numbers were measured in a few words, only for measurements on your own machines", () => {
     const parsers = loadBenchmark("json-cli-parse");
     const card = renderCard(parsers, cardContentOf(parsers), "light", context);
 
-    expect(card.textLines).toContain("Machine: 8-core x86-64 laptop, 32 GB RAM, NVMe · Linux 6.8 · Bare metal: a laptop");
-    expect(card.svg).toContain("Machine: 8-core x86-64 laptop, 32 GB RAM, NVMe · Linux 6.8 · Bare metal: a laptop.");
+    expect(card.textLines).toContain("Measured on 8-core x86-64 laptop · Linux 6.8 · Bare metal");
+    expect(card.svg).toContain("Measured on 8-core x86-64 laptop · Linux 6.8 · Bare metal.");
 
     for (const id of ["geocoding-apis", "support-assistant-eval", "notes-apps-onboarding"]) {
       const benchmark = loadBenchmark(id);
 
-      expect(renderCard(benchmark, cardContentOf(benchmark), "light", context).textLines.join(" "), id).not.toContain("Machine:");
+      expect(renderCard(benchmark, cardContentOf(benchmark), "light", context).textLines.join(" "), id).not.toContain("Measured on");
     }
   });
 

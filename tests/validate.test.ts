@@ -613,3 +613,48 @@ describe("results drawn side by side", () => {
     );
   });
 });
+
+describe("every candidate in its own right", () => {
+  const results = { id: "results", type: "chart", chart: "results", metric: "wall_time", breakdown: "script", title: "Wall time" };
+  const effects = { id: "effects", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] };
+  const rulesOnPage = (blocks: Record<string, unknown>[], candidates = 3) => {
+    const benchmark = candidates === 3 ? versionsBenchmarkOf(2) : scriptsBenchmarkOf(2);
+
+    return checkPresentation({ ...benchmark, blocks } as Benchmark)
+      .filter((issue) => issue.rule === "V57")
+      .map((issue) => issue.path);
+  };
+
+  it("refuses, with three candidates, changes against one of them above every candidate's results, or a count of verdicts against one", () => {
+    expect(rulesOnPage([effects])).toEqual(["blocks[0]"]);
+    expect(rulesOnPage([effects, results])).toEqual(["blocks[0]"]);
+    expect(rulesOnPage([results, effects])).toEqual([]);
+    expect(rulesOnPage([{ id: "summary", type: "summary", metric: "wall_time", count: "verdicts" }, results])).toEqual(["blocks[0].count"]);
+  });
+
+  it("leaves two candidates alone: their one comparison is every pair", () => {
+    expect(rulesOnPage([effects], 2)).toEqual([]);
+  });
+});
+
+describe("a page that says each thing once", () => {
+  const results = { id: "results", type: "chart", chart: "results", metric: "wall_time", breakdown: "script", title: "Wall time" };
+  const values = { id: "values", type: "table", metrics: ["wall_time"], rows: "script", show: ["n", "ci", "failures"] };
+  const againstBase = { id: "against-base", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] };
+  const againstMid = { ...againstBase, id: "against-mid", vs: "mid" };
+  const warningsOn = (blocks: Record<string, unknown>[]) =>
+    checkPresentation({ ...versionsBenchmarkOf(2), blocks } as Benchmark)
+      .filter((issue) => issue.rule === "V40")
+      .map((issue) => issue.message);
+
+  it("warns on a table of values beside the results chart that draws them, and on a second section of the same changes", () => {
+    expect(warningsOn([results, againstBase, againstMid, values])).toEqual([
+      '"against-mid" shows again the changes "against-base" shows, on the same metrics and parts, against mid: one section of changes says it, against the candidate the question measures from; remove one',
+      '"values" lists the values "results" already draws with their intervals, and each chart\'s data is one click away under it: remove the table',
+    ]);
+  });
+
+  it("leaves a table of values alone when no chart draws its metrics on its parts", () => {
+    expect(warningsOn([values])).toEqual([]);
+  });
+});

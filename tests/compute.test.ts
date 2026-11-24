@@ -265,7 +265,7 @@ describe("comparisons", () => {
     expect(value.method).toBe("bootstrap, resampling clusters (too few observations for an interval)");
   });
 
-  it("several primary comparisons share a Bonferroni level", () => {
+  it("several primary comparisons share a Bonferroni level, every pair of candidates counted", () => {
     const plan = planOf({ candidates: ["base", "new", "other"], metrics: [{}, { id: "speed", from: { raw: "data", measure: "speed" } }] });
     const rows = ["base", "new", "other"].flatMap((candidate) => [
       ...runsOf(candidate, BASE_SCORES),
@@ -273,11 +273,12 @@ describe("comparisons", () => {
     ]);
     const results = compute(plan, { data: rawFileOf(rows) }, FAST);
 
-    expect(results.comparisons).toHaveLength(4);
+    expect(results.comparisons).toHaveLength(6);
 
-    for (const comparison of results.comparisons!) expect(comparison).toMatchObject({ role: "primary", adjusted: true, ci_level: 0.9875 });
+    for (const comparison of results.comparisons!)
+      expect(comparison).toMatchObject({ role: "primary", adjusted: true, ci_level: 0.991667 });
 
-    expect(results.computed).toMatchObject({ primary_comparisons: 4, exploratory_comparisons: 0 });
+    expect(results.computed).toMatchObject({ primary_comparisons: 6, exploratory_comparisons: 0 });
   });
 
   it("the same raw files give the same digits, and computing again changes nothing", () => {

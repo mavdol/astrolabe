@@ -41,6 +41,13 @@ export function checkPlan(results: Results): Issue[] {
 
   const declaredPairs = results.analysis?.pairs;
 
+  if (declaredPairs === "baseline" && candidateIds.length >= 3)
+    error(
+      "V57",
+      "analysis.pairs",
+      `with ${candidateIds.length} candidates, comparing each only with the baseline makes it the measure of the others: leave "pairs" out to compare every pair, or name the pairs the decision rests on`,
+    );
+
   if (Array.isArray(declaredPairs)) {
     const seen = new Set<string>();
 

@@ -232,10 +232,17 @@ function machineOf(benchmark: Benchmark, content: CardContent): string[] | undef
   );
   const parts = ["hardware", "os", "host"]
     .map((key) => results.environment[key])
-    .filter((setting): setting is string => typeof setting === "string" && setting !== "");
+    .filter((setting): setting is string => typeof setting === "string" && setting !== "")
+    .map(essentialOf);
 
   return measuredOnYourMachines && parts.length > 0 ? parts : undefined;
 }
+
+/**
+ * The first clause of an environment setting, which names the thing: "Apple M2" for "Apple M2 (Mac14,7), 8 cores, 8 GB
+ * RAM", "Bare metal" for "Bare metal: a laptop, not a virtual machine". The page keeps the whole setting.
+ */
+const essentialOf = (setting: string) => setting.split(/ \(|, |: |; /)[0].trim();
 
 const normalizedWords = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}%+−.]+/gu, " ");
 
@@ -943,7 +950,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         chart,
         metric,
         labelLines: text.wrapParts(
-          [metric.label, ...(sharedDirection ? [] : [directionWords(metric)])].map((part) => part.toUpperCase()),
+          [metric.label, ...(sharedDirection || chart.count === "best" ? [] : [directionWords(metric)])].map((part) => part.toUpperCase()),
           STYLE.label,
           columnWidth,
         ),
@@ -1148,29 +1155,17 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
   cursorY = footerRuleY + 22;
 
-  const primaryCount = results.computed.primary_comparisons;
-  const everyHeadlineAdjusted = shownComparisons.every((comparison) => comparison.adjusted);
+  // The footer keeps what a card read alone needs: what a mark is, the interval's level, the direction when it is
+  // not already in the counts; the adjustment and the rest of the method are on the page.
   const isSingle = shownComparisons.length === 1;
-  const possessive = isSingle ? "its" : "their";
-  const intervalNoun = isSingle ? "interval" : "intervals";
-  const intervalPhrase =
-    sharedLevel && everyHeadlineAdjusted
-      ? `${possessive} ${sharedLevel} ${intervalNoun}, adjusted for ${primaryCount} comparisons`
-      : sharedLevel
-        ? `${possessive} ${sharedLevel} ${intervalNoun}`
-        : `${possessive} ${intervalNoun}`;
+  const intervals = `${sharedLevel ? `${sharedLevel} ` : ""}${isSingle ? "interval" : "intervals"}`;
   const readingOfCells =
     content.charts && content.charts.length > 0
-      ? [
-          content.charts.every((chart) => chart.count === "best")
-            ? `Each candidate compared with every other; each verdict is read from ${intervalPhrase}.`
-            : `Compared with ${lookup.candidateName.get(results.baseline)}; each verdict is read from ${intervalPhrase}.`,
-          ...new Set(content.charts.map((chart) => summaryKeyOf(lookup, chart))),
-        ]
-      : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`];
+      ? [...new Set(content.charts.map((chart) => summaryKeyOf(lookup, chart))), `Verdicts from ${intervals}.`]
+      : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervals}.`];
   const legendSentences = [
     ...readingOfCells,
-    ...(sharedDirection ? [sharedDirection === "lower" ? "Lower is better." : "Higher is better."] : []),
+    ...(sharedDirection && !countsWhoIsBest ? [sharedDirection === "lower" ? "Lower is better." : "Higher is better."] : []),
     ...(drawsStrips ? ["Shaded band: too small to matter."] : []),
     ...(content.omitted.length > 0
       ? [
@@ -1191,16 +1186,10 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     );
 
   const machine = machineOf(benchmark, content);
-  const machineText = machine ? `Machine: ${machine.join(" · ")}` : "";
+  const machineText = machine ? `Measured on ${machine.join(" · ")}` : "";
 
   if (machine)
-    cursorY = drawLines(
-      text.wrapParts([`Machine: ${machine[0]}`, ...machine.slice(1)], STYLE.detail, innerWidth),
-      STYLE.detail,
-      colours.secondary,
-      PADDING,
-      cursorY,
-    );
+    cursorY = drawLines(text.wrapParts([machineText], STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
 
   cursorY += 6;
 

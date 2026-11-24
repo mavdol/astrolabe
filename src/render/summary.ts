@@ -118,7 +118,15 @@ export function bestSummariesOf(results: Results, metric: string, candidates: st
   }));
 }
 
-export function summaryChartOf(results: Results, block: SummaryRequest): SummaryChart {
+/**
+ * What a summary counts when its block does not say: who is best among three candidates or more whose every pair is
+ * compared, so that no candidate is the measure of the others; verdicts against the baseline otherwise.
+ */
+export const defaultCountOf = (results: Results): "verdicts" | "best" =>
+  results.candidates.length >= 3 && comparesEveryPair(results) ? "best" : "verdicts";
+
+export function summaryChartOf(results: Results, request: SummaryRequest): SummaryChart {
+  const block = { ...request, count: request.count ?? defaultCountOf(results) };
   const candidates = summaryCandidatesOf(results, block);
   const summaries =
     block.count === "best"
@@ -145,7 +153,7 @@ export function isCountable(results: Results, summary: Summary): boolean {
  * when the plan compares every pair, otherwise each candidate's verdicts against the baseline.
  */
 export function summaryChartsOf(results: Results): SummaryChart[] {
-  if (comparesEveryPair(results))
+  if (defaultCountOf(results) === "best")
     return results.metrics.flatMap((metric) => {
       const summaries = bestSummariesOf(
         results,
@@ -338,7 +346,7 @@ export function summaryKeyOf(lookup: Lookup, chart: SummaryChart): string {
 
     switch (chart.drawing) {
       case "diverging-bar":
-        return `Each bar: the ${parts}, by where the candidate stands ${among}; best to the right of the line, behind to the left.`;
+        return `Each bar: the ${parts}; best to the right of the line, behind to the left.`;
       case "stacked-bar":
         return `Each bar: the ${parts}, by where the candidate stands ${among}.`;
       case "grouped-bar":
