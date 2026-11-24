@@ -124,12 +124,15 @@ export const UNDERLINE_OFFSET = 4;
 export function linkedName(
   drawn: string,
   link: string | undefined,
-  underline: { x: number; y: number; width: number },
+  underline: { x: number; y: number; width: number } | { x: number; y: number; width: number }[],
   colours: Colours,
 ): string {
   if (!link) return drawn;
 
-  const path = `<path class="part-underline" d="M${round(underline.x)} ${round(underline.y)}H${round(underline.x + underline.width)}" stroke="${colours.ruleStrong}" stroke-width="1" stroke-dasharray="1 2"/>`;
+  const lines = (Array.isArray(underline) ? underline : [underline])
+    .map((line) => `M${round(line.x)} ${round(line.y)}H${round(line.x + line.width)}`)
+    .join("");
+  const path = `<path class="part-underline" d="${lines}" stroke="${colours.ruleStrong}" stroke-width="1" stroke-dasharray="1 2"/>`;
 
   return `<a class="part-link" href="${escapeXml(link)}">${drawn}${path}</a>`;
 }

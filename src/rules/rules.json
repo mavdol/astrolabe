@@ -1136,7 +1136,7 @@
   {
     "id": "V46",
     "level": "must",
-    "text": "Every chart has a text alternative in two parts: a short one naming the chart, and a longer one, visible to everyone, giving scales, values and the trend. The generator writes the factual part from `results` (what is plotted, extremes, comparisons); the agent's `description` adds the reading.",
+    "text": "Every chart has a text alternative in two parts: a short one naming the chart, and a longer one, visible to everyone, giving scales, values and the trend: on a page, the reading under the chart, its data table and its description; in an image, its long description. The generator writes the factual part from `results` (what is plotted, extremes, comparisons); the agent's `description` adds the reading.",
     "pitfall": "A chart that says nothing to a screen reader, or an alt text that only says \"bar chart\"",
     "proved_by": "blocks[].description (plus generated text)",
     "explained_in": "visualization/page.md"

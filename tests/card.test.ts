@@ -274,7 +274,7 @@ describe("reading a card at a glance", () => {
 
     expect(lines[0]).toContain("3 CANDIDATES");
     expect(lines).toContain("next  3 best  0 tied for best  1 behind");
-    expect(lines.join(" ")).toContain("best to the right of the line, behind to the left. Verdicts from 99.58% intervals.");
+    expect(lines.join(" ")).toContain("each measured on all 3 candidates, by where this one placed. Verdicts from 99.58% intervals.");
     expect(lines.join(" ")).not.toMatch(/lower is better/i);
   });
 

@@ -1,6 +1,7 @@
 import type { Comparison, Metric, Results } from "../schema/benchmark.js";
 import type { SUMMARY_CHARTS } from "../schema/presentation.js";
 import { comparesEveryPair, primaryNodesOf, standingsOn, type Standing } from "./standing.js";
+import { capitalised } from "./chart/chart-content.js";
 import { effectAndInterval, lowerFirstLetterOfWord, verdictLabel, type Lookup } from "./describe.js";
 
 export const VERDICTS_IN_READING_ORDER = ["better", "likely better", "equivalent", "inconclusive", "likely worse", "worse"];
@@ -300,13 +301,13 @@ export function barsOf(metric: Metric, summary: Summary): VerdictBar[] {
   if (!summary.standings) return verdictBarsOf(metric, summary.comparisons);
 
   const standings = summary.standings;
-  const barOf = (side: BarSide, words: string, standing: Standing): VerdictBar => {
+  const barOf = (side: BarSide, standing: Standing): VerdictBar => {
     const parts = standings.filter((entry) => entry.standing === standing).map((entry) => ({ node: entry.node, likely: false }));
 
-    return { side, words, parts, count: parts.length, likely: 0 };
+    return { side, words: STANDING_WORDS[standing], parts, count: parts.length, likely: 0 };
   };
 
-  return [barOf("better", "best", "best"), barOf("same", "tied for best", "tied"), barOf("worse", "behind", "behind")];
+  return [barOf("better", "best"), barOf("same", "tied"), barOf("worse", "behind")];
 }
 
 /** What follows a bar's count when some of it is only likely: " likely" when all of it is, " · 1 likely" otherwise. */
@@ -362,6 +363,37 @@ export function summaryClaimOf(lookup: Lookup, summary: Summary): string {
 
   return `${pair}, ${lowerFirstLetterOfWord(metric.label)} on ${partsOf(lookup, summary)}: ${counts.join(", ")}.`;
 }
+
+/**
+ * A summary's data: one row per part it counts, one column per candidate, each cell the result the bars count there
+ * ("best", "tied for best", "behind", or a verdict in the metric's words), so every count can be traced to its parts.
+ */
+export function summaryTableOf(lookup: Lookup, chart: SummaryChart): { header: string[]; rows: string[][] } {
+  const metric = lookup.metricById.get(chart.metric)!;
+  const resultsBySummary = chart.summaries.map(
+    (summary) =>
+      new Map<string | undefined, string>(
+        summary.standings
+          ? summary.standings.map(({ node, standing }) => [node, STANDING_WORDS[standing]])
+          : summary.comparisons.map((comparison) => [comparison.node, plainVerdictOf(metric, comparison)]),
+      ),
+  );
+  const nodes = [...new Set(resultsBySummary.flatMap((results) => [...results.keys()]))];
+  const level = lookup.results.structure?.nodes.find((node) => node.id === nodes[0])?.level;
+
+  return {
+    header: [
+      level ? capitalised(level) : "Part",
+      ...chart.summaries.map((summary) => lookup.candidateName.get(summary.candidate) ?? summary.candidate),
+    ],
+    rows: nodes.map((node) => [
+      node === undefined ? "All" : (lookup.nodeLabel.get(node) ?? node),
+      ...resultsBySummary.map((results) => results.get(node) ?? "—"),
+    ]),
+  };
+}
+
+const STANDING_WORDS: Record<Standing, string> = { best: "best", tied: "tied for best", behind: "behind" };
 
 /** The longest title of a summary: one sentence a reader takes in before the chart under it. */
 export const LONGEST_SUMMARY_TITLE = 50;

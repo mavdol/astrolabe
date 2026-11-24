@@ -11,7 +11,8 @@ import { renderChart } from "../src/render/chart/render-chart.js";
 import { cardAltText, cardContentOf } from "../src/render/card.js";
 import { lookupOf } from "../src/render/describe.js";
 import { pageRowsOf } from "../src/render/site/page.js";
-import { LONGEST_SUMMARY_TITLE, summaryChartOf, summaryTitleOf } from "../src/render/summary.js";
+import { LONGEST_SUMMARY_TITLE, summaryChartOf, summaryTableOf, summaryTitleOf } from "../src/render/summary.js";
+import { tableOf } from "../src/render/site/html.js";
 import { answerOf, answerPartsOf, LONGEST_TITLE_PAIR } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
@@ -21,6 +22,8 @@ import { decodePng } from "./png.js";
 
 const context = { generatorVersion: "0.2.0", buildDate: "2026-11-17" };
 const pathOf = (id: string) => `examples/${id}/benchmark.json`;
+/** The page without the tips its marks show when pointed at, for tests about how the marks are laid out. */
+const withoutTips = (html: string) => html.replace(/ data-tip="[^"]*"/g, "");
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(pathOf(id), "utf8")));
 
 function buildSite(id: string, options: { url?: string; benchmark?: Benchmark } = {}) {
@@ -142,7 +145,7 @@ describe("the site", () => {
     expect(svgs.every((svg) => /role="img" aria-label="[^"]+"/.test(svg))).toBe(true);
   });
 
-  it("gives every chart its title, how to read it, its description and its data table", () => {
+  it("gives every chart its title, how to read it and its data, as a table without the text alternative", () => {
     const chapters = support.html.match(/<section class="block chapter chart"[\s\S]*?<\/section>/g)!;
 
     expect(chapters).toHaveLength(3);
@@ -150,8 +153,8 @@ describe("the site", () => {
     for (const panel of chapters) {
       expect(panel).toMatch(/<h2 [^>]*><a [^>]+>[^<]+<\/a>/);
       expect(panel).toContain('<figcaption class="how-to-read">');
-      expect(panel).toMatch(/<details class="chart-data"><summary>Data and description<\/summary>\n<p class="description">[^<]+<\/p>/);
-      expect(panel).toContain("<table>");
+      expect(panel).toMatch(/<details class="chart-data"><summary>Data<\/summary>\n<div class="table-scroll"><table>/);
+      expect(panel).not.toContain('class="description"');
     }
   });
 
@@ -233,7 +236,8 @@ describe("the site", () => {
 
     benchmark.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...benchmark.blocks!];
     benchmark.layout = undefined;
-    const { html } = buildSite("support-assistant-eval", { benchmark });
+    const page = buildSite("support-assistant-eval", { benchmark }).html;
+    const html = withoutTips(page);
     const legend = /<ul class="stack-legend">(.*?)<\/ul>/.exec(html)![1];
     const stacks = /<div class="stacks diverging-bar" role="img" aria-label="([^"]*)">([\s\S]*?)\n<\/div>/.exec(html)!;
 
@@ -256,6 +260,7 @@ describe("the site", () => {
       "<li>Each bar: the 3 tasks, by their result against Model B; better to the right of the line, worse to the left.</li>",
     );
     expect(html).toMatch(/<li>From −?[\d.]+ to \+?[\d.]+ points<\/li>/);
+    expect(page, "each part a segment counts, for a reader who points at it").toContain('data-tip="Model A · better on 1&#10;Bug fixes"');
     expect(html, "a sentence that says what the bars show, not the pair the top of the page names").toContain(
       '<h2 id="summary-accuracy-title"><a href="#summary-accuracy">Model A is better than Model B on 1 of 3 tasks</a></h2>',
     );
@@ -271,7 +276,7 @@ describe("the site", () => {
 
       buildOutputs(benchmark, ["site"], folder, context, { rawFiles: {} });
 
-      return readFileSync(join(folder, "site", "index.html"), "utf8");
+      return withoutTips(readFileSync(join(folder, "site", "index.html"), "utf8"));
     };
     const stacked = htmlOf(scripts);
 
@@ -394,7 +399,10 @@ describe("the site", () => {
     const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
 
     buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
-    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const page = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const html = withoutTips(page);
+
+    expect(page, "the tip says which part is only likely").toMatch(/data-tip="new · faster on 3&#10;[^"]*\(likely\)/);
 
     expect(answerOf(scripts)).toBe("new compared with base, wall time on 6 scripts: faster on 3 (1 likely), slower on 3.");
     expect(html).toContain(
@@ -412,7 +420,7 @@ describe("the site", () => {
     const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
 
     buildOutputs(scripts, ["site"], folder, context, { rawFiles: {} });
-    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const html = withoutTips(readFileSync(join(folder, "site", "index.html"), "utf8"));
 
     expect(html).toContain('<span class="stack-rest">1 slower</span>');
     expect(html).toContain('<span class="segment bad" style="left: 0%; width: 2.5%"><i class="firm" style="width: 100%"></i></span>');
@@ -436,7 +444,7 @@ describe("the site", () => {
     });
   });
 
-  it("draws who is best as a bar per candidate around one line, behind on the left, with no range of changes", () => {
+  it("draws who is best as a bar per candidate from the left, best first and behind last, with no line and no range of changes", () => {
     const versions = {
       ...versionsBenchmarkOf(4),
       blocks: [{ id: "summary-time", type: "summary", metric: "wall_time", count: "best" }],
@@ -444,15 +452,55 @@ describe("the site", () => {
     const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
 
     buildOutputs(versions, ["site"], folder, context, { rawFiles: {} });
-    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const page = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const html = withoutTips(page);
 
     expect(html).toContain(
-      '<li class="bad"><i></i>Behind</li><li class="neutral"><i></i>Tied for best</li><li class="good"><i></i>Best</li>',
+      '<li class="good"><i></i>Best</li><li class="neutral"><i></i>Tied for best</li><li class="bad"><i></i>Behind</li>',
+    );
+    expect(html).toContain('<div class="stacks stacked-bar"');
+    expect(html).not.toContain("stack-zero");
+    expect(html, "every bar spans the 4 scripts, not the 8 comparisons that decide them").toContain(
+      '<span class="segment good" style="left: 0%; width: 75%">',
     );
     expect([...html.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map((match) => match[1])).toEqual(["next", "base", "mid"]);
-    expect(html).toContain("<li>Each bar: the 4 scripts; best to the right of the line, behind to the left.</li>");
+    expect(html).toContain("<li>Each bar: the 4 scripts, each measured on all 3 candidates, by where this one placed.</li>");
+    expect(page).toContain('data-tip="next · behind on 1&#10;Script 2"');
     expect(html).not.toMatch(/<li>(base|mid|next): from /);
     expect(html).toContain('<h2 id="summary-time-title"><a href="#summary-time">next is best on 3 of 4 scripts</a></h2>');
+  });
+
+  it("puts a summary's data under it, a row per part and a column per candidate, so every count leads to its parts", () => {
+    const versions = versionsBenchmarkOf(4);
+    const chart = summaryChartOf(versions.results, { metric: "wall_time" });
+
+    expect(summaryTableOf(lookupOf(versions.results), chart)).toEqual({
+      header: ["Script", "next", "base", "mid"],
+      rows: [
+        ["Script 1", "best", "behind", "behind"],
+        ["Script 2", "behind", "tied for best", "tied for best"],
+        ["Script 3", "best", "behind", "behind"],
+        ["Script 4", "best", "behind", "behind"],
+      ],
+    });
+  });
+
+  it("writes the name of a part once over its rows in a chart's data, kept for screen readers, a line opening each part", () => {
+    const table = tableOf(
+      ["Script", "Candidate", "Median (s)"],
+      [
+        ["Script 1", "base", "0.1"],
+        ["Script 1", "next", "0.06"],
+        ["Script 2", "base", "0.2"],
+      ],
+      undefined,
+      [],
+      { groupsByFirstColumn: true },
+    );
+
+    expect(table).toContain('<tr><th scope="row">Script 1</th>');
+    expect(table).toContain('<tr><th scope="row"><span class="visually-hidden">Script 1</span></th>');
+    expect(table).toContain('<tr class="group-start"><th scope="row">Script 2</th>');
   });
 
   it("titles a summary with the fullest sentence that fits in 50 characters, a shorter one when the names are long", () => {

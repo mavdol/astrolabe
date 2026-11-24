@@ -146,7 +146,7 @@ describe("a chart of values", () => {
     const chart = draw(runtimes, chartBlock({ chart: "bar", metric: "peak_rss", title: "Peak memory", sort: "declared" }));
 
     expect(chart.textLines).toContain("Node.js  213");
-    expect(chart.table.rows[0]).toEqual(["Node.js", "212.88", "212.81 to 212.92 (95%)", "30"]);
+    expect(chart.table.rows[0]).toEqual(["Node.js", "212.88", "212.81 to 212.92", "30"]);
   });
 
   it("refuses a bar chart of negative values", () => {
@@ -201,7 +201,7 @@ describe("a chart broken down by node", () => {
   it("shows one group per node under the block's node, candidates in the same order in each", () => {
     const chart = draw(notes, tasks);
 
-    expect(chart.table.header).toEqual(["Group", "Candidate", "Share (%)", "Interval", "n"]);
+    expect(chart.table.header).toEqual(["Item", "Candidate", "Share (%)", "95% interval", "n"]);
     expect([...new Set(chart.table.rows.map((row) => row[0]))]).toEqual([
       "Create and format a note",
       "Share a note with a colleague",
@@ -704,7 +704,7 @@ describe("results, candidate by candidate", () => {
     );
     expect(chart.textLines).not.toContain("0  100  200  300  400  500");
     expect(chart.subtitle).toBe("Wall time, median · lower is better");
-    expect(chart.howToRead).toContain("Each part has its own scale, from zero to the figure beside its name");
+    expect(chart.howToRead).toContain("Each part has its own scale, from zero to the figure written with its name");
   });
 
   it("keeps the declared order of the candidates on every part, and refuses an axis away from zero", () => {
@@ -712,6 +712,46 @@ describe("results, candidate by candidate", () => {
 
     expect(chart.table.rows.map((row) => row[1])).toEqual(["base", "mid", "next", "base", "mid", "next"]);
     expect(() => draw(versionsBenchmarkOf(2), { ...block, scale: { zero: false, reason: "Close values" } })).toThrow(/bars from zero/);
+  });
+
+  it("names the candidates once, in a key drawn in the order their bars take on every part", () => {
+    const chart = draw(versionsBenchmarkOf(2), block);
+
+    expect(chart.textLines.slice(chart.textLines.indexOf("base"), chart.textLines.indexOf("base") + 4)).toEqual([
+      "base",
+      "mid",
+      "next",
+      "Script 1",
+    ]);
+    expect(chart.svg.match(/<g data-candidate="base"><rect /g), "the key's stub of bar").toHaveLength(1);
+    expect(draw(versionsBenchmarkOf(2), block, { plotOnly: true }).svg.match(/>base<\/text>/g), "named in the key only").toHaveLength(1);
+  });
+
+  it("wraps a long part name on two lines beside its bars, and puts the names above the bars when two lines are not enough", () => {
+    const named = (label: string) => {
+      const versions = versionsBenchmarkOf(2);
+
+      versions.results.structure!.nodes[0].label = label;
+
+      return draw(versions, block, { plotOnly: true, width: 640 }).svg;
+    };
+    const headingsOf = (svg: string) => [...svg.matchAll(/font-weight="600" fill="[^"]+">([^<]+)<\/text>/g)].map((match) => match[1]);
+
+    expect(headingsOf(named("Allocation and garbage collection")).slice(0, 2)).toEqual(["Allocation and garbage", "collection"]);
+    expect(headingsOf(named("Allocation and garbage collection of the young and the old generations")).slice(0, 2)).toEqual([
+      "Allocation and garbage collection of the young and the old generations",
+      "Script 2",
+    ]);
+  });
+
+  it("gives each bar a tip with its interval and place, and puts the place in the data table", () => {
+    const chart = draw(versionsBenchmarkOf(2), block);
+
+    expect(chart.svg).toMatch(
+      /data-key="script-1\|next" data-candidate="next" data-y="[\d.]+" data-tip="next · Script 1&#10;Median 60\.0 ms&#10;95% interval: [\d.]+ ms to [\d.]+ ms&#10;Best: clearly ahead of every other candidate"/,
+    );
+    expect(chart.table.header).toEqual(["Script", "Candidate", "Median (s)", "95% interval", "n", "Place"]);
+    expect(chart.table.rows.map((row) => row[5])).toEqual(["", "", "best", "best", "tied", ""]);
   });
 });
 

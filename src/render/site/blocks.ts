@@ -23,6 +23,7 @@ import {
   plainVerdictOf,
   pluralOf,
   summaryKeyOf,
+  summaryTableOf,
   summaryTitleOf,
   legendOf,
   barLayoutOf,
@@ -191,7 +192,9 @@ const nameOf = (lookup: Lookup, summary: Summary) => escapeHtml(lookup.candidate
 function segmentTipOf(lookup: Lookup, summary: Summary, bar: VerdictBar): string {
   const lines = [
     `${lookup.candidateName.get(summary.candidate) ?? summary.candidate} · ${bar.words} on ${bar.count}`,
-    ...bar.parts.map(({ node, likely }) => `${node === undefined ? "All" : (lookup.nodeLabel.get(node) ?? node)}${likely ? " (likely)" : ""}`),
+    ...bar.parts.map(
+      ({ node, likely }) => `${node === undefined ? "All" : (lookup.nodeLabel.get(node) ?? node)}${likely ? " (likely)" : ""}`,
+    ),
   ];
 
   return ` data-tip="${lines.map(escapeHtml).join("&#10;")}"`;
@@ -282,6 +285,7 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
     )
     .join(". ");
   const imageLabel = `aria-label="${escapeHtml(`${ariaLabel}; out of ${partsOf(lookup, chart.summaries[0])}`)}"`;
+  const table = summaryTableOf(lookup, chart);
 
   return [
     // Counts of best and behind already carry the direction; only verdicts against the baseline need it said.
@@ -294,6 +298,9 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
     ...drawn,
     "</div>",
     `<ul class="details">\n${[summaryKeyOf(lookup, chart), ...ranges].map((line) => `<li>${escapeHtml(line)}</li>`).join("\n")}\n</ul>`,
+    '<details class="chart-data"><summary>Data</summary>',
+    tableOf(table.header, table.rows, undefined, [undefined, ...chart.summaries.map((summary) => summary.candidate)]),
+    "</details>",
   ].join("\n");
 }
 

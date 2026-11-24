@@ -13,7 +13,9 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## Colour
 
-The default needs nothing: the `astrolabe` theme, a dark page, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Leave `style` out entirely unless the user asks for something, `mode` included: set it only when the user wants the page light, or following the reader's system.
+The default needs nothing: the `astrolabe` theme, a dark page, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Set `mode` only when the user wants the page light, or following the reader's system.
+
+The colours are your choice, from what the user wants the reader to see; ask when the request does not say. The default puts the eye on the first candidate, which suits a page about it (then name it in `highlight`). On a page of peers, decide whether one should stand out: when none should, give each candidate a colour of its own in `series`, of similar weight, so that colour ranks no one. In a chart of results the candidates' bars sit side by side on every part, so choose colours a reader tells apart at a glance.
 
 ```json
 {
@@ -39,7 +41,7 @@ The default needs nothing: the `astrolabe` theme, a dark page, the first candida
 - **Colours go in `style` only**, never in a block. The generator checks every colour against the background in both modes, adjusts its lightness when the contrast is too low, and refuses what it cannot fix.
 - **Four candidates fit in the theme's colours.** Beyond that, set `highlight`, ask the user for colours, or split the chart.
 - **Better and worse have their own colours, always beside their word**: green and orange on the verdicts, the headline figures and the README card. A candidate's own colour never changes with a verdict, so no candidate looks bad because of its colour.
-- **Colour is never the only cue**: labels sit on the chart and markers differ in shape, so the page reads in greyscale and for colour-blind readers.
+- **Colour is never the only cue**: labels sit on the chart and markers differ in shape; in a chart of results, the candidates keep one order on every part and the legend names them in it, so the page reads in greyscale and for colour-blind readers.
 
 ## Titles and descriptions
 

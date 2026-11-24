@@ -74,7 +74,12 @@ const headingLinkOf = (inputs: ChartInputs, group: { node: string | undefined; h
  * The figures of a chart of values, one row per candidate and part: the part named after its level, the interval's
  * level said once in its header when every interval has the same, and, for a chart of results, each candidate's place.
  */
-function valueTable(inputs: ChartInputs, groups: ValueGroup[], decimals: Decimals | null, placeOf?: (group: ValueGroup, value: Value) => string) {
+function valueTable(
+  inputs: ChartInputs,
+  groups: ValueGroup[],
+  decimals: Decimals | null,
+  placeOf?: (group: ValueGroup, value: Value) => string,
+) {
   const metric = metricOf(inputs.block, inputs.lookup);
   const withGroup = hasHeadings(groups);
   const levels = new Set(groups.flatMap((group) => group.values.filter((value) => value.ci).map((value) => formatLevel(value.ci_level!))));
@@ -299,7 +304,7 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
       groups: plotGroups,
       top: sharedTop,
       tickText: (value, tickDecimals) => formatNumber(value, tickDecimals),
-      legend: [...new Set(values.map((value) => value.candidate))].map((candidate) => ({
+      key: [...new Set(values.map((value) => value.candidate))].map((candidate) => ({
         candidate,
         name: candidateNameOf(lookup, candidate),
         colour: series.get(candidate)!.colour,
@@ -309,16 +314,11 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
     howToRead: howToReadOf(howToReadParts),
     howToReadParts,
     kind: `Bar chart of ${lowerFirstLetterOfWord(metric.label)}, every candidate side by side${groups.length > 1 ? " on each part" : ""}`,
-    table: valueTable(
-      inputs,
-      groups,
-      finestDecimals(values.map((value) => valueDecimals(metric, value))),
-      (group, value) => {
-        const place = placesOfGroup[groups.indexOf(group)].get(value.candidate);
+    table: valueTable(inputs, groups, finestDecimals(values.map((value) => valueDecimals(metric, value))), (group, value) => {
+      const place = placesOfGroup[groups.indexOf(group)].get(value.candidate);
 
-        return place ? PLACE_WORDS[place] : "";
-      },
-    ),
+      return place ? PLACE_WORDS[place] : "";
+    }),
     axisExtent: [0, sharedTop],
   };
 }
