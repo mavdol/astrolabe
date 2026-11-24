@@ -14,6 +14,7 @@ import { blockSchema, CHART_TYPES, type ChartBlock } from "../src/schema/present
 import { contrastRatio, MARK_CONTRAST, seriesStylesOf, TEXT_CONTRAST, THEME, visibleOn } from "../src/themes/astrolabe.js";
 import { scriptsBenchmarkOf, versionsBenchmarkOf } from "./helpers.js";
 import { displayUnitOf, roundTopAbove } from "../src/render/units.js";
+import { placesOn, type Standing } from "../src/render/standing.js";
 import { decodePng } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -653,22 +654,53 @@ describe("results, candidate by candidate", () => {
     title: "Wall time",
   } as ChartBlock;
 
-  it("draws each candidate's result on each part from zero, writing who is best and who is behind, and nothing for a tie", () => {
+  it("draws each candidate's result on each part from zero, writing a best on every part and who is too close to it to tell apart", () => {
     const chart = draw(versionsBenchmarkOf(2), block);
 
     expect(chart.textLines).toContain("0  100  200  300  400  500");
     expect(chart.textLines).toEqual(
-      expect.arrayContaining(["next  60.0 ms  best", "mid  80.0 ms  behind", "base  200 ms", "next  260 ms  behind"]),
+      expect.arrayContaining(["next  60.0 ms  best", "mid  80.0 ms", "base  200 ms  best", "mid  200 ms  tied", "next  260 ms"]),
     );
     expect(chart.subtitle).toBe("Wall time, median in ms · lower is better");
-    expect(chart.howToRead).toContain("Best: better than every other candidate on that part; behind: another candidate is better there.");
+    expect(chart.howToRead).toContain(
+      "Best: the lowest median on that part, in green when it is clearly ahead of every other candidate; tied: too close to the best to tell apart; no word: another candidate is clearly better.",
+    );
+  });
+
+  it("writes the best in the good colour only when it is clearly ahead of every other candidate", () => {
+    const standings = new Map<string, Standing>([
+      ["base", "tied"],
+      ["mid", "tied"],
+      ["next", "behind"],
+    ]);
+    const measured = [
+      { candidate: "base", value: 200 },
+      { candidate: "mid", value: 199 },
+      { candidate: "next", value: 260 },
+    ];
+
+    expect([...placesOn(standings, measured, "lower")]).toEqual([
+      ["base", "tied"],
+      ["mid", "best"],
+    ]);
+    expect([...placesOn(standings, measured, "higher")]).toEqual([
+      ["base", "best"],
+      ["mid", "tied"],
+    ]);
+    const clearly = new Map<string, Standing>([
+      ["base", "behind"],
+      ["mid", "behind"],
+      ["next", "best"],
+    ]);
+
+    expect([...placesOn(clearly, [...measured.slice(0, 2), { candidate: "next", value: 150 }], "lower")]).toEqual([["next", "clear best"]]);
   });
 
   it("gives each part its own scale and unit when the parts are too far apart in size to share one, and says so", () => {
     const chart = draw(versionsBenchmarkOf(3, { spread: true }), block);
 
     expect(chart.textLines).toEqual(
-      expect.arrayContaining(["Script 1  0 to 2.5 ms", "next  1.20 ms  best", "Script 3  0 to 250 ms", "base  200 ms  behind"]),
+      expect.arrayContaining(["Script 1  0 to 2.5 ms", "next  1.20 ms  best", "Script 3  0 to 250 ms", "base  200 ms"]),
     );
     expect(chart.textLines).not.toContain("0  100  200  300  400  500");
     expect(chart.subtitle).toBe("Wall time, median · lower is better");

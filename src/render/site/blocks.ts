@@ -17,13 +17,13 @@ import { asSentence, capitalised, keyMarkOf, withUnit, type KeyPaint } from "../
 import { renderChart, type RenderedChart } from "../chart/render-chart.js";
 import {
   barCountOf,
-  chartPairOf,
   countsByVerdict,
   effectRangeOf,
   partsOf,
   plainVerdictOf,
   pluralOf,
   summaryKeyOf,
+  summaryTitleOf,
   legendOf,
   barLayoutOf,
   countGroupsOf,
@@ -69,10 +69,8 @@ export interface PageInputs {
   evidencePaths: Map<string, string>;
   /** The short name of each part of the page, by block id, written above its claim and in the ruler. */
   sectionLabels: Map<string, string>;
-  /** Whether the page lists the described parts of the structure, so that tables can link each part to its description. */
+  /** Whether the page lists the described parts of the structure, so that tables and charts can link each part to its description. */
   listsParts: boolean;
-  /** Who the top of the page names as compared ("quickmark compared with markly"), so a block below does not say it again. */
-  titlePair?: string;
 }
 
 /** Below this width a chart is drawn again for phones rather than shrunk. */
@@ -278,7 +276,7 @@ function summaryHtml(block: SummaryBlock, inputs: PageInputs, number: string): s
   return [
     // Counts of best and behind already carry the direction; only verdicts against the baseline need it said.
     sectionLabel(number, chart.count === "best" ? metric.label : `${metric.label} · ${directionWords(metric.direction)}`),
-    chartPairOf(lookup, chart) === inputs.titlePair ? "" : anchoredTitle(block, chartPairOf(lookup, chart)),
+    anchoredTitle(block, summaryTitleOf(lookup, chart)),
     legendHtml(legendOf(metric, chart)),
     chart.drawing === "grouped-bar"
       ? `<div class="count-groups" role="img" ${imageLabel}>`
@@ -443,7 +441,15 @@ function chartViewsOf(block: ChartBlock, inputs: PageInputs, columnWidth: number
     renderChart(
       inputs.benchmark,
       block,
-      { width: chartWidth, mode, filterState: state, standalone: false, plotOnly: true, rawFiles: inputs.rawFiles },
+      {
+        width: chartWidth,
+        mode,
+        filterState: state,
+        standalone: false,
+        plotOnly: true,
+        rawFiles: inputs.rawFiles,
+        partLink: (node) => (isListedPart(inputs, node) ? `#${partAnchorOf(node)}` : undefined),
+      },
       inputs.context,
     );
   const tryDrawing = (mode: Mode, chartWidth: number) => {
@@ -515,9 +521,8 @@ function chartHtml(block: ChartBlock, inputs: PageInputs, width: number, number:
       "<figure>",
       ...byMode,
       howToReadHtml(chart),
-      '<details class="chart-data"><summary>Data and description</summary>',
-      `<p class="description">${escapeHtml(chart.description)}</p>`,
-      tableOf(chart.table.header, chart.table.rows),
+      '<details class="chart-data"><summary>Data</summary>',
+      tableOf(chart.table.header, chart.table.rows, undefined, [], { groupsByFirstColumn: true }),
       "</details>",
       "</figure>",
     ].join("\n");
@@ -865,12 +870,15 @@ function describedPartsOf(lookup: Lookup): { level: string; nodes: { id: string;
 
 const partAnchorOf = (node: string) => `part-${node}`;
 
+/** True when the page lists the part with its description, so that its name can link there. */
+const isListedPart = (inputs: PageInputs, node: string) =>
+  inputs.listsParts && Boolean(inputs.lookup.results.structure?.nodes.find((entry) => entry.id === node)?.description);
+
 /** A part's name in a table: a link to its description when the page lists it. */
 function partNameHtml(inputs: PageInputs, node: string): string {
   const label = escapeHtml(inputs.lookup.nodeLabel.get(node) ?? node);
-  const described = inputs.lookup.results.structure?.nodes.find((entry) => entry.id === node)?.description;
 
-  return inputs.listsParts && described ? `<a class="part-link" href="#${escapeHtml(partAnchorOf(node))}">${label}</a>` : label;
+  return isListedPart(inputs, node) ? `<a class="part-link" href="#${escapeHtml(partAnchorOf(node))}">${label}</a>` : label;
 }
 
 /** Each described part by name, its description one click away, so a reader can learn what a row of a table measured. */

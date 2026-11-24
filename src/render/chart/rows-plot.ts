@@ -5,6 +5,7 @@ import {
   growsFrom,
   INTERVAL_STROKE,
   intervalAcross,
+  linkedName,
   PLOT_STYLE,
   poppingMarker,
   round,
@@ -12,6 +13,7 @@ import {
   type DrawnPlot,
   type Plot,
   type PlotArea,
+  UNDERLINE_OFFSET,
 } from "./plot.js";
 import { linearScale, logScale } from "./scale.js";
 
@@ -28,6 +30,8 @@ export interface Segment {
 
 export interface PlotRow {
   label: string;
+  /** Where the page describes the part the label names. */
+  labelLink?: string;
   /** The same on every filter state, so a page can move the row rather than redraw it. */
   key?: string;
   candidate?: string;
@@ -51,6 +55,8 @@ export interface PlotRow {
 
 export interface PlotGroup {
   heading?: string;
+  /** Where the page describes the part the heading names. */
+  link?: string;
   rows: PlotRow[];
 }
 
@@ -258,12 +264,15 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
       const headingHeight = HEADING_ROWS * rowHeight;
       const rangeWidth = ownScale ? text.measure(ownScale.label, PLOT_STYLE.tick) : 0;
 
+      const heading = text.fit(group.heading, PLOT_STYLE.heading, width - (rangeWidth > 0 ? rangeWidth + COLUMN_GAP : 0));
+      const headingBaseline = baselineIn(cursorY, headingHeight, PLOT_STYLE.heading.size);
+
       marks.push(
-        text.draw(
-          text.fit(group.heading, PLOT_STYLE.heading, width - (rangeWidth > 0 ? rangeWidth + COLUMN_GAP : 0)),
-          x,
-          baselineIn(cursorY, headingHeight, PLOT_STYLE.heading.size),
-          { ...PLOT_STYLE.heading, fill: colours.ink },
+        linkedName(
+          text.draw(heading, x, headingBaseline, { ...PLOT_STYLE.heading, fill: colours.ink }),
+          group.link,
+          { x, y: headingBaseline + UNDERLINE_OFFSET, width: text.measure(heading, PLOT_STYLE.heading) },
+          colours,
         ),
       );
 
@@ -299,7 +308,16 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
       if (row.key)
         marks.push(`<g data-key="${row.key}"${row.candidate ? ` data-candidate="${row.candidate}"` : ""} data-y="${round(centreY)}">`);
 
-      marks.push(text.draw(label, x, baselineIn(cursorY, rowHeight, PLOT_STYLE.label.size), { ...PLOT_STYLE.label, fill: colours.ink }));
+      const labelBaseline = baselineIn(cursorY, rowHeight, PLOT_STYLE.label.size);
+
+      marks.push(
+        linkedName(
+          text.draw(label, x, labelBaseline, { ...PLOT_STYLE.label, fill: colours.ink }),
+          row.labelLink,
+          { x, y: labelBaseline + UNDERLINE_OFFSET, width: text.measure(label, PLOT_STYLE.label) },
+          colours,
+        ),
+      );
 
       if (row.key) marks.push(`<g class="mark" data-x="${round(valueX)}">`);
 

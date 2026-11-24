@@ -35,7 +35,7 @@ import {
   type SummaryDrawing,
   type VerdictBar,
 } from "./summary.js";
-import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "./svg-text.js";
+import { CAP_HEIGHT_RATIO, escapeXml, SvgTextRenderer, type TextStyle } from "./svg-text.js";
 
 export type CardMode = Mode;
 
@@ -360,8 +360,6 @@ export function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: s
 
   return details;
 }
-
-const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** The text alternative: every headline in words, for screen readers and for the alt of the README image. */
 export function cardAltText(benchmark: Benchmark, content: CardContent): string {

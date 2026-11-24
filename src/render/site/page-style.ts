@@ -217,7 +217,8 @@ main > section + section { border-top: 1px solid var(--rule); }
 .chart-data { margin: 12px 0 0; }
 .chart-data summary, .aside summary { cursor: pointer; width: fit-content; font-family: ${MONO}; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--secondary); }
 .chart-data summary:hover, .aside summary:hover { color: var(--ink); }
-.chart-data .description { margin: 12px 0; font-size: 13px; color: var(--secondary); }
+.chart-data table { margin-top: 12px; }
+tr.group-start > * { border-top: 1px solid var(--rule-strong); }
 .icon-button { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--quiet); opacity: 0; transition: opacity 200ms; }
 .chapter:hover .icon-button, .icon-button:focus-visible, .icon-button.is-done { opacity: 1; }
 @media (hover: none) { .icon-button { opacity: 1; } }
@@ -303,6 +304,8 @@ td:not(.text) { white-space: nowrap; }
 .part-list details:target summary { color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule-strong); text-underline-offset: 4px; }
 .part-link { color: inherit; text-decoration: underline dotted var(--rule-strong); text-underline-offset: 4px; }
 .part-link:hover { text-decoration-color: currentColor; }
+svg .part-link { text-decoration: none; }
+svg .part-link:hover .part-underline { stroke: var(--ink); stroke-dasharray: none; }
 .verdicts { padding: 32px ${GUTTER}px; border-top: 1px solid var(--rule); }
 .verdicts .mono-label { margin: 0 0 8px; }
 .verdict-list + .aside, .verdict-list + .aside-note { margin: 14px 0 28px; }

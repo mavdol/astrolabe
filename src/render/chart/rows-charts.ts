@@ -14,6 +14,7 @@ import {
 import { formatInterval, formatLevel, formatNumber, type Decimals } from "../number-format.js";
 import {
   candidateNameOf,
+  capitalised,
   comparisonsOn,
   directionWords,
   caveatSentences,
@@ -41,8 +42,9 @@ import {
   valueGroupsOf,
   type ValueGroup,
 } from "./chart-data.js";
+import { resultsPlot, type ResultGroup } from "./results-plot.js";
 import { rowsPlot, type Box, type PlotGroup, type PlotRow } from "./rows-plot.js";
-import { standingsOn } from "../standing.js";
+import { placesOn, standingsOn, type Place } from "../standing.js";
 import { displayUnitOf, roundTopAbove } from "../units.js";
 
 /** Bars side by side stop being told apart beyond the ink and three greys. */
@@ -54,19 +56,47 @@ const PARTS_THAT_ADD_UP_TOLERANCE = 1e-4;
 
 const hasHeadings = (groups: { heading?: string }[]) => groups.some((group) => group.heading);
 
-function valueTable(inputs: ChartInputs, groups: ValueGroup[], decimals: Decimals | null) {
+/** The word a chart of results writes beside a candidate for its place on a part. */
+const PLACE_WORDS: Record<Place, string> = { "clear best": "best", best: "best", tied: "tied" };
+
+/** The same place in a sentence, for a reader who points at the bar. */
+const PLACE_TIPS: Record<Place, string> = {
+  "clear best": "Best: clearly ahead of every other candidate",
+  best: "Best measured, but too close to another to tell apart",
+  tied: "Tied: too close to the best to tell apart",
+};
+
+/** Where the page describes the part a group's heading names. */
+const headingLinkOf = (inputs: ChartInputs, group: { node: string | undefined; heading?: string }) =>
+  group.heading !== undefined && group.node !== undefined ? inputs.partLink?.(group.node) : undefined;
+
+/**
+ * The figures of a chart of values, one row per candidate and part: the part named after its level, the interval's
+ * level said once in its header when every interval has the same, and, for a chart of results, each candidate's place.
+ */
+function valueTable(inputs: ChartInputs, groups: ValueGroup[], decimals: Decimals | null, placeOf?: (group: ValueGroup, value: Value) => string) {
   const metric = metricOf(inputs.block, inputs.lookup);
   const withGroup = hasHeadings(groups);
+  const levels = new Set(groups.flatMap((group) => group.values.filter((value) => value.ci).map((value) => formatLevel(value.ci_level!))));
+  const sharedLevel = levels.size === 1 ? [...levels][0] : undefined;
 
   return {
-    header: [...(withGroup ? ["Group"] : []), "Candidate", `${STATISTIC_WORD[metric.statistic]} (${metric.unit})`, "Interval", "n"],
+    header: [
+      ...(withGroup ? [inputs.block.breakdown ? capitalised(inputs.block.breakdown) : "Group"] : []),
+      "Candidate",
+      `${STATISTIC_WORD[metric.statistic]} (${metric.unit})`,
+      sharedLevel ? `${sharedLevel}% interval` : "Interval",
+      "n",
+      ...(placeOf ? ["Place"] : []),
+    ],
     rows: groups.flatMap((group) =>
       group.values.map((value: Value) => [
         ...(withGroup ? [group.heading ?? ""] : []),
         candidateNameOf(inputs.lookup, value.candidate),
         `${formatNumber(value.value, decimals)}${value.source === "declared" ? " (declared)" : ""}`,
-        value.ci ? `${formatInterval(value.ci, decimals)} (${formatLevel(value.ci_level!)}%)` : "—",
+        value.ci ? `${formatInterval(value.ci, decimals)}${sharedLevel ? "" : ` (${formatLevel(value.ci_level!)}%)`}` : "—",
         String(value.n ?? "—"),
+        ...(placeOf ? [placeOf(group, value)] : []),
       ]),
     ),
   };
@@ -108,6 +138,7 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
   );
   const plotGroups: PlotGroup[] = groups.map((group) => ({
     heading: group.heading,
+    link: headingLinkOf(inputs, group),
     rows: group.values.map((value) => ({
       label: candidateNameOf(lookup, value.candidate),
       key: `${group.node ?? ""}|${value.candidate}`,
@@ -156,9 +187,9 @@ const LARGEST_SHARED_SCALE_RATIO = 5;
 
 /**
  * What each candidate measured on each part, side by side: a bar from zero per candidate, its interval and its figure,
- * on the same footing for every candidate. Parts of very different sizes each get their own scale and unit; "best"
- * and "behind" are written where the comparisons between the candidates say so, and candidates too close to separate
- * are left unmarked, as most usually are.
+ * on the same footing for every candidate. Parts of very different sizes each get their own scale and unit. Every part
+ * names its best, in the good colour when the comparisons between the candidates put it ahead of every other, and the
+ * candidates tied with it; the ones another beats get no word.
  */
 export function resultsContent(inputs: ChartInputs): ChartContent {
   const { block, lookup } = inputs;
@@ -187,9 +218,7 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
 
     return decimals === null ? null : Math.max(0, decimals - Math.round(Math.log10(factor)));
   };
-  const plotGroups: PlotGroup[] = groups.map((group, index) => {
-    const { unit, factor } = unitOfGroup(index);
-    const digits = finestDecimals(group.values.map((value) => decimalsIn(value, factor)));
+  const placesOfGroup = groups.map((group) => {
     const standings = standingsOn(
       lookup.results,
       metric.id,
@@ -197,27 +226,7 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
       group.values.map((value) => value.candidate),
     );
 
-    return {
-      heading: group.heading,
-      rows: group.values.map((value) => {
-        const standing = standings?.get(value.candidate);
-
-        return {
-          label: candidateNameOf(lookup, value.candidate),
-          key: `${group.node ?? ""}|${value.candidate}`,
-          candidate: value.candidate,
-          series: series.get(value.candidate)!,
-          value: value.value * factor,
-          interval: value.ci ? [value.ci[0] * factor, value.ci[1] * factor] : undefined,
-          valueText: `${formatNumber(value.value * factor, digits)} ${unit}`,
-          note:
-            [standing === "best" || standing === "behind" ? standing : "", value.source === "declared" ? "declared" : ""]
-              .filter(Boolean)
-              .join(", ") || undefined,
-          noteColour: standing === "best" ? colours.good : undefined,
-        };
-      }),
-    };
+    return standings ? placesOn(standings, group.values, metric.direction) : new Map<string, Place>();
   });
   const groupScales = sharesOneScale
     ? undefined
@@ -227,9 +236,43 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
 
         return { top, label: `0 to ${formatNumber(top, null)} ${unit}` };
       });
+  const plotGroups: ResultGroup[] = groups.map((group, index) => {
+    const { unit, factor } = unitOfGroup(index);
+    const digits = finestDecimals(group.values.map((value) => decimalsIn(value, factor)));
+    const inUnit = (figure: number) => `${formatNumber(figure * factor, digits)} ${unit}`;
+
+    return {
+      name: group.heading,
+      link: headingLinkOf(inputs, group),
+      ...(groupScales ? { scale: groupScales[index] } : {}),
+      bars: group.values.map((value) => {
+        const place = placesOfGroup[index].get(value.candidate);
+        const name = candidateNameOf(lookup, value.candidate);
+
+        return {
+          candidate: value.candidate,
+          name,
+          key: `${group.node ?? ""}|${value.candidate}`,
+          colour: series.get(value.candidate)!.colour,
+          value: value.value * factor,
+          interval: value.ci ? [value.ci[0] * factor, value.ci[1] * factor] : undefined,
+          valueText: inUnit(value.value),
+          note: [place ? PLACE_WORDS[place] : "", value.source === "declared" ? "declared" : ""].filter(Boolean).join(", ") || undefined,
+          noteColour: place === "clear best" ? colours.good : undefined,
+          tip: [
+            group.heading ? `${name} · ${group.heading}` : name,
+            `${capitalised(statisticWord(metric))} ${inUnit(value.value)}${value.source === "declared" ? ", declared" : ""}`,
+            ...(value.ci ? [`${formatLevel(value.ci_level!)}% interval: ${inUnit(value.ci[0])} to ${inUnit(value.ci[1])}`] : []),
+            ...(place ? [PLACE_TIPS[place]] : []),
+          ],
+        };
+      }),
+    };
+  });
   const sharedTop = roundTopAbove(Math.max(...tops) * sharedUnit.factor);
   const observations = values.filter((value) => value.n !== undefined).map((value) => value.n!);
-  const standingWritten = plotGroups.some((group) => group.rows.some((row) => /best|behind/.test(row.note ?? "")));
+  const placesWritten = placesOfGroup.some((places) => places.size > 0);
+  const onEachPart = groups[0].heading ? " on that part" : "";
   const howToReadParts: ReadingPart[] = [
     { text: inputs.compact ? "" : sentence(metric.definition) },
     {
@@ -244,26 +287,38 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
         : "",
     },
     {
-      text: standingWritten
-        ? "Best: better than every other candidate on that part; behind: another candidate is better there. The others are too close to separate."
+      text: placesWritten
+        ? `Best: the ${metric.direction === "lower" ? "lowest" : "highest"} ${statisticWord(metric)}${onEachPart}, in green when it is clearly ahead of every other candidate; tied: too close to the best to tell apart; no word: another candidate is clearly better.`
         : "",
     },
     { text: caveatSentences(lookup, metric, comparisonsOn(metric, lookup)) },
   ];
 
   return {
-    plot: rowsPlot({
+    plot: resultsPlot({
       groups: plotGroups,
-      mark: "bar",
-      extent: [0, sharedTop],
+      top: sharedTop,
       tickText: (value, tickDecimals) => formatNumber(value, tickDecimals),
-      ...(groupScales ? { groupScales } : {}),
+      legend: [...new Set(values.map((value) => value.candidate))].map((candidate) => ({
+        candidate,
+        name: candidateNameOf(lookup, candidate),
+        colour: series.get(candidate)!.colour,
+      })),
     }),
     subtitle: `${metric.label}, ${statisticWord(metric)}${groupScales ? "" : ` in ${sharedUnit.unit}`} · ${directionWords(metric)}`,
     howToRead: howToReadOf(howToReadParts),
     howToReadParts,
     kind: `Bar chart of ${lowerFirstLetterOfWord(metric.label)}, every candidate side by side${groups.length > 1 ? " on each part" : ""}`,
-    table: valueTable(inputs, groups, finestDecimals(values.map((value) => valueDecimals(metric, value)))),
+    table: valueTable(
+      inputs,
+      groups,
+      finestDecimals(values.map((value) => valueDecimals(metric, value))),
+      (group, value) => {
+        const place = placesOfGroup[groups.indexOf(group)].get(value.candidate);
+
+        return place ? PLACE_WORDS[place] : "";
+      },
+    ),
     axisExtent: [0, sharedTop],
   };
 }
@@ -305,9 +360,10 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     note: noteOf(comparison),
   });
   const plotGroups: PlotGroup[] = onlyCandidate
-    ? [{ rows: groups.map((group) => rowOf(group.comparisons[0], group.heading!)) }]
+    ? [{ rows: groups.map((group) => ({ ...rowOf(group.comparisons[0], group.heading!), labelLink: headingLinkOf(inputs, group) })) }]
     : groups.map((group) => ({
         heading: group.heading,
+        link: headingLinkOf(inputs, group),
         rows: group.comparisons.map((comparison) => rowOf(comparison, candidateNameOf(lookup, comparison.candidate))),
       }));
   const levels = levelsOf(comparisons);
@@ -397,6 +453,7 @@ export function distributionContent(inputs: ChartInputs): ChartContent {
 
   const plotGroups: PlotGroup[] = groups.map((group, groupIndex) => ({
     heading: group.heading,
+    link: headingLinkOf(inputs, group),
     rows: group.values.map((value) => {
       const sorted = sortedOf(groupIndex, value.candidate);
 

@@ -1,5 +1,5 @@
 import type { Colours, MarkerShape } from "../../themes/astrolabe.js";
-import type { SvgTextRenderer } from "../svg-text.js";
+import { escapeXml, type SvgTextRenderer } from "../svg-text.js";
 
 export interface PlotHeights {
   smallest: number;
@@ -115,4 +115,21 @@ export function mixOf(first: string, second: string, share: number): string {
         .padStart(2, "0"),
     )
     .join("")}`;
+}
+
+/** How far under the baseline of a linked name its dotted line runs. */
+export const UNDERLINE_OFFSET = 4;
+
+/** A part's name as a link to its description on the page, underlined with dots like the part names of its tables. */
+export function linkedName(
+  drawn: string,
+  link: string | undefined,
+  underline: { x: number; y: number; width: number },
+  colours: Colours,
+): string {
+  if (!link) return drawn;
+
+  const path = `<path class="part-underline" d="M${round(underline.x)} ${round(underline.y)}H${round(underline.x + underline.width)}" stroke="${colours.ruleStrong}" stroke-width="1" stroke-dasharray="1 2"/>`;
+
+  return `<a class="part-link" href="${escapeXml(link)}">${drawn}${path}</a>`;
 }

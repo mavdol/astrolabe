@@ -38,6 +38,8 @@ export interface ChartInputs {
   rawFiles: Record<string, RawFile>;
   /** The values the main axis must cover besides this chart's own. */
   sharedExtent?: [number, number];
+  /** Where the page describes a part, so that the chart can link the part's name there; nothing outside a page. */
+  partLink?: (node: string) => string | undefined;
 }
 
 export const directionWords = (metric: Metric) => (metric.direction === "lower" ? "lower is better" : "higher is better");

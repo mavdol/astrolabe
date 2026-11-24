@@ -193,7 +193,7 @@ function trustSectionHtml(blocks: Block[], inputs: PageInputs, number: string, i
 const TRUST_SECTION_NAME = "How it was measured";
 
 /** The whole page: the question and its answer, the parts in order with every filter state rendered in advance, the evidence. */
-export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" | "listsParts" | "titlePair">, head: PageHead): string {
+export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" | "listsParts">, head: PageHead): string {
   const { benchmark } = inputs;
   const lookup = lookupOf(benchmark.results);
   const rows = pageRowsOf(benchmark);
@@ -202,7 +202,6 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" |
     ...inputs,
     lookup,
     listsParts,
-    titlePair: head.answer.pair,
     sectionLabels: sectionLabelsOf(rows.flat(), { ...inputs, lookup, listsParts }),
   };
   const results = benchmark.results;

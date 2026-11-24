@@ -3,7 +3,7 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import type { ChartBlock } from "../../schema/presentation.js";
 import { THEME, type Mode } from "../../themes/astrolabe.js";
 import { lookupOf, provenanceParts, resolveTemplates, type BuildContext, type Lookup } from "../describe.js";
-import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "../svg-text.js";
+import { CAP_HEIGHT_RATIO, escapeXml, SvgTextRenderer, type TextStyle } from "../svg-text.js";
 import { tickMark, TICK_MARK_WIDTH } from "../card.js";
 import {
   asSentence,
@@ -45,6 +45,8 @@ export interface ChartOptions {
    * with real text in the page's font rather than paths.
    */
   plotOnly?: boolean;
+  /** Where the page describes a part, so that the chart can link the part's name there. */
+  partLink?: (node: string) => string | undefined;
 }
 
 export interface RenderedChart {
@@ -134,8 +136,6 @@ const CHART_TYPES_WITH_ONE_VALUE_AXIS = new Set([
   "stacked-bar",
   "shaded-table",
 ]);
-
-const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 function contentOf(inputs: ChartInputs): ChartContent {
   const { block } = inputs;
@@ -234,7 +234,14 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
 
   const lookup = lookupOf(results);
   const colours = THEME[options.mode];
-  const common = { benchmark, lookup, mode: options.mode, compact: options.height !== undefined, rawFiles: options.rawFiles ?? {} };
+  const common = {
+    benchmark,
+    lookup,
+    mode: options.mode,
+    compact: options.height !== undefined,
+    rawFiles: options.rawFiles ?? {},
+    partLink: options.partLink,
+  };
   const sharedExtent = sharedExtentOf(block, benchmark, lookup, common);
   const content = contentOf({ ...common, block, filterState: options.filterState, sharedExtent });
   const plotOnly = options.plotOnly === true;

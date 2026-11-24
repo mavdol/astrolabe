@@ -29,7 +29,7 @@ export interface Summary {
   metric: string;
   comparisons: Comparison[];
   /** Where the candidate stands among the others on each part, when the summary counts who is best. */
-  standings?: Standing[];
+  standings?: { node: string | undefined; standing: Standing }[];
 }
 
 export function summaryOf(results: Results, candidate: string, metric: string): Summary {
@@ -74,13 +74,22 @@ function byResults(metric: Metric, summaries: Summary[]): Summary[] {
   );
 }
 
+/**
+ * How counts are drawn when the block does not say. Who is best: one bar per candidate from the left, best first, behind
+ * last; every candidate counts the same parts, so best starts and behind ends at the same place on every bar. Verdicts
+ * against the baseline: around a line that stands for no difference, better on its right.
+ */
+const defaultDrawingOf = (count: "verdicts" | "best"): SummaryDrawing => (count === "best" ? "stacked-bar" : "diverging-bar");
+
 function chartOf(results: Results, metric: string, summaries: Summary[], request: Omit<SummaryRequest, "metric">): SummaryChart {
   const metricEntry = results.metrics.find((entry) => entry.id === metric)!;
 
+  const count = request.count ?? "verdicts";
+
   return {
     metric,
-    drawing: request.chart ?? "diverging-bar",
-    count: request.count ?? "verdicts",
+    drawing: request.chart ?? defaultDrawingOf(count),
+    count,
     summaries: request.sort === "declared" ? summaries : byResults(metricEntry, summaries),
   };
 }
@@ -114,7 +123,7 @@ export function bestSummariesOf(results: Results, metric: string, candidates: st
         shown.has(comparison.vs) &&
         (comparison.candidate === candidate || comparison.vs === candidate),
     ),
-    standings: standingsByNode.map(({ standings }) => standings.get(candidate)!),
+    standings: standingsByNode.map(({ node, standings }) => ({ node, standing: standings.get(candidate)! })),
   }));
 }
 
@@ -188,12 +197,21 @@ export function chartPairOf(lookup: Lookup, chart: SummaryChart): string {
   return chart.count === "best" ? listed : `${listed} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
 }
 
+/** How many parts a summary counts, and the name of a number of them: "file" and "files" after their level. */
+function countedPartsOf(lookup: Lookup, summary: Summary): { count: number; nameFor: (count: number) => string } {
+  const level = lookup.results.structure?.nodes.find((node) => node.id === summary.comparisons[0]?.node)?.level ?? "comparison";
+
+  return {
+    count: summary.standings?.length ?? summary.comparisons.length,
+    nameFor: (count) => (count === 1 ? level : pluralOf(level)),
+  };
+}
+
 /** "12 files": how many parts the summary counts, named after their level. */
 export function partsOf(lookup: Lookup, summary: Summary): string {
-  const level = lookup.results.structure?.nodes.find((node) => node.id === summary.comparisons[0]?.node)?.level;
-  const count = summary.standings?.length ?? summary.comparisons.length;
+  const { count, nameFor } = countedPartsOf(lookup, summary);
 
-  return level ? `${count} ${count === 1 ? level : pluralOf(level)}` : `${count} comparisons`;
+  return `${count} ${nameFor(count)}`;
 }
 
 /** The words a reader uses for the two directions of a metric: "faster" and "slower" for a run time rather than "better" and "worse". */
@@ -235,6 +253,8 @@ export type BarSide = "better" | "same" | "worse" | "unclear";
 /** One bar of a summary: how many comparisons fell on one side, and how many of those only likely. */
 export interface VerdictBar {
   side: BarSide;
+  /** The parts counted on this bar, for a reader who asks which they are. */
+  nodes: (string | undefined)[];
   /** The side in the reader's words: "faster", "about the same", "slower", "unclear". */
   words: string;
   count: number;
@@ -263,7 +283,15 @@ export function verdictBarsOf(metric: Metric, comparisons: Comparison[]): Verdic
 
     if (side === "unclear" && onSide.length === 0) return [];
 
-    return [{ side, words: wordsOf[side], count: onSide.length, likely: onSide.filter((comparison) => comparison.qualifier).length }];
+    return [
+      {
+        side,
+        words: wordsOf[side],
+        nodes: onSide.map((comparison) => comparison.node),
+        count: onSide.length,
+        likely: onSide.filter((comparison) => comparison.qualifier).length,
+      },
+    ];
   });
 }
 
@@ -272,13 +300,13 @@ export function barsOf(metric: Metric, summary: Summary): VerdictBar[] {
   if (!summary.standings) return verdictBarsOf(metric, summary.comparisons);
 
   const standings = summary.standings;
-  const countOf = (standing: Standing) => standings.filter((entry) => entry === standing).length;
+  const barOf = (side: BarSide, words: string, standing: Standing): VerdictBar => {
+    const nodes = standings.filter((entry) => entry.standing === standing).map((entry) => entry.node);
 
-  return [
-    { side: "better", words: "best", count: countOf("best"), likely: 0 },
-    { side: "same", words: "tied for best", count: countOf("tied"), likely: 0 },
-    { side: "worse", words: "behind", count: countOf("behind"), likely: 0 },
-  ];
+    return { side, words, nodes, count: nodes.length, likely: 0 };
+  };
+
+  return [barOf("better", "best", "best"), barOf("same", "tied for best", "tied"), barOf("worse", "behind", "behind")];
 }
 
 /** What follows a bar's count when some of it is only likely: " likely" when all of it is, " · 1 likely" otherwise. */
@@ -335,6 +363,103 @@ export function summaryClaimOf(lookup: Lookup, summary: Summary): string {
   return `${pair}, ${lowerFirstLetterOfWord(metric.label)} on ${partsOf(lookup, summary)}: ${counts.join(", ")}.`;
 }
 
+/** The longest title of a summary: one sentence a reader takes in before the chart under it. */
+export const LONGEST_SUMMARY_TITLE = 50;
+
+/** "3 (1 likely)": a bar's count, saying how much of it is only likely. */
+const countWithLikelyOf = (bar: VerdictBar) => `${bar.count}${bar.likely > 0 ? ` (${bar.likely} likely)` : ""}`;
+
+/** Who is best on most parts, in wordings from the fullest to the shortest. */
+function bestTitlesOf(lookup: Lookup, chart: SummaryChart): string[] {
+  const metric = lookup.metricById.get(chart.metric)!;
+  const { count: total, nameFor } = countedPartsOf(lookup, chart.summaries[0]);
+  const countOn = (summary: Summary, side: BarSide) => barsOf(metric, summary).find((bar) => bar.side === side)?.count ?? 0;
+  const nameOf = (summary: Summary) => lookup.candidateName.get(summary.candidate) ?? summary.candidate;
+  const most = Math.max(...chart.summaries.map((summary) => countOn(summary, "better")));
+
+  if (most === 0)
+    return chart.summaries.every((summary) => countOn(summary, "same") === total)
+      ? [`Too close to separate on all ${total} ${nameFor(total)}`, `Too close to separate on all ${total}`]
+      : [`No clear best on any of the ${total} ${nameFor(total)}`, `No clear best on any of the ${total}`];
+
+  const leaders = chart.summaries.filter((summary) => countOn(summary, "better") === most);
+
+  if (leaders.length > 1) {
+    const names = listedNames(leaders.map(nameOf));
+
+    return [
+      `${names} are best on ${most} ${nameFor(most)} each`,
+      `${names} are best on ${most} each`,
+      `${leaders.length} candidates are best on ${most} ${nameFor(most)} each`,
+    ];
+  }
+
+  const leader = nameOf(leaders[0]);
+  const tied = countOn(leaders[0], "same");
+
+  if (most === total) return [`${leader} is best on all ${total} ${nameFor(total)}`, `${leader} is best on all ${total}`];
+
+  return [
+    ...(tied > 0 ? [`${leader} is best on ${most} of ${total} ${nameFor(total)}, tied on ${tied}`] : []),
+    `${leader} is best on ${most} of ${total} ${nameFor(total)}`,
+    `${leader} is best on ${most} of ${total}`,
+  ];
+}
+
+/** How the candidate with most better results compares with the baseline, in wordings from the fullest to the shortest. */
+function verdictTitlesOf(lookup: Lookup, chart: SummaryChart): string[] {
+  const metric = lookup.metricById.get(chart.metric)!;
+  const words = directionWordsOf(metric);
+  const baseline = lookup.candidateName.get(lookup.results.baseline) ?? lookup.results.baseline;
+  const barOn = (summary: Summary, side: BarSide) =>
+    barsOf(metric, summary).find((bar) => bar.side === side) ?? { side, words: "", nodes: [], count: 0, likely: 0 };
+  const leader = chart.summaries.reduce((most, summary) => (barOn(summary, "better").count > barOn(most, "better").count ? summary : most));
+  const name = lookup.candidateName.get(leader.candidate) ?? leader.candidate;
+  const { count: total, nameFor } = countedPartsOf(lookup, leader);
+  const [better, worse, same] = [barOn(leader, "better"), barOn(leader, "worse"), barOn(leader, "same")];
+  const outOf = `of ${total} ${nameFor(total)}`;
+
+  if (better.count > 0)
+    return [
+      ...(worse.count > 0
+        ? [`${name} is ${words.better} on ${countWithLikelyOf(better)} ${outOf}, ${words.worse} on ${countWithLikelyOf(worse)}`]
+        : []),
+      `${name} is ${words.better} than ${baseline} on ${countWithLikelyOf(better)} ${outOf}`,
+      `${name} is ${words.better} on ${countWithLikelyOf(better)} ${outOf}`,
+      `${name} is ${words.better} on ${countWithLikelyOf(better)} of ${total}`,
+    ];
+
+  if (worse.count > 0)
+    return [
+      `${name} is ${words.worse} than ${baseline} on ${countWithLikelyOf(worse)} ${outOf}`,
+      `${name} is ${words.worse} on ${countWithLikelyOf(worse)} ${outOf}`,
+      `${name} is ${words.worse} on ${countWithLikelyOf(worse)} of ${total}`,
+    ];
+
+  if (same.count === total)
+    return [
+      `${name} is about the same as ${baseline} on all ${total} ${nameFor(total)}`,
+      `${name} is about the same on all ${total} ${nameFor(total)}`,
+      `About the same on all ${total} ${nameFor(total)}`,
+    ];
+
+  return [
+    `${name} is neither ${words.better} nor ${words.worse} on any ${nameFor(1)}`,
+    `Neither ${words.better} nor ${words.worse} on any of the ${total}`,
+  ];
+}
+
+/**
+ * What a reader should take from a summary chart before reading it, in one sentence of at most LONGEST_SUMMARY_TITLE
+ * characters: who is best on most parts, or how the candidate with most better results compares with the baseline.
+ * The fullest wording that fits stands; the shortest when none does, with long names.
+ */
+export function summaryTitleOf(lookup: Lookup, chart: SummaryChart): string {
+  const wordings = chart.count === "best" ? bestTitlesOf(lookup, chart) : verdictTitlesOf(lookup, chart);
+
+  return wordings.find((wording) => wording.length <= LONGEST_SUMMARY_TITLE) ?? wordings[wordings.length - 1];
+}
+
 /** What a bar of a summary chart stands for, and on a diverging chart which side is which. */
 export function summaryKeyOf(lookup: Lookup, chart: SummaryChart): string {
   const parts = partsOf(lookup, chart.summaries[0]);
@@ -342,15 +467,16 @@ export function summaryKeyOf(lookup: Lookup, chart: SummaryChart): string {
   const words = directionWordsOf(lookup.metricById.get(chart.metric)!);
 
   if (chart.count === "best") {
-    const among = `among the ${chart.summaries.length}`;
+    // Every part was measured on every candidate: said first, so the reader sees each part as a test they all took.
+    const measuredOnAll = `each measured on all ${chart.summaries.length} candidates`;
 
     switch (chart.drawing) {
       case "diverging-bar":
-        return `Each bar: the ${parts}; best to the right of the line, behind to the left.`;
+        return `Each bar: the ${parts}, ${measuredOnAll}; best to the right of the line, behind to the left.`;
       case "stacked-bar":
-        return `Each bar: the ${parts}, by where the candidate stands ${among}.`;
+        return `Each bar: the ${parts}, ${measuredOnAll}, by where this one placed.`;
       case "grouped-bar":
-        return `Each bar: on how many of the ${parts} the candidate stood there, ${among}.`;
+        return `Each bar: on how many of the ${parts}, ${measuredOnAll}, this one placed there.`;
     }
   }
 
@@ -410,7 +536,7 @@ export function barLayoutOf(metric: Metric, chart: SummaryChart): BarLayout {
 
   if (chart.drawing !== "diverging-bar") {
     return {
-      span: Math.max(...chart.summaries.map((summary) => summary.comparisons.length)),
+      span: Math.max(...chart.summaries.map((summary) => summary.standings?.length ?? summary.comparisons.length)),
       bars: chart.summaries.map((summary, index) => {
         let start = 0;
 
@@ -472,6 +598,7 @@ export function countGroupsOf(
       bar: barsOf(metric, summary).find((bar) => bar.side === side) ?? {
         side: side as BarSide,
         words,
+        nodes: [],
         count: 0,
         likely: 0,
       },

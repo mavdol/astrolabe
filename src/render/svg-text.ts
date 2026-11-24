@@ -1,6 +1,9 @@
 import monoFont from "./fonts/geist-mono.json" with { type: "json" };
 import interFont from "./fonts/inter.json" with { type: "json" };
 
+/** Text made safe inside an SVG attribute or element. */
+export const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 export type FontWeight = 400 | 500 | 600 | 700;
 
 interface Glyph {

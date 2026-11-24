@@ -59,6 +59,32 @@ export function standingsOn(
   );
 }
 
+/** A candidate's place on one part, as a chart of results writes it: best, clearly or not, or tied with the best. */
+export type Place = "clear best" | "best" | "tied";
+
+/**
+ * The places on one part: always a best, the candidate with the best measured value among those no other beats; "clear"
+ * when it beats every other, otherwise the others no one beats are tied with it. The candidates another beats get no
+ * place, so a reader sees the best of every part without being told who is behind.
+ */
+export function placesOn(
+  standings: Map<string, Standing>,
+  measured: { candidate: string; value: number }[],
+  direction: "lower" | "higher",
+): Map<string, Place> {
+  const leading = measured.filter((entry) => standings.get(entry.candidate) !== "behind");
+
+  if (leading.length === 0) return new Map();
+
+  const best = leading.reduce((first, entry) =>
+    (direction === "lower" ? entry.value < first.value : entry.value > first.value) ? entry : first,
+  );
+
+  if (standings.get(best.candidate) === "best") return new Map([[best.candidate, "clear best"]]);
+
+  return new Map(leading.map((entry): [string, Place] => [entry.candidate, entry === best ? "best" : "tied"]));
+}
+
 /** True when the plan compares every pair of candidates, so that the page can say who is best rather than who beats the baseline. */
 export function comparesEveryPair(results: Results): boolean {
   const ids = results.candidates.map((candidate) => candidate.id);

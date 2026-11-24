@@ -172,8 +172,8 @@ function pairedComparisonsLeftToTwoIntervals(
         if (comparison.metric === block.metric && nodes.has(comparison.node)) shownAsChange.add(comparison.id);
     }
 
-    // A results chart writes who is best and who is behind from the comparisons between every pair: where it can, the
-    // paired results are stated in words, not left to the reader's eye.
+    // A results chart writes who is best and who is tied with it from the comparisons between every pair: where it can,
+    // the paired results are stated in words, not left to the reader's eye.
     if (block.chart === "results") {
       const candidates = benchmark.results.candidates.map((candidate) => candidate.id);
 

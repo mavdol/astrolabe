@@ -36,7 +36,7 @@ Two more facts change the choice: a **paired** comparison (the same items or run
 | 2 | 1 | 1 | A headline (page.md): the change, with both values drawn from zero for a quantity that has a true zero | `results`, when the reader wants the two values side by side |
 | 2 | 2 or 3 | 1 | A headline per criterion, the one the goal names first | `comparison-rows`, when the criteria are read together, each on its own scale (a release against the previous one) |
 | 2 | 4 or more | 1 | The headline on the criterion the goal names, then `comparison-rows` with every criterion (up to 10 rows) | A table past 10 rows |
-| 3 or more | Any | 1 | `results`, one chart per criterion: each candidate's value from zero, with its interval, best and behind written | An `effect` chart, as a section of its own, when the question asks how much each changed against one candidate; `highlight` the subject when the page is about one (style.md) |
+| 3 or more | Any | 1 | `results`, one chart per criterion: each candidate's value from zero, with its interval, the best written on every part | An `effect` chart, as a section of its own, when the question asks how much each changed against one candidate; `highlight` the subject when the page is about one (style.md) |
 | Any | Any | Many | A summary per criterion (page.md): who is best on how many parts when every pair is compared, otherwise each candidate's verdicts against the baseline; then `results` with `breakdown` | Headlines, when only one to three of the comparisons are primary |
 
 ### A pattern across many parts: how to draw the summary
@@ -56,7 +56,7 @@ A summary never mixes criteria in one bar: a part that is faster but heavier wou
 
 | The reader asks | Recommended `chart` | Alternatives, and what they read better |
 | --- | --- | --- |
-| "What did each one measure?", part by part | `results` with `breakdown`: a bar per candidate from zero, its value and interval, "best" and "behind" written where the comparisons between candidates say so; each part gets its own scale and unit when the parts differ in size | `effect` with `breakdown`, or a table of effects, as a section of their own when the question asks how much changed against one candidate (`vs`) |
+| "What did each one measure?", part by part | `results` with `breakdown`: a bar per candidate from zero, its value and interval, "best" written on every part (in green when the comparisons between candidates put it ahead of every other) and "tied" beside the candidates too close to it to tell apart; each part gets its own scale and unit when the parts differ in size | `effect` with `breakdown`, or a table of effects, as a section of their own when the question asks how much changed against one candidate (`vs`) |
 | "Is it better, and by how much?" | `effect`, with the band of differences too small to matter | `comparison-rows`, when the comparisons are on different metrics |
 | "Where does the gap come from?": a few parts (up to about 8 rows) | `effect` with `breakdown` (a level: category, task, size) | `grouped-bar` for a quantity with a true zero, up to 4 candidates, when the comparison is not paired and the reader ranks values per part; `line` when the level has an order |
 | The same, many parts | A table of effects, a row per part (style.md) | An `effect` chart with `"sort": "effect"`, when the spread is the message ("most files gain a little, a few gain a lot"): the reader takes in its shape, not each row |

@@ -7,8 +7,11 @@ import { compute } from "../src/compute/compute.js";
 import { loadRaw } from "../src/compute/files.js";
 import { servePreview } from "../src/preview/serve.js";
 import { buildOutputs } from "../src/render/build.js";
+import { renderChart } from "../src/render/chart/render-chart.js";
 import { cardAltText, cardContentOf } from "../src/render/card.js";
+import { lookupOf } from "../src/render/describe.js";
 import { pageRowsOf } from "../src/render/site/page.js";
+import { LONGEST_SUMMARY_TITLE, summaryChartOf, summaryTitleOf } from "../src/render/summary.js";
 import { answerOf, answerPartsOf, LONGEST_TITLE_PAIR } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
@@ -225,7 +228,7 @@ describe("the site", () => {
     );
   });
 
-  it("draws a summary as a diverging bar per candidate: worse left of the line, better right of it, unclear set apart", () => {
+  it("draws a summary as a diverging bar per candidate under a sentence: worse left of the line, better right of it, unclear set apart", () => {
     const benchmark = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
 
     benchmark.blocks = [{ id: "summary-accuracy", type: "summary", metric: "accuracy" }, ...benchmark.blocks!];
@@ -253,7 +256,9 @@ describe("the site", () => {
       "<li>Each bar: the 3 tasks, by their result against Model B; better to the right of the line, worse to the left.</li>",
     );
     expect(html).toMatch(/<li>From −?[\d.]+ to \+?[\d.]+ points<\/li>/);
-    expect(html, "the title already names the pair").not.toContain('id="summary-accuracy-title"');
+    expect(html, "a sentence that says what the bars show, not the pair the top of the page names").toContain(
+      '<h2 id="summary-accuracy-title"><a href="#summary-accuracy">Model A is better than Model B on 1 of 3 tasks</a></h2>',
+    );
   });
 
   it("draws a summary stacked from the left, or grouped by result, when the block asks", () => {
@@ -445,10 +450,50 @@ describe("the site", () => {
       '<li class="bad"><i></i>Behind</li><li class="neutral"><i></i>Tied for best</li><li class="good"><i></i>Best</li>',
     );
     expect([...html.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map((match) => match[1])).toEqual(["next", "base", "mid"]);
-    expect(html).toContain(
-      "<li>Each bar: the 4 scripts; best to the right of the line, behind to the left.</li>",
-    );
+    expect(html).toContain("<li>Each bar: the 4 scripts; best to the right of the line, behind to the left.</li>");
     expect(html).not.toMatch(/<li>(base|mid|next): from /);
+    expect(html).toContain('<h2 id="summary-time-title"><a href="#summary-time">next is best on 3 of 4 scripts</a></h2>');
+  });
+
+  it("titles a summary with the fullest sentence that fits in 50 characters, a shorter one when the names are long", () => {
+    const versions = versionsBenchmarkOf(4);
+    const titleOf = (results: Benchmark["results"]) => summaryTitleOf(lookupOf(results), summaryChartOf(results, { metric: "wall_time" }));
+    const longNames = {
+      ...versions.results,
+      candidates: versions.results.candidates.map((candidate) => ({ ...candidate, name: `${candidate.id}, the long-term release` })),
+    };
+
+    expect(titleOf(versions.results)).toBe("next is best on 3 of 4 scripts");
+    expect(titleOf(longNames)).toBe("next, the long-term release is best on 3 of 4");
+    expect(LONGEST_SUMMARY_TITLE).toBe(50);
+  });
+
+  it("links the name of each part on a chart of the page to its description in the method, never in an image", () => {
+    const versions = versionsBenchmarkOf(2);
+
+    versions.results.structure!.nodes = versions.results.structure!.nodes.map((node) => ({
+      ...node,
+      description: `What ${node.label} runs.`,
+    }));
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(versions, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+
+    expect(html).toContain('<details id="part-script-1">');
+    expect(html).toMatch(/<a class="part-link" href="#part-script-1"><text [^>]*>Script 1<\/text><path class="part-underline"/);
+
+    const results = {
+      id: "results",
+      type: "chart",
+      chart: "results",
+      metric: "wall_time",
+      breakdown: "script",
+      title: "Wall time",
+    } as const;
+    const image = renderChart(versions, results, { width: 640, mode: "light", filterState: {}, standalone: true }, context);
+
+    expect(image.svg, "an image travels without the page it would link to").not.toContain("part-link");
   });
 
   it("heads two untitled tables on the same metrics by what each holds", () => {
