@@ -10,6 +10,7 @@ import { buildOutputs } from "../src/render/build.js";
 import { renderChart } from "../src/render/chart/render-chart.js";
 import { cardAltText, cardContentOf } from "../src/render/card.js";
 import { lookupOf } from "../src/render/describe.js";
+import { LONGEST_INLINE_HEADING } from "../src/render/site/blocks.js";
 import { pageRowsOf } from "../src/render/site/page.js";
 import { LONGEST_SUMMARY_TITLE, summaryChartOf, summaryTableOf, summaryTitleOf } from "../src/render/summary.js";
 import { tableOf } from "../src/render/site/html.js";
@@ -442,6 +443,30 @@ describe("the site", () => {
       description:
         "base, wall time on 4 scripts: tied for best on 1, behind on 3. mid, wall time on 4 scripts: tied for best on 1, behind on 3. next, wall time on 4 scripts: best on 3, behind on 1.",
     });
+  });
+
+  it("keeps a short reading after the chapter's title, and moves a long one under it in smaller type", () => {
+    const chartWith = (description: string) =>
+      ({
+        ...scriptsBenchmarkOf(3),
+        blocks: [{ id: "chart-time", type: "chart", chart: "effect", metric: "wall_time", title: "Some scripts gain", description }],
+      }) as Benchmark;
+    const htmlOf = (benchmark: Benchmark) => {
+      const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+      buildOutputs(benchmark, ["site"], folder, context, { rawFiles: {} });
+
+      return readFileSync(join(folder, "site", "index.html"), "utf8");
+    };
+    const longReading = "The odd scripts gain and the even ones lose, by about the same share, so the order of the scripts matters.";
+
+    expect(htmlOf(chartWith("The odd ones."))).toContain(
+      '<h2 id="chart-time-title"><a href="#chart-time">Some scripts gain.</a> <span class="reading">The odd ones.</span></h2>',
+    );
+    expect(htmlOf(chartWith(longReading))).toContain(
+      `<h2 id="chart-time-title"><a href="#chart-time">Some scripts gain</a></h2>\n<p class="reading-below">${longReading}</p>`,
+    );
+    expect(LONGEST_INLINE_HEADING).toBe(90);
   });
 
   it("draws who is best as a bar per candidate from the left, best first and behind last, with no line and no range of changes", () => {

@@ -437,12 +437,22 @@ export function sectionLabelsOf(blocks: Block[], inputs: Omit<PageInputs, "secti
   return new Map(names.map((name) => [name.id, shortCounts.get(name.short)! > 1 ? name.full : name.short]));
 }
 
-/** The left column of a chapter: its number and subject, its claim with the reading after it, its filters. */
+/** Past this many characters, a claim and its reading no longer read at a glance in the chapter's large type. */
+export const LONGEST_INLINE_HEADING = 90;
+
+/**
+ * The left column of a chapter: its number and subject, its claim with the reading after it, its filters. A reading
+ * that would make the heading too long to read at a glance goes under it, in smaller type.
+ */
 function chapterHead(block: Block, inputs: PageInputs, number: string, label: string, title: string, reading: string): string {
+  const inline = reading !== "" && title.length + reading.length < LONGEST_INLINE_HEADING;
+  const titleLink = `<a href="#${escapeHtml(block.id)}">${escapeHtml(inline ? asSentence(title) : title)}</a>`;
+
   return [
     '<header class="chapter-head">',
     `<div class="chapter-label">${sectionLabel(number, label)}${copyLinkOf(block)}</div>`,
-    `<h2 id="${escapeHtml(block.id)}-title"><a href="#${escapeHtml(block.id)}">${escapeHtml(reading ? asSentence(title) : title)}</a>${reading ? ` <span class="reading">${escapeHtml(reading)}</span>` : ""}</h2>`,
+    `<h2 id="${escapeHtml(block.id)}-title">${titleLink}${inline ? ` <span class="reading">${escapeHtml(reading)}</span>` : ""}</h2>`,
+    ...(reading && !inline ? [`<p class="reading-below">${escapeHtml(reading)}</p>`] : []),
     filtersOf(block, inputs),
     "</header>",
   ].join("\n");

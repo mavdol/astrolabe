@@ -200,6 +200,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 .chapter-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .chapter-head h2 { margin: 28px 0 0; font-size: 28px; line-height: 1.18; letter-spacing: -0.025em; text-wrap: balance; }
 .chapter-head .reading { color: var(--secondary); }
+.chapter-head .reading-below { margin: 14px 0 0; font-size: 16px; line-height: 1.55; color: var(--secondary); text-wrap: pretty; }
 .chapter-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 28px 0 0; }
 .chapter-body { min-width: 0; padding: 56px ${GUTTER}px 40px; }
 .chapter-body figure { margin: 0; }

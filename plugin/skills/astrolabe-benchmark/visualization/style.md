@@ -45,7 +45,7 @@ The colours are your choice, from what the user wants the reader to see; ask whe
 
 ## Titles and descriptions
 
-A reader remembers the title more than the chart, so a title states the finding, and only a finding the results support. Then the chart speaks: the page writes the title in ink and your reading right after it in grey, as one short paragraph beside the chart, and the images do the same above it. Keep both short enough to read at a glance:
+A reader remembers the title more than the chart, so a title states the finding, and only a finding the results support. Then the chart speaks: the page writes the title in ink and your reading right after it in grey, as one short paragraph beside the chart (when the two pass 90 characters, the reading moves under the title in smaller type), and the images do the same above it. Keep both short enough to read at a glance:
 
 - **Each metric is named as a reader would name it**: its `label` is the everyday word ("Build time", "Accuracy", "Cost per request"), never the measuring term ("wall time", "pass@1", "p50"), which goes with how it was measured in `definition`; the page prints the definition with each chart and table of values. The labels appear in every heading, summary and card, so they are worth the user's confirmation.
 - **The title is the claim, in a few words**: 60 characters at most as the reader sees it (a template counts as the text it becomes), no second clause; `validate` warns past that. "The gap comes from coding", not "Model A is more accurate than Model B overall, and most of the difference comes from the coding tasks".
