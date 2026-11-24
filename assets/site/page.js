@@ -330,6 +330,69 @@ const openLinkedPart = () => {
 window.addEventListener("hashchange", openLinkedPart);
 openLinkedPart();
 
+// ---- Pointing ----
+
+// Pointing at a candidate's mark brings that candidate forward on its chart and fades the others; a mark with a tip
+// shows it beside the pointer. A tip only repeats what the page says elsewhere, in a chart or its data.
+const tip = document.createElement("div");
+let focusedChart = null;
+
+tip.className = "pointer-tip";
+tip.setAttribute("aria-hidden", "true");
+tip.hidden = true;
+document.body.append(tip);
+
+function focusCandidate(chart, candidate) {
+  if (focusedChart && focusedChart !== chart) focusCandidate(focusedChart, null);
+
+  focusedChart = candidate ? chart : null;
+
+  for (const element of chart.querySelectorAll("[data-candidate]"))
+    element.classList.toggle("is-faded", candidate !== null && element.dataset.candidate !== candidate);
+}
+
+function showTip(source, event) {
+  const lines = source.dataset.tip.split("\n");
+  const margin = 14;
+
+  tip.replaceChildren(
+    ...lines.map((line, index) => {
+      const element = document.createElement(index === 0 ? "strong" : "span");
+
+      element.textContent = line;
+
+      return element;
+    }),
+  );
+  tip.hidden = false;
+
+  const { width, height } = tip.getBoundingClientRect();
+  const left = Math.max(margin, Math.min(event.clientX + margin, window.innerWidth - width - margin));
+  const top = event.clientY + margin + height > window.innerHeight ? event.clientY - height - margin : event.clientY + margin;
+
+  tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+}
+
+document.addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch") return;
+
+  const chart = event.target.closest("svg");
+  const candidate = chart && event.target.closest("[data-candidate]");
+  const source = event.target.closest("[data-tip]");
+
+  if (candidate) focusCandidate(chart, candidate.dataset.candidate);
+  else if (focusedChart) focusCandidate(focusedChart, null);
+
+  if (source) showTip(source, event);
+  else tip.hidden = true;
+});
+
+document.documentElement.addEventListener("pointerleave", () => {
+  tip.hidden = true;
+
+  if (focusedChart) focusCandidate(focusedChart, null);
+});
+
 // ---- Links ----
 
 document.addEventListener("click", (event) => {

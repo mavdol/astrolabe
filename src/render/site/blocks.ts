@@ -187,6 +187,16 @@ const legendHtml = (legend: ReturnType<typeof legendOf>) =>
 
 const nameOf = (lookup: Lookup, summary: Summary) => escapeHtml(lookup.candidateName.get(summary.candidate) ?? summary.candidate);
 
+/** The parts a segment counts, for a reader who points at it: "Node 26 · best on 3", then each part by name. */
+function segmentTipOf(lookup: Lookup, summary: Summary, bar: VerdictBar): string {
+  const lines = [
+    `${lookup.candidateName.get(summary.candidate) ?? summary.candidate} · ${bar.words} on ${bar.count}`,
+    ...bar.parts.map(({ node, likely }) => `${node === undefined ? "All" : (lookup.nodeLabel.get(node) ?? node)}${likely ? " (likely)" : ""}`),
+  ];
+
+  return ` data-tip="${lines.map(escapeHtml).join("&#10;")}"`;
+}
+
 /** Stacked or diverging bars, one row per candidate, every bar on one span; the line between worse and better when they diverge. */
 function placedBarsHtml(layout: BarLayout, lookup: Lookup): string[] {
   return layout.bars.map(({ summary, segments }) => {
@@ -199,7 +209,7 @@ function placedBarsHtml(layout: BarLayout, lookup: Lookup): string[] {
     const zero = layout.zero === undefined ? "" : `<span class="stack-zero" style="left: ${percentOf(layout.zero / layout.span)}"></span>`;
     const placed = segments.map(
       ({ bar, start, likelyFirst }, index) =>
-        `<span class="segment ${SIDE_TONES[bar.side]}" style="left: ${percentOf(start / layout.span)}; width: ${percentOf(bar.count / layout.span)}">${segmentPartsHtml(bar, likelyFirst, fitting[index])}</span>`,
+        `<span class="segment ${SIDE_TONES[bar.side]}" style="left: ${percentOf(start / layout.span)}; width: ${percentOf(bar.count / layout.span)}"${segmentTipOf(lookup, summary, bar)}>${segmentPartsHtml(bar, likelyFirst, fitting[index])}</span>`,
     );
 
     return [
@@ -228,7 +238,7 @@ function countGroupsHtml(groups: ReturnType<typeof countGroupsOf>, lookup: Looku
           `<span class="stack-name">${nameOf(lookup, summary)}</span>`,
           '<span class="count-bar">',
           bar.count > 0
-            ? `<span class="segment ${SIDE_TONES[bar.side]}" style="width: calc((100% - ${countRoom}ch) * ${Math.round((bar.count / largest) * 1000) / 1000})">${segmentPartsHtml(bar, false, false)}</span>`
+            ? `<span class="segment ${SIDE_TONES[bar.side]}" style="width: calc((100% - ${countRoom}ch) * ${Math.round((bar.count / largest) * 1000) / 1000})"${segmentTipOf(lookup, summary, bar)}>${segmentPartsHtml(bar, false, false)}</span>`
             : "",
           `<b>${bar.count}${likelyPartOf(bar)}</b>`,
           "</span>",

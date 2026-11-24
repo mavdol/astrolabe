@@ -283,7 +283,7 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
     intervalPart(values),
     {
       text: groupScales
-        ? `Each ${groups[0].heading ? "part" : "row"} has its own scale, from zero to the figure beside its name, so bars are compared within a part, not across parts.`
+        ? `Each ${groups[0].heading ? "part" : "row"} has its own scale, from zero to the figure written with its name, so bars are compared within a part, not across parts.`
         : "",
     },
     {

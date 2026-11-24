@@ -217,8 +217,15 @@ main > section + section { border-top: 1px solid var(--rule); }
 .chart-data { margin: 12px 0 0; }
 .chart-data summary, .aside summary { cursor: pointer; width: fit-content; font-family: ${MONO}; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--secondary); }
 .chart-data summary:hover, .aside summary:hover { color: var(--ink); }
+.pointer-tip { position: fixed; top: 0; left: 0; z-index: 30; max-width: 300px; padding: 8px 11px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--background); box-shadow: 0 8px 28px rgb(0 0 0 / 0.14); font-size: 12px; line-height: 18px; color: var(--secondary); pointer-events: none; }
+.pointer-tip strong { display: block; margin-bottom: 2px; font-weight: 600; color: var(--ink); }
+.pointer-tip span { display: block; }
+svg [data-candidate] { transition: opacity 160ms; }
+svg .is-faded { opacity: 0.25; }
+[data-tip] { cursor: default; }
 .chart-data table { margin-top: 12px; }
-tr.group-start > * { border-top: 1px solid var(--rule-strong); }
+.chart-data th, .chart-data td { padding-top: 7px; padding-bottom: 7px; }
+tr.group-start > * { box-shadow: inset 0 1px 0 var(--rule-strong); }
 .icon-button { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--quiet); opacity: 0; transition: opacity 200ms; }
 .chapter:hover .icon-button, .icon-button:focus-visible, .icon-button.is-done { opacity: 1; }
 @media (hover: none) { .icon-button { opacity: 1; } }

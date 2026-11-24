@@ -253,8 +253,8 @@ export type BarSide = "better" | "same" | "worse" | "unclear";
 /** One bar of a summary: how many comparisons fell on one side, and how many of those only likely. */
 export interface VerdictBar {
   side: BarSide;
-  /** The parts counted on this bar, for a reader who asks which they are. */
-  nodes: (string | undefined)[];
+  /** The parts counted on this bar, for a reader who asks which they are, each saying whether it is only likely. */
+  parts: { node: string | undefined; likely: boolean }[];
   /** The side in the reader's words: "faster", "about the same", "slower", "unclear". */
   words: string;
   count: number;
@@ -287,7 +287,7 @@ export function verdictBarsOf(metric: Metric, comparisons: Comparison[]): Verdic
       {
         side,
         words: wordsOf[side],
-        nodes: onSide.map((comparison) => comparison.node),
+        parts: onSide.map((comparison) => ({ node: comparison.node, likely: Boolean(comparison.qualifier) })),
         count: onSide.length,
         likely: onSide.filter((comparison) => comparison.qualifier).length,
       },
@@ -301,9 +301,9 @@ export function barsOf(metric: Metric, summary: Summary): VerdictBar[] {
 
   const standings = summary.standings;
   const barOf = (side: BarSide, words: string, standing: Standing): VerdictBar => {
-    const nodes = standings.filter((entry) => entry.standing === standing).map((entry) => entry.node);
+    const parts = standings.filter((entry) => entry.standing === standing).map((entry) => ({ node: entry.node, likely: false }));
 
-    return { side, words, nodes, count: nodes.length, likely: 0 };
+    return { side, words, parts, count: parts.length, likely: 0 };
   };
 
   return [barOf("better", "best", "best"), barOf("same", "tied for best", "tied"), barOf("worse", "behind", "behind")];
@@ -412,7 +412,7 @@ function verdictTitlesOf(lookup: Lookup, chart: SummaryChart): string[] {
   const words = directionWordsOf(metric);
   const baseline = lookup.candidateName.get(lookup.results.baseline) ?? lookup.results.baseline;
   const barOn = (summary: Summary, side: BarSide) =>
-    barsOf(metric, summary).find((bar) => bar.side === side) ?? { side, words: "", nodes: [], count: 0, likely: 0 };
+    barsOf(metric, summary).find((bar) => bar.side === side) ?? { side, words: "", parts: [], count: 0, likely: 0 };
   const leader = chart.summaries.reduce((most, summary) => (barOn(summary, "better").count > barOn(most, "better").count ? summary : most));
   const name = lookup.candidateName.get(leader.candidate) ?? leader.candidate;
   const { count: total, nameFor } = countedPartsOf(lookup, leader);
@@ -598,7 +598,7 @@ export function countGroupsOf(
       bar: barsOf(metric, summary).find((bar) => bar.side === side) ?? {
         side: side as BarSide,
         words,
-        nodes: [],
+        parts: [],
         count: 0,
         likely: 0,
       },
