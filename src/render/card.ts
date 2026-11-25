@@ -1159,7 +1159,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const intervals = `${sharedLevel ? `${sharedLevel} ` : ""}${isSingle ? "interval" : "intervals"}`;
   const readingOfCells =
     content.charts && content.charts.length > 0
-      ? [...new Set(content.charts.map((chart) => summaryKeyOf(lookup, chart))), `Verdicts from ${intervals}.`]
+      ? [...summaryKeysOf(lookup, content.charts), `Verdicts from ${intervals}.`]
       : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervals}.`];
   const legendSentences = [
     ...readingOfCells,
@@ -1218,4 +1218,12 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   ].join("");
 
   return { svg, altText, textLines, charactersWithoutGlyph: text.charactersWithoutGlyph() };
+}
+
+/** The keys of the summaries on a card, once each: one uncounted key when they differ only by how many parts they count. */
+function summaryKeysOf(lookup: Lookup, charts: SummaryChart[]): string[] {
+  const counted = [...new Set(charts.map((chart) => summaryKeyOf(lookup, chart)))];
+  const uncounted = [...new Set(charts.map((chart) => summaryKeyOf(lookup, chart, { counted: false })))];
+
+  return counted.length > 1 && uncounted.length === 1 ? uncounted : counted;
 }

@@ -688,6 +688,43 @@ describe("the site", () => {
     ]);
   });
 
+  it("stacks a table of effects on several metrics as one table per metric, each with only the parts it measured", () => {
+    const scripts = scriptsBenchmarkOf(3);
+    const results = scripts.results;
+    const onFirstScript = <Entry extends { metric: string; node?: string }>(entries: Entry[]) =>
+      entries
+        .filter((entry) => entry.metric === "wall_time" && entry.node === "script-1")
+        .map((entry) => ({ ...entry, metric: "start_time" }));
+    const withStartTime = {
+      ...scripts,
+      results: {
+        ...results,
+        metrics: [...results.metrics, { ...results.metrics[0], id: "start_time", label: "Start time" }],
+        values: [...results.values!, ...onFirstScript(results.values!)],
+        comparisons: [
+          ...results.comparisons!,
+          ...onFirstScript(results.comparisons!).map((comparison) => ({ ...comparison, id: `${comparison.id}-start` })),
+        ],
+      },
+      blocks: [
+        { id: "table-effects", type: "table", metrics: ["wall_time", "start_time"], rows: "script", cells: "effects", show: ["ci"] },
+      ],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(withStartTime, ["site"], folder, context, { rawFiles: {} });
+    const html = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const tables = [...html.matchAll(/<h3 class="table-heading">([^<]*)<.*?<\/table>/gs)].map(([table, heading]) => [
+      heading.trim(),
+      [...table.matchAll(/<th scope="row">([^<]*)<\/th>/g)].map((match) => match[1]),
+    ]);
+
+    expect(tables).toEqual([
+      ["Wall time", ["Script 1", "Script 2", "Script 3"]],
+      ["Start time", ["Script 1"]],
+    ]);
+  });
+
   it("names the script of each claim when scripts sit side by side at the top of the structure", () => {
     const plan = planOf({
       structure: {

@@ -261,8 +261,8 @@ td:not(.text) { white-space: nowrap; }
 .value-table .cell-detail { margin-top: 4px; white-space: normal; min-width: 160px; }
 .value-table thead th[data-candidate]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--series, var(--ink)); }
 .cell-line { display: flex; align-items: center; gap: 10px; }
-.effects-table thead td { border: 0; }
-.effects-table thead th[scope="colgroup"] { font-family: ${MONO}; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 400; color: var(--secondary); }
+.effects-table { table-layout: fixed; }
+.effects-table thead th:first-child { width: 36%; }
 .effects-table .effect-cell { color: var(--secondary); }
 .effects-table .effect-cell.good { color: var(--good); }
 .effects-table .effect-cell.bad { color: var(--bad); }

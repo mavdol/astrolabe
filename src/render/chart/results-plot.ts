@@ -58,7 +58,7 @@ export interface ResultsPlot {
   key: { candidate: string; name: string; colour: string }[];
 }
 
-const BAR_PITCH = { smallest: 15, usual: 19, largest: 22 };
+const BAR_PITCH = { smallest: 15, usual: 19, largest: 32 };
 /** The bar's share of its pitch: the rest is the hairline of background that keeps two glued bars apart. */
 const BAR_SHARE = 0.86;
 const GROUP_GAP = 18;
@@ -74,8 +74,9 @@ const LARGEST_NAME_SHARE = 0.32;
 /** A name that needs more lines than this goes above its block, with every other name. */
 const NAME_LINES_BESIDE = 2;
 
+const barCountOf = (plot: ResultsPlot) => plot.groups.reduce((count, group) => count + group.bars.length, 0);
 /** Every row the plot draws at the pitch of a bar: the key's, one per candidate, then the bars. */
-const rowCountOf = (plot: ResultsPlot) => plot.key.length + plot.groups.reduce((count, group) => count + group.bars.length, 0);
+const rowCountOf = (plot: ResultsPlot) => plot.key.length + barCountOf(plot);
 
 function layoutOf(plot: ResultsPlot, text: SvgTextRenderer, width: number) {
   const named = plot.groups.some((group) => group.name);
@@ -123,7 +124,10 @@ function layoutOf(plot: ResultsPlot, text: SvgTextRenderer, width: number) {
 function drawResults(plot: ResultsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
   const { x, width } = area;
   const layout = layoutOf(plot, text, width);
-  const pitch = (area.height - layout.fixedHeight) / rowCountOf(plot);
+  const room = area.height - layout.fixedHeight;
+  // An image with room to spare thickens the bars, not the key, whose stubs only name the colours.
+  const keyPitch = Math.min(room / rowCountOf(plot), BAR_PITCH.usual);
+  const pitch = (room - plot.key.length * keyPitch) / barCountOf(plot);
   const barHeight = pitch * BAR_SHARE;
   const plotLeft = x + (layout.namesBeside ? layout.nameWidth + COLUMN_GAP : 0);
   const valueRight = x + width - (layout.noteWidth > 0 ? layout.noteWidth + NOTE_GAP : 0);
@@ -138,20 +142,21 @@ function drawResults(plot: ResultsPlot, text: SvgTextRenderer, colours: Colours,
   // The key is a block like the parts': each candidate's stub of bar in the place its bar has on every part, so the
   // order names the bars as well as the colour does.
   plot.key.forEach((entry, index) => {
-    const top = area.y + index * pitch;
+    const top = area.y + index * keyPitch;
+    const swatchHeight = keyPitch * BAR_SHARE;
 
     marks.push(
-      `<g data-candidate="${escapeXml(entry.candidate)}"><rect x="${round(plotLeft)}" y="${round(top + (pitch - barHeight) / 2)}" width="${KEY_SWATCH}" height="${round(barHeight)}" fill="${entry.colour}"/>${text.draw(
+      `<g data-candidate="${escapeXml(entry.candidate)}"><rect x="${round(plotLeft)}" y="${round(top + (keyPitch - swatchHeight) / 2)}" width="${KEY_SWATCH}" height="${round(swatchHeight)}" fill="${entry.colour}"/>${text.draw(
         entry.name,
         plotLeft + KEY_SWATCH + 8,
-        middleOf(top, pitch, PLOT_STYLE.label.size),
+        middleOf(top, keyPitch, PLOT_STYLE.label.size),
         { ...PLOT_STYLE.label, fill: colours.ink },
       )}</g>`,
     );
     textLines.push(entry.name);
   });
 
-  let cursorY = area.y + plot.key.length * pitch + GROUP_GAP;
+  let cursorY = area.y + plot.key.length * keyPitch + GROUP_GAP;
 
   plot.groups.forEach((group, groupIndex) => {
     if (groupIndex > 0) {
@@ -293,7 +298,7 @@ export function resultsPlot(plot: ResultsPlot): Plot {
       return {
         smallest: fixedHeight + rows * BAR_PITCH.smallest,
         usual: fixedHeight + rows * BAR_PITCH.usual,
-        largest: fixedHeight + rows * BAR_PITCH.largest,
+        largest: fixedHeight + plot.key.length * BAR_PITCH.usual + barCountOf(plot) * BAR_PITCH.largest,
       };
     },
     draw: (text, colours, area) => drawResults(plot, text, colours, area),

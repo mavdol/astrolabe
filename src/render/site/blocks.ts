@@ -1,5 +1,5 @@
 import type { RawFile } from "../../compute/raw-data.js";
-import type { Benchmark, Comparison } from "../../schema/benchmark.js";
+import type { Benchmark, Comparison, Metric, Results } from "../../schema/benchmark.js";
 import type { Block, ChartBlock, HeadlineBlock, SummaryBlock, TableBlock } from "../../schema/presentation.js";
 import type { Mode } from "../../themes/astrolabe.js";
 import { addsInformation, detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
@@ -630,44 +630,54 @@ function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterSt
       ...nodes.flatMap((node) => compared.map((candidate) => Math.abs(comparisonOf(metricId, node, candidate.id)?.effect ?? 0))),
       Number.EPSILON,
     );
-  const several = block.metrics.length > 1;
-  const metricHeader = block.metrics.map((metricId) => {
+  const cellOf = (metric: Metric, node: string | undefined, candidate: Results["candidates"][number], largest: number) => {
+    const comparison = comparisonOf(metric.id, node, candidate.id);
+
+    if (!comparison) return `<td data-candidate="${escapeHtml(candidate.id)}">—</td>`;
+
+    const { effect, interval } = effectAndInterval(metric, comparison);
+    const share = (Math.abs(comparison.effect) / largest) * 50;
+    const start = comparison.effect < 0 ? 50 - share : 50;
+    const exploratory = comparison.role === "exploratory" ? " (exploratory)" : "";
+
+    return [
+      `<td class="effect-cell ${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}" data-candidate="${escapeHtml(candidate.id)}">`,
+      '<span class="cell-line">',
+      `<span class="cell-value">${escapeHtml(effect)}</span>`,
+      `<span class="effect-bar" aria-hidden="true"><i style="left: ${start.toFixed(1)}%; width: ${share.toFixed(1)}%"></i></span>`,
+      "</span>",
+      `<span class="cell-detail effect-verdict">${escapeHtml(plainVerdictOf(metric, comparison) + exploratory)}</span>`,
+      show.has("ci") && interval ? `<span class="cell-detail dim">${escapeHtml(interval)}</span>` : "",
+      "</td>",
+    ].join("");
+  };
+  const rowsLevel = effectRowsOf(block, lookup);
+  const levelName = rowsLevel ? capitalised(rowsLevel) : "";
+  const againstName = lookup.candidateName.get(vs);
+  // One table per metric, stacked as the values tables are: side by side, three metrics and two candidates would need
+  // six columns, and a metric measured on a few parts would fill the others with dashes.
+  const sections = block.metrics.flatMap((metricId) => {
     const metric = lookup.metricById.get(metricId)!;
+    const measuredNodes = nodes.filter((node) => compared.some((candidate) => comparisonOf(metricId, node, candidate.id)));
+    const comparedHere = compared.filter((candidate) => measuredNodes.some((node) => comparisonOf(metricId, node, candidate.id)));
 
-    return `<th scope="colgroup" colspan="${compared.length}">${escapeHtml(`${metric.label} · ${directionWords(metric.direction)}`)}</th>`;
-  });
-  const candidateHeader = block.metrics.flatMap(() =>
-    compared.map((candidate) => `<th scope="col" data-candidate="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</th>`),
-  );
-  const rows = nodes.map((node) => {
-    const cells = block.metrics.flatMap((metricId) => {
-      const metric = lookup.metricById.get(metricId)!;
-      const largest = largestOf(metricId);
+    if (measuredNodes.length === 0) return [];
 
-      return compared.map((candidate) => {
-        const comparison = comparisonOf(metricId, node, candidate.id);
+    const largest = largestOf(metricId);
+    const rows = measuredNodes.map(
+      (node) =>
+        `<tr><th scope="row">${node === undefined ? "All" : partNameHtml(inputs, node)}</th>${comparedHere.map((candidate) => cellOf(metric, node, candidate, largest)).join("")}</tr>`,
+    );
+    const subtitle = `change against ${againstName} · ${directionWords(metric.direction)}`;
 
-        if (!comparison) return `<td data-candidate="${escapeHtml(candidate.id)}">—</td>`;
-
-        const { effect, interval } = effectAndInterval(metric, comparison);
-        const share = (Math.abs(comparison.effect) / largest) * 50;
-        const start = comparison.effect < 0 ? 50 - share : 50;
-        const exploratory = comparison.role === "exploratory" ? " (exploratory)" : "";
-
-        return [
-          `<td class="effect-cell ${toneOf(comparison)}${isFirmVerdict(comparison) ? " firm" : ""}" data-candidate="${escapeHtml(candidate.id)}">`,
-          '<span class="cell-line">',
-          `<span class="cell-value">${escapeHtml(effect)}</span>`,
-          `<span class="effect-bar" aria-hidden="true"><i style="left: ${start.toFixed(1)}%; width: ${share.toFixed(1)}%"></i></span>`,
-          "</span>",
-          `<span class="cell-detail effect-verdict">${escapeHtml(plainVerdictOf(metric, comparison) + exploratory)}</span>`,
-          show.has("ci") && interval ? `<span class="cell-detail dim">${escapeHtml(interval)}</span>` : "",
-          "</td>",
-        ].join("");
-      });
-    });
-
-    return `<tr><th scope="row">${node === undefined ? "All" : partNameHtml(inputs, node)}</th>${cells.join("")}</tr>`;
+    return [
+      `<h3 class="table-heading">${escapeHtml(metric.label)} <span class="dim">· ${escapeHtml(subtitle)}</span></h3>`,
+      '<div class="table-scroll"><table class="value-table effects-table">',
+      `<caption class="visually-hidden">${escapeHtml(`${metric.label} · ${subtitle}`)}</caption>`,
+      `<thead><tr><th scope="col">${escapeHtml(levelName)}</th>${comparedHere.map((candidate) => `<th scope="col" data-candidate="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</th>`).join("")}</tr></thead>`,
+      `<tbody>\n${rows.join("\n")}\n</tbody>`,
+      "</table></div>",
+    ];
   });
   const shown = nodes.flatMap((node) =>
     block.metrics.flatMap((metricId) => compared.flatMap((candidate) => comparisonOf(metricId, node, candidate.id) ?? [])),
@@ -682,15 +692,8 @@ function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterSt
       : "",
     ` and the smallest difference that matters. Bars are drawn from zero, on one scale per metric.`,
   ].join("");
-  const levelName = block.rows ? block.rows.charAt(0).toUpperCase() + block.rows.slice(1) : "";
 
-  return [
-    '<div class="table-scroll"><table class="value-table effects-table">',
-    `<thead>${several ? `<tr><td></td>${metricHeader.join("")}</tr>` : ""}<tr><th scope="col">${escapeHtml(levelName)}</th>${candidateHeader.join("")}</tr></thead>`,
-    `<tbody>\n${rows.join("\n")}\n</tbody>`,
-    "</table></div>",
-    `<p class="table-note">${escapeHtml(note)}</p>`,
-  ].join("\n");
+  return [...sections, `<p class="table-note">${escapeHtml(note)}</p>`].join("\n");
 }
 
 function tableHtml(block: TableBlock, inputs: PageInputs, number: string): string {

@@ -503,9 +503,13 @@ export function summaryTitleOf(lookup: Lookup, chart: SummaryChart): string {
   return wordings.find((wording) => wording.length <= LONGEST_SUMMARY_TITLE) ?? wordings[wordings.length - 1];
 }
 
-/** What a bar of a summary chart stands for, and on a diverging chart which side is which. */
-export function summaryKeyOf(lookup: Lookup, chart: SummaryChart): string {
-  const parts = partsOf(lookup, chart.summaries[0]);
+/**
+ * What a bar of a summary chart stands for, and on a diverging chart which side is which. Uncounted ("the workloads"
+ * rather than "the 12 workloads"), one key can serve summaries that count different numbers of parts.
+ */
+export function summaryKeyOf(lookup: Lookup, chart: SummaryChart, { counted = true } = {}): string {
+  const { nameFor } = countedPartsOf(lookup, chart.summaries[0]);
+  const parts = counted ? partsOf(lookup, chart.summaries[0]) : nameFor(2);
   const baseline = lookup.candidateName.get(lookup.results.baseline);
   const words = directionWordsOf(lookup.metricById.get(chart.metric)!);
 

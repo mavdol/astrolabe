@@ -242,6 +242,26 @@ describe("reading a card at a glance", () => {
     expect(card.altText).toBe("Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2.");
   });
 
+  it("writes the key of its summaries once when they differ only by how many parts they count", () => {
+    const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+    const twoTasks = new Set(["math_word", "policy_qa"]);
+
+    suite.results.comparisons = suite.results.comparisons!.map((comparison) =>
+      comparison.metric === "cost_per_item"
+        ? { ...comparison, role: twoTasks.has(comparison.node ?? "") ? "primary" : "exploratory" }
+        : comparison,
+    );
+    suite.blocks = [
+      { id: "summary-accuracy", type: "summary", metric: "accuracy", chart: "stacked-bar" },
+      { id: "summary-cost", type: "summary", metric: "cost_per_item", chart: "stacked-bar" },
+      ...suite.blocks!,
+    ];
+    const footer = renderCard(suite, cardContentOf(suite, ["summary-accuracy", "summary-cost"]), "light", context).textLines.join(" ");
+
+    expect(footer).toContain("Each bar: the tasks, by their result against Model B.");
+    expect(footer).not.toMatch(/Each bar: the \d tasks/);
+  });
+
   it("draws the summary a card names as its block asks: stacked from the left, or grouped by result", () => {
     const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
 
