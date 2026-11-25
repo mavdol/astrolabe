@@ -63,9 +63,15 @@ export function comparisonRows(lookup: Lookup, comparisons: Comparison[]): strin
     ]
       .filter(Boolean)
       .join(", ");
-    const { effect, interval, level } = effectAndInterval(metric, comparison);
+    const { effect, interval, level, exact } = effectAndInterval(metric, comparison);
 
-    return [subject, effect, interval ? `${interval} (${level})` : "—", verdictLabel(comparison), comparisonNotes(lookup, comparison)];
+    return [
+      subject,
+      effect,
+      interval ? `${interval} (${level})` : exact ? "exact" : "—",
+      verdictLabel(comparison),
+      comparisonNotes(lookup, comparison),
+    ];
   });
 }
 

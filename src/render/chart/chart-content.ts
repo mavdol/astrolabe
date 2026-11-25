@@ -53,8 +53,11 @@ export function rangeOf(numbers: number[]): string {
   return lowest === highest ? String(lowest) : `${lowest} to ${highest}`;
 }
 
+/** An interval worth drawing: one with a width. Every observation the same (prices read from a list) gives none. */
+export const spreadOf = (ci: [number, number] | undefined): [number, number] | undefined => (ci && ci[0] !== ci[1] ? ci : undefined);
+
 export function levelsOf(entries: { ci?: [number, number]; ci_level?: number }[]): string | null {
-  const levels = [...new Set(entries.filter((entry) => entry.ci && entry.ci_level).map((entry) => formatLevel(entry.ci_level!)))];
+  const levels = [...new Set(entries.filter((entry) => spreadOf(entry.ci) && entry.ci_level).map((entry) => formatLevel(entry.ci_level!)))];
 
   return levels.length > 0 ? `${levels.join("% and ")}%` : null;
 }
@@ -107,8 +110,14 @@ export function intervalPart(values: WithInterval[], name = "Lines"): ReadingPar
 
   return levels
     ? { mark: "interval", markName: name, text: `${levels} confidence intervals${methods.length > 0 ? ` (${methods.join("; ")})` : ""}.` }
-    : { text: "No interval: too few observations, or declared values." };
+    : { text: noIntervalText(values) };
 }
+
+/** Why a chart draws no interval: its values are exact, or there was too little to compute one. */
+export const noIntervalText = (entries: { ci?: [number, number] }[]) =>
+  entries.length > 0 && entries.every((entry) => entry.ci && !spreadOf(entry.ci))
+    ? "No interval: every observation was the same, so each value is exact."
+    : "No interval: too few observations, or declared values.";
 
 export const intervalSentence = (values: WithInterval[], name = "Lines") => howToReadOf([intervalPart(values, name)]);
 

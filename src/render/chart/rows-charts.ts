@@ -20,6 +20,8 @@ import {
   caveatSentences,
   howToReadOf,
   intervalPart,
+  noIntervalText,
+  spreadOf,
   intervalSentence,
   levelsOf,
   rangeOf,
@@ -151,7 +153,7 @@ export function valuesContent(inputs: ChartInputs): ChartContent {
       candidate: value.candidate,
       series: series.get(value.candidate)!,
       value: value.value,
-      interval: value.ci,
+      interval: spreadOf(value.ci),
       valueText: formatNumber(value.value, labelDigits),
       note: value.source === "declared" ? "declared" : undefined,
     })),
@@ -261,7 +263,7 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
           key: `${group.node ?? ""}|${value.candidate}`,
           colour: series.get(value.candidate)!.colour,
           value: value.value * factor,
-          interval: value.ci ? [value.ci[0] * factor, value.ci[1] * factor] : undefined,
+          interval: spreadOf(value.ci) ? [value.ci![0] * factor, value.ci![1] * factor] : undefined,
           valueText: inUnit(value.value),
           note: [place ? PLACE_WORDS[place] : "", value.source === "declared" ? "declared" : ""].filter(Boolean).join(", ") || undefined,
           noteColour: place === "clear best" ? colours.good : undefined,
@@ -356,7 +358,7 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     noteColour: verdictColourOf(comparison),
     hollow: comparison.role === "exploratory",
     value: comparison.effect,
-    interval: comparison.ci,
+    interval: spreadOf(comparison.ci),
     valueText: effectAndInterval(metric, comparison).effect,
     note: noteOf(comparison),
   });
@@ -381,7 +383,7 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     },
     levels
       ? { mark: "interval", markName: "Lines", text: `${levels} confidence intervals${adjustment}.` }
-      : { text: "No interval: too few observations, or declared values." },
+      : { text: noIntervalText(comparisons) },
     { mark: "band", markName: "Shaded band", text: `changes under ${formatNumber(minimum, null)}${unit}, too small to matter.` },
     { text: hasExploratory ? "Exploratory comparisons were not declared before measuring: none is a claim of the benchmark." : "" },
     { text: caveatSentences(lookup, metric, comparisons) },
@@ -413,13 +415,13 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
       header: [...(withGroup ? [capitalised(breakdownOf(block, lookup) ?? "Group")] : []), "Candidate", "Effect", "Interval", "Verdict"],
       rows: groups.flatMap((group) =>
         group.comparisons.map((comparison) => {
-          const { effect, interval, level } = effectAndInterval(metric, comparison);
+          const { effect, interval, level, exact } = effectAndInterval(metric, comparison);
 
           return [
             ...(withGroup ? [group.heading ?? ""] : []),
             candidateNameOf(lookup, comparison.candidate),
             effect,
-            interval ? `${interval} (${level})` : "—",
+            interval ? `${interval} (${level})` : exact ? "exact" : "—",
             noteOf(comparison),
           ];
         }),
@@ -490,7 +492,7 @@ export function distributionContent(inputs: ChartInputs): ChartContent {
         candidate: value.candidate,
         series: series.get(value.candidate)!,
         value: value.value,
-        interval: value.ci,
+        interval: spreadOf(value.ci),
         points: outside,
         box,
         valueText: formatNumber(value.value, labelDigits),
@@ -603,7 +605,7 @@ export function stackedContent(inputs: ChartInputs): ChartContent {
       candidate,
       series: series.get(candidate)!,
       value: total.value,
-      interval: total.ci,
+      interval: spreadOf(total.ci),
       segments: partValues.map((value, index) => ({ value, colour: partColours.get(parts[index])! })),
       valueText: formatNumber(total.value, labelDigits),
     };

@@ -725,6 +725,45 @@ describe("the site", () => {
     ]);
   });
 
+  it("names every candidate the claims compare, and writes as exact the values whose observations never vary", () => {
+    const prices = { base: 10, mid: 12, next: 15 };
+    const plan = planOf({
+      candidates: Object.keys(prices),
+      metrics: [
+        {
+          id: "cost",
+          label: "Cost",
+          unit: "USD",
+          direction: "lower",
+          kind: "cost",
+          compare_as: "relative",
+          minimum_meaningful: 5,
+          from: { raw: "data", measure: "cost" },
+        },
+      ],
+    });
+    const rows = Object.entries(prices).flatMap(([candidate, value]) =>
+      Array.from({ length: 10 }, (_, run) => ({ candidate, measure: "cost", value, run: run + 1 })),
+    );
+    const fixedPrices = {
+      schema_version: SCHEMA_VERSION,
+      results: compute(plan, { data: rawFileOf(rows) }),
+      blocks: [
+        { id: "chart-cost", type: "chart", chart: "results", metric: "cost", series: "candidate", uncertainty: "ci", title: "Cost" },
+      ],
+    } as Benchmark;
+    const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+    buildOutputs(fixedPrices, ["site", "md"], folder, context, { rawFiles: {} });
+    const page = readFileSync(join(folder, "site", "index.html"), "utf8");
+    const report = readFileSync(join(folder, "benchmark.md"), "utf8");
+
+    expect(answerPartsOf(fixedPrices).pair).toBe("base, mid and next");
+    expect(page).toContain("No interval: every observation was the same, so each value is exact.");
+    expect(page).not.toContain("95% confidence intervals");
+    expect(report).toMatch(/\| mid, cost \| \+20% \| exact \| worse \|/);
+  });
+
   it("names the script of each claim when scripts sit side by side at the top of the structure", () => {
     const plan = planOf({
       structure: {
@@ -933,7 +972,7 @@ describe("the site", () => {
 
   it("brings the headline in word by word", () => {
     expect(support.read("page.js")).toContain("function splitIntoWords(heading)");
-    expect(support.css).toMatch(/\.motion \.hero h1:not\(\.is-split\) \{[^}]*animation: appear 0s 4s forwards;/);
+    expect(support.css).toMatch(/\.motion:not\(\.arriving\) \.hero h1:not\(\.is-split\)[^{]*\{ animation: appear 0s 4s forwards; \}/);
   });
 
   it("draws the marks it makes itself, table bars and keys, in each candidate's chart colour", () => {
@@ -965,11 +1004,18 @@ describe("the site", () => {
   });
 
   it("brings each part in only when the reader allows motion, and shows everything anyway when the script never runs", () => {
+    const fallback =
+      /\.motion:not\(\.arriving\) :is\(.+\):not\(\.is-in\), .*\.motion:not\(\.arriving\) \.hero h1:not\(\.is-in\) \.word \{ animation: appear 0s 4s forwards; \}/;
+
     expect(support.html).toContain(
       '<script>if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("motion");</script>',
     );
-    expect(support.css).toMatch(/\.motion :is\(.+\):not\(\.is-in\) \{[^}]*animation: appear 0s 4s forwards;/);
-    expect(support.css).toMatch(/\.motion \.hero h1:not\(\.is-in\) \.word \{[^}]*animation: appear 0s 4s forwards;/);
+    expect(support.css, "hidden until the reader reaches it").toMatch(/\.motion :is\(.+\):not\(\.is-in\) \{ opacity: 0;/);
+    expect(support.css, "shown after 4 s only when the script is not there to bring it in").toMatch(fallback);
+    expect(support.css, "never shown by the fallback once the script runs").not.toMatch(
+      /\.motion :is\(.+\):not\(\.is-in\) \{[^}]*animation/,
+    );
+    expect(support.read("page.js")).toContain('root.classList.add("arriving")');
     expect(support.html).toMatch(/<g data-grow-from="[\d.]+">/);
     expect(support.html).toContain("<g data-pop=");
   });

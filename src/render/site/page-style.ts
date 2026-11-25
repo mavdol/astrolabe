@@ -258,7 +258,9 @@ th[scope="row"] { font-weight: 500; }
 td:not(.text) { white-space: nowrap; }
 .cell-detail { display: block; color: var(--secondary); font-family: ${MONO}; font-size: 11px; white-space: nowrap; }
 .value-table td, .value-table th { text-align: left; }
-.value-table .cell-detail { margin-top: 4px; white-space: normal; min-width: 160px; }
+.value-table .cell-detail { margin-top: 4px; white-space: normal; min-width: 120px; }
+.value-table tbody th[scope="row"] { min-width: 150px; }
+.value-table thead th[data-candidate] { white-space: normal; }
 .value-table thead th[data-candidate]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--series, var(--ink)); }
 .cell-line { display: flex; align-items: center; gap: 10px; }
 .effects-table { table-layout: fixed; }
@@ -341,11 +343,13 @@ svg .part-link:hover .part-underline { stroke: var(--ink); stroke-dasharray: non
 
 [data-width="narrow"] { display: none; }
 
-.motion :is(${ARRIVING}):not(.is-in) { opacity: 0; transform: translateY(16px); filter: blur(6px); animation: appear 0s 4s forwards; }
+.motion :is(${ARRIVING}):not(.is-in) { opacity: 0; transform: translateY(16px); filter: blur(6px); }
 .motion :is(${ARRIVING}) { transition: opacity 900ms ${EASE_OUT}, transform 900ms ${EASE_OUT}, filter 900ms ${EASE_OUT}; transition-delay: var(--delay, 0ms); }
-.motion .hero h1:not(.is-split) { opacity: 0; animation: appear 0s 4s forwards; }
+.motion .hero h1:not(.is-split) { opacity: 0; }
 .motion .hero h1 .word { display: inline-block; transition: opacity 900ms ${EASE_OUT}, transform 900ms ${EASE_OUT}, filter 900ms ${EASE_OUT}; transition-delay: calc(var(--word) * 38ms + 150ms); }
-.motion .hero h1:not(.is-in) .word { opacity: 0; transform: translateY(0.35em); filter: blur(10px); animation: appear 0s 4s forwards; }
+.motion .hero h1:not(.is-in) .word { opacity: 0; transform: translateY(0.35em); filter: blur(10px); }
+/* Without the page's script, every part shows itself after 4 s. With it, a part waits for the reader: shown early, its marks would be drawn, then grown again from zero. */
+.motion:not(.arriving) :is(${ARRIVING}):not(.is-in), .motion:not(.arriving) .hero h1:not(.is-split), .motion:not(.arriving) .hero h1:not(.is-in) .word { animation: appear 0s 4s forwards; }
 @keyframes appear { to { opacity: 1; transform: none; filter: none; } }
 
 @media (max-width: ${SINGLE_COLUMN_BELOW}px) {

@@ -15,6 +15,7 @@ import {
   candidateNameOf,
   directionWords,
   levelsOf,
+  spreadOf,
   seriesOf,
   UNBLINDED_JUDGES_WARNING,
   withUnit,
@@ -237,12 +238,12 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
     const asFactor = block.effect_format === "times" ? effectAsFactor(metric, comparison) : undefined;
     const verdict = verdictLabel(comparison);
     const showsWord = SHOWS_THE_WORD_INSTEAD_OF_A_FIGURE.has(comparison.verdict);
-    const percentInterval = percent.interval ? `${percent.interval} (${percent.level})` : "no interval";
+    const percentInterval = percent.interval ? `${percent.interval} (${percent.level})` : percent.exact ? "exact" : "no interval";
     const side = (value: Value, candidate: string, colour: string): Side => ({
       label: candidateNameOf(lookup, candidate),
       candidate,
       value: value.value,
-      interval: value.ci,
+      interval: spreadOf(value.ci),
       valueText: withUnit(formatNumber(value.value, decimals), metric.unit),
       intervalText: value.ci ? formatInterval(value.ci, decimals) : undefined,
       colour,
@@ -301,7 +302,8 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
         const [baseline, candidate] = rows[index].sides;
         const percent = effectAndInterval(metric, comparison);
         const asFactor = block.effect_format === "times" ? effectAsFactor(metric, comparison) : undefined;
-        const interval = asFactor?.interval ?? (percent.interval ? `${percent.interval} (${percent.level})` : "—");
+        const interval =
+          asFactor?.interval ?? (percent.interval ? `${percent.interval} (${percent.level})` : percent.exact ? "exact" : "—");
         const withIntervalOf = (entry: Side) => `${entry.label}: ${entry.valueText}${entry.intervalText ? ` (${entry.intervalText})` : ""}`;
 
         return [

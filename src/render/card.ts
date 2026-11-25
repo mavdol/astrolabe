@@ -335,10 +335,11 @@ export interface Detail {
 /** The level is written once in the legend when every headline shares it, as primary comparisons do. */
 export function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: string | null): Detail[] {
   const metric = lookup.metricById.get(comparison.metric)!;
-  const { interval, level } = effectAndInterval(metric, comparison);
+  const { interval, level, exact } = effectAndInterval(metric, comparison);
   const details: Detail[] = [];
 
   if (comparison.source === "declared") details.push({ text: "Declared values, no interval" });
+  else if (exact) details.push({ text: "Exact: every observation the same" });
   else if (interval) details.push({ text: level === sharedLevel ? `Interval ${interval}` : `${level} interval: ${interval}` });
   else details.push({ text: "No interval: too few observations" });
 

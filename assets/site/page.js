@@ -147,6 +147,9 @@ function arrive(section) {
 }
 
 if (moves() && "IntersectionObserver" in window) {
+  // Each part now waits for the reader rather than for the stylesheet's 4 s fallback.
+  root.classList.add("arriving");
+
   for (const heading of document.querySelectorAll(".hero h1")) splitIntoWords(heading);
 
   const observer = new IntersectionObserver(

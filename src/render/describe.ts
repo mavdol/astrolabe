@@ -172,16 +172,19 @@ export function verdictLabel(comparison: Comparison): string {
 export function effectAndInterval(
   metric: Metric,
   comparison: Comparison,
-): { effect: string; effectNumber: string; unit: string; interval: string | null; level: string | null } {
+): { effect: string; effectNumber: string; unit: string; interval: string | null; level: string | null; exact: boolean } {
   const decimals = effectDecimals(metric, comparison);
   const unit = effectUnit(metric);
   const effectNumber = formatNumber(comparison.effect, decimals, { signed: true });
-  const hasMeasuredInterval = comparison.ci !== undefined && comparison.source !== "declared";
+  // An interval of no width (every observation the same, as prices read from a list) says the change is exact: it is written so.
+  const exact = comparison.source !== "declared" && comparison.ci !== undefined && comparison.ci[0] === comparison.ci[1];
+  const hasMeasuredInterval = comparison.ci !== undefined && comparison.source !== "declared" && !exact;
 
   return {
     effect: `${effectNumber}${unit}`,
     effectNumber,
     unit,
+    exact,
     interval: hasMeasuredInterval ? `${formatInterval(comparison.ci!, decimals, { signed: true })}${unit}` : null,
     level: hasMeasuredInterval ? `${formatLevel(comparison.ci_level!)}%` : null,
   };
