@@ -297,13 +297,19 @@ describe("a chart of effects", () => {
     expect(byCategory.textLines).toContain("Reasoning  −1.5 points  inconclusive");
   });
 
-  it("stops a change in percent at −100%, as far as a value can fall", () => {
+  it("stops a change in percent at −100%, as far as a value can fall, and writes a large one with its factor too", () => {
     const versions = versionsBenchmarkOf(2);
     const next = versions.results.comparisons!.find((comparison) => comparison.id === "wall_time__script-1__next")!;
 
     Object.assign(next, { effect: 1500, ci: [1300, 1700] });
 
-    expect(ticksOf(draw(versions, chartBlock({ chart: "effect", metric: "wall_time", node: "script-1" })))).toMatch(/^0%  \+500%/);
+    const chart = draw(versions, chartBlock({ chart: "effect", metric: "wall_time", node: "script-1" }));
+
+    expect(ticksOf(chart)).toMatch(/^0%  \+500%/);
+    expect(
+      chart.textLines.some((line) => line.startsWith("next  +1500% (16.0×)")),
+      "a change from a doubling on carries its factor",
+    ).toBe(true);
   });
 
   it("does not call a change of shares exact when its interval has no width: a few more items could differ", () => {

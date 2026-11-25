@@ -3,7 +3,7 @@
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="exports/readme-card-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="exports/readme-card-dark.svg">
-  <img alt="fastjson against stdjson: wall time (lower is better) −50%, better; peak memory (lower is better) +188%, worse." src="exports/readme-card-light.png">
+  <img alt="fastjson against stdjson: wall time (lower is better) −50%, better; peak memory (lower is better) +188% (2.9×), worse." src="exports/readme-card-light.png">
 </picture>
 
 Benchmark `json-cli-parse`, version 1.0.0. Baseline: stdjson.
@@ -39,7 +39,7 @@ Each candidate against the others it is compared with. A verdict is read from th
 | fastjson, wall time | −50% | −50 to −48% (99.17%) | better |  |
 | tinyjson, wall time | −4.3% | −7.3 to −1.4% (99.17%) | equivalent |  |
 | tinyjson against fastjson, wall time | +90% | +84 to +93% (99.17%) | worse |  |
-| fastjson, peak memory | +188% | +185 to +198% (99.17%) | worse |  |
+| fastjson, peak memory | +188% (2.9×) | +185 to +198% (99.17%) | worse |  |
 | tinyjson, peak memory | −62% | −62 to −61% (99.17%) | better |  |
 | tinyjson against fastjson, peak memory | −87% | −87.1 to −86.6% (99.17%) | better |  |
 
@@ -91,4 +91,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `88b3a2211616` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `7add958f543c` · 2026-11-16 · source https://github.com/example/json-cli-parse · built with astrolabe-bench 0.1.0</sub>

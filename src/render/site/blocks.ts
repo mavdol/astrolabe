@@ -703,6 +703,9 @@ function effectsTableView(block: TableBlock, inputs: PageInputs, state: FilterSt
   return [...sections, `<p class="table-note">${escapeHtml(note)}</p>`].join("\n");
 }
 
+/** The most candidates a table of values puts side by side as columns. */
+const MOST_CANDIDATE_COLUMNS = 4;
+
 function tableHtml(block: TableBlock, inputs: PageInputs, number: string): string {
   const { lookup, benchmark } = inputs;
   const show = new Set(block.show);
@@ -724,42 +727,58 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
           measured.length > 0 &&
           measured.every((value) => value.n === measured[0].n && failuresCell(lookup, value) === "0") &&
           measured[0].n !== undefined;
-        const header = [
-          block.rows ? block.rows.charAt(0).toUpperCase() + block.rows.slice(1) : "",
-          ...candidates.map((candidate) => `${candidate.name}${candidate.id === lookup.results.baseline ? " · baseline" : ""}`),
-        ];
-        const rows = nodes.map((node) => {
-          const cells = candidates.map((candidate) => {
-            const value = values.find((entry) => entry.node === node && entry.candidate === candidate.id);
+        const candidateHeading = (candidate: (typeof candidates)[number]) =>
+          `${candidate.name}${candidate.id === lookup.results.baseline ? " · baseline" : ""}`;
+        const partHeading = (node: string | undefined) => (node === undefined ? escapeHtml(metric.label) : partNameHtml(inputs, node));
+        const cellOf = (candidate: (typeof candidates)[number], node: string | undefined) => {
+          const value = values.find((entry) => entry.node === node && entry.candidate === candidate.id);
 
-            if (!value) return `<td data-candidate="${escapeHtml(candidate.id)}">—</td>`;
+          if (!value) return `<td data-candidate="${escapeHtml(candidate.id)}">—</td>`;
 
-            const details: string[] = [];
+          const details: string[] = [];
 
-            if (show.has("ci") && value.ci) details.push(escapeHtml(withUnit(formatInterval(value.ci, decimals), metric.unit)));
+          if (show.has("ci") && value.ci) details.push(escapeHtml(withUnit(formatInterval(value.ci, decimals), metric.unit)));
 
-            if (!sameRuns && show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
+          if (!sameRuns && show.has("n") && value.n !== undefined) details.push(`n = ${value.n}`);
 
-            if (!sameRuns && show.has("failures") && value.source !== "declared")
-              details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
+          if (!sameRuns && show.has("failures") && value.source !== "declared")
+            details.push(escapeHtml(`${failuresCell(lookup, value)} failed`));
 
-            if (show.has("evidence") && value.evidence) details.push(withLinks(value.evidence));
+          if (show.has("evidence") && value.evidence) details.push(withLinks(value.evidence));
 
-            const shown = `${withUnit(formatNumber(value.value, decimals), metric.unit)}${value.source === "declared" ? " (declared)" : ""}`;
+          const shown = `${withUnit(formatNumber(value.value, decimals), metric.unit)}${value.source === "declared" ? " (declared)" : ""}`;
 
-            return [
-              `<td class="value-cell" data-candidate="${escapeHtml(candidate.id)}">`,
-              '<span class="cell-line">',
-              `<span class="cell-value">${escapeHtml(shown)}</span>`,
-              `<span class="cell-bar${candidate.id === lookup.results.baseline ? " baseline" : ""}" style="${barPositionsOf(extent, value.value, show.has("ci") ? value.ci : undefined)}" aria-hidden="true"></span>`,
-              "</span>",
-              details.length > 0 ? `<span class="cell-detail">${details.join(" · ")}</span>` : "",
-              "</td>",
-            ].join("");
-          });
-
-          return `<tr><th scope="row">${node === undefined ? escapeHtml(metric.label) : partNameHtml(inputs, node)}</th>${cells.join("")}</tr>`;
-        });
+          return [
+            `<td class="value-cell" data-candidate="${escapeHtml(candidate.id)}">`,
+            '<span class="cell-line">',
+            `<span class="cell-value">${escapeHtml(shown)}</span>`,
+            `<span class="cell-bar${candidate.id === lookup.results.baseline ? " baseline" : ""}" style="${barPositionsOf(extent, value.value, show.has("ci") ? value.ci : undefined)}" aria-hidden="true"></span>`,
+            "</span>",
+            details.length > 0 ? `<span class="cell-detail">${details.join(" · ")}</span>` : "",
+            "</td>",
+          ].join("");
+        };
+        // Many candidates side by side run off the panel: past a few, they become the rows, unless the parts are more.
+        const candidatesAsRows = candidates.length > MOST_CANDIDATE_COLUMNS && candidates.length > nodes.length;
+        const rowsHeading = block.rows ? block.rows.charAt(0).toUpperCase() + block.rows.slice(1) : "";
+        const headerHtml = candidatesAsRows
+          ? [`<th scope="col">Candidate</th>`, ...nodes.map((node) => `<th scope="col">${partHeading(node)}</th>`)]
+          : [
+              `<th scope="col">${escapeHtml(rowsHeading)}</th>`,
+              ...candidates.map(
+                (candidate) =>
+                  `<th scope="col" data-candidate="${escapeHtml(candidate.id)}">${escapeHtml(candidateHeading(candidate))}</th>`,
+              ),
+            ];
+        const rows = candidatesAsRows
+          ? candidates.map(
+              (candidate) =>
+                `<tr data-candidate="${escapeHtml(candidate.id)}"><th scope="row">${escapeHtml(candidateHeading(candidate))}</th>${nodes.map((node) => cellOf(candidate, node)).join("")}</tr>`,
+            )
+          : nodes.map(
+              (node) =>
+                `<tr><th scope="row">${partHeading(node)}</th>${candidates.map((candidate) => cellOf(candidate, node)).join("")}</tr>`,
+            );
         const statistic = STATISTIC_WORD[metric.statistic].toLowerCase();
         const unit = UNIT_WORDS[metric.unit] ?? metric.unit;
         const caption = `${metric.label} · ${statistic} in ${unit} · ${directionWords(metric.direction)}`;
@@ -770,9 +789,9 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
         return [
           `<h3 class="table-heading">${escapeHtml(metric.label)} <span class="dim">· ${escapeHtml(`${statistic} in ${unit} · ${directionWords(metric.direction)}`)}</span></h3>`,
           metric.definition ? `<p class="table-definition">${escapeHtml(asSentence(metric.definition))}</p>` : "",
-          '<div class="table-scroll"><table class="value-table">',
+          `<div class="table-scroll"><table class="value-table${candidatesAsRows ? " candidate-rows" : ""}">`,
           `<caption class="visually-hidden">${escapeHtml(caption)}</caption>`,
-          `<thead><tr>${header.map((cell, column) => `<th scope="col"${column > 0 ? ` data-candidate="${escapeHtml(candidates[column - 1].id)}"` : ""}>${escapeHtml(cell)}</th>`).join("")}</tr></thead>`,
+          `<thead><tr>${headerHtml.join("")}</tr></thead>`,
           `<tbody>\n${rows.join("\n")}\n</tbody>`,
           "</table></div>",
           note ? `<p class="table-note">${escapeHtml(note)}</p>` : "",

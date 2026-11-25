@@ -197,7 +197,7 @@ describe("the site", () => {
 
     benchmark.layout = [["headline-cost", "headline-accuracy"], ...benchmark.layout!.slice(1)];
 
-    expect(answerOf(benchmark)).toMatch(/^Model A against Model B: cost per item \+265%, worse\./);
+    expect(answerOf(benchmark)).toMatch(/^Model A against Model B: cost per item \+265% \(3\.6×\), worse\./);
   });
 
   it("names the first primary comparison when no headline leads the page", () => {
@@ -207,7 +207,7 @@ describe("the site", () => {
     benchmark.results.comparisons = [...benchmark.results.comparisons!].reverse();
 
     expect(answerOf(benchmark)).toBe(
-      "Model A against Model B: cost per item +265%, worse. 3 more results: 1 better, 1 likely better, 1 unclear.",
+      "Model A against Model B: cost per item +265% (3.6×), worse. 3 more results: 1 better, 1 likely better, 1 unclear.",
     );
   });
 
@@ -661,6 +661,52 @@ describe("the site", () => {
       '<p class="table-note">Each value is the median of 12 measurements, none of which failed; the line under it is its 95% interval.</p>',
     );
     expect(html).not.toContain("n = 12");
+  });
+
+  it("turns a table of values with many candidates so that they are its rows, the parts its columns", () => {
+    const candidates = ["base", "two", "three", "four", "five"];
+    const plan = planOf({
+      candidates,
+      structure: { levels: ["script"], nodes: ["one", "other"].map((id) => ({ id, level: "script", label: `Script ${id}` })) },
+      metrics: [
+        {
+          id: "time",
+          label: "Time",
+          unit: "s",
+          direction: "lower",
+          kind: "run_time",
+          compare_as: "relative",
+          minimum_meaningful: 5,
+          from: { raw: "data", measure: "time" },
+        },
+      ],
+      analysis: { pairs: "all" },
+    });
+    const rows = candidates.flatMap((candidate, index) =>
+      ["one", "other"].flatMap((node) =>
+        Array.from({ length: 10 }, (_, run) => ({ candidate, node, measure: "time", value: 1 + index / 10 + run / 1000, run: run + 1 })),
+      ),
+    );
+    const pageOf = (benchmark: Benchmark) => {
+      const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+      buildOutputs(benchmark, ["site"], folder, context, { rawFiles: {} });
+
+      return readFileSync(join(folder, "site", "index.html"), "utf8");
+    };
+    const table = { id: "table-values", type: "table", metrics: ["time"], rows: "script", show: ["ci"] };
+    const many = pageOf({
+      schema_version: SCHEMA_VERSION,
+      results: compute(plan, { data: rawFileOf(rows) }),
+      blocks: [table],
+    } as Benchmark);
+    const few = pageOf({ ...versionsBenchmarkOf(2), blocks: [{ ...table, metrics: ["wall_time"] }] } as Benchmark);
+    const rowNames = (html: string) => [...html.matchAll(/<th scope="row">(?:<[^>]+>)?([^<]*)</g)].map((match) => match[1]);
+
+    expect(many).toContain('<table class="value-table candidate-rows">');
+    expect(rowNames(many)).toEqual(["base · baseline", "two", "three", "four", "five"]);
+    expect(few).not.toContain("candidate-rows");
+    expect(rowNames(few)).toEqual(["Script 1", "Script 2"]);
   });
 
   it("names a chart of comparison rows after the candidate they are all against, or pair by pair when they are against several", () => {

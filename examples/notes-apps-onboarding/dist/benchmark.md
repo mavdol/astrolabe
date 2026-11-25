@@ -81,9 +81,9 @@ Not declared before measuring and not adjusted for the number of comparisons: so
 
 | Comparison | Effect | Interval | Verdict | Notes |
 | --- | ---: | ---: | --- | --- |
-| Notes B, task success, Create and format a note | +21 points | +3 to +38 points (95%) | likely better |  |
+| Notes B, task success, Create and format a note | +21 points | +3 to +40 points (95%) | likely better |  |
 | Notes B, task success, Share a note with a colleague | 0 points | −22 to +22 points (95%) | inconclusive |  |
-| Notes B, task success, Find a note from last week | −4.2 points | −29.1 to +20.8 points (95%) | inconclusive |  |
+| Notes B, task success, Find a note from last week | −4.2 points | −27.2 to +19.4 points (95%) | inconclusive |  |
 | Notes B, time on task, Create and format a note | −9.4% | −31.5 to +14.8% (95%) | inconclusive | successful attempts only; warning: the candidates did not fail equally often; see the failures |
 | Notes B, time on task, Share a note with a colleague | −23% | −38 to −15% (95%) | likely better | successful attempts only |
 | Notes B, time on task, Find a note from last week | −1.8% | −27.4 to +21.4% (95%) | inconclusive | successful attempts only |
@@ -131,4 +131,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `11164fc7a7c5` · 2026-11-16 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `d65ebb9de0c6` · 2026-11-16 · source https://github.com/example/notes-apps-onboarding · built with astrolabe-bench 0.1.0</sub>

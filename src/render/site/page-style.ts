@@ -261,6 +261,10 @@ td:not(.text) { white-space: nowrap; }
 .value-table .cell-detail { margin-top: 4px; white-space: normal; min-width: 120px; }
 .value-table tbody th[scope="row"] { min-width: 150px; }
 .value-table thead th[data-candidate] { white-space: normal; }
+.value-table.candidate-rows thead th { white-space: normal; }
+.value-table.candidate-rows tbody th[scope="row"] { min-width: 110px; }
+.value-table.candidate-rows .cell-line { flex-wrap: wrap; row-gap: 6px; }
+.value-table tbody tr[data-candidate] th[scope="row"]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--series, var(--ink)); }
 .value-table thead th[data-candidate]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--series, var(--ink)); }
 .cell-line { display: flex; align-items: center; gap: 10px; }
 .effects-table { table-layout: fixed; }

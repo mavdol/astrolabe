@@ -169,6 +169,9 @@ export function verdictLabel(comparison: Comparison): string {
 }
 
 /** The effect of a comparison and its interval, rounded to what the interval supports, with their unit. */
+/** From a doubling on, a change in percent is hard to picture: "+1579%" is written "+1579% (16.8×)". */
+const SMALLEST_PERCENT_WITH_A_FACTOR = 100;
+
 export function effectAndInterval(
   metric: Metric,
   comparison: Comparison,
@@ -185,8 +188,14 @@ export function effectAndInterval(
     comparison.ci[0] === comparison.ci[1];
   const hasMeasuredInterval = comparison.ci !== undefined && comparison.source !== "declared" && !exact;
 
+  const ratio = 1 + comparison.effect / 100;
+  const factor =
+    metric.compare_as === "relative" && comparison.effect >= SMALLEST_PERCENT_WITH_A_FACTOR
+      ? ` (${formatNumber(ratio, ratio >= 100 ? 0 : 1)}×)`
+      : "";
+
   return {
-    effect: `${effectNumber}${unit}`,
+    effect: `${effectNumber}${unit}${factor}`,
     effectNumber,
     unit,
     exact,

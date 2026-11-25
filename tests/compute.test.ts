@@ -137,6 +137,20 @@ describe("values", () => {
     ]);
   });
 
+  it("compares two shares of yes/no answers by Newcombe's score interval, which keeps a width when every answer is no", () => {
+    const plan = planOf({
+      metrics: [{ statistic: "share", unit: "%", compare_as: "difference", minimum_meaningful: 5 }],
+      levels: [{ level: "item", field: "item", planned: 8 }],
+    });
+    const results = compute(plan, { data: rawFileOf([...itemsOf("base", Array(8).fill(0)), ...itemsOf("new", Array(8).fill(0))]) }, FAST);
+    const [comparison] = results.comparisons!;
+
+    expect(comparison.method).toBe("Newcombe score, paired by item");
+    expect(comparison.effect).toBe(0);
+    close(comparison.ci![1], 32.4408);
+    expect(comparison.ci![0]).toBe(-comparison.ci![1]);
+  });
+
   it("repeats are averaged per item first, and the items are the observations", () => {
     const plan = planOf({
       metrics: [{ statistic: "share", unit: "%" }],

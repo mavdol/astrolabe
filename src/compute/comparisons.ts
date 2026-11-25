@@ -11,8 +11,9 @@ import {
   TOO_FEW_FOR_AN_INTERVAL,
   requireResamplableSize,
   type Sample,
+  yesNoAnswersOf,
 } from "./sample.js";
-import { tInterval, welch } from "./stats.js";
+import { mean, newcombe, newcombePaired, tInterval, welch } from "./stats.js";
 import { aggregationPlanFor, descendantsOf, nodeTreeOf, type NodeId, type NodeTree } from "./structure.js";
 import { failureWarningOf } from "./verdict.js";
 
@@ -63,6 +64,23 @@ export function measuredEffect({ observations, tree, candidate, baseline, node, 
   const paired = matched !== null;
   const candidateSample = matched?.candidateSample ?? buildSample(observations, tree, candidate, node)!;
   const baselineSample = matched?.baselineSample ?? buildSample(observations, tree, baseline, node)!;
+
+  const candidateAnswers = yesNoAnswersOf(observations, candidateSample, groupsAggregation);
+  const baselineAnswers = yesNoAnswersOf(observations, baselineSample, groupsAggregation);
+
+  if (candidateAnswers && baselineAnswers && metric.compare_as === "difference") {
+    const yesCount = (answers: number[]) => answers.reduce((sum, answer) => sum + answer, 0);
+    const [lower, upper] = paired
+      ? newcombePaired(candidateAnswers, baselineAnswers, level)
+      : newcombe(yesCount(candidateAnswers), candidateAnswers.length, yesCount(baselineAnswers), baselineAnswers.length, level);
+
+    return {
+      effect: 100 * (mean(candidateAnswers) - mean(baselineAnswers)),
+      ci: [100 * lower, 100 * upper],
+      paired,
+      method: paired ? "Newcombe score, paired by item" : "Newcombe score",
+    };
+  }
 
   const bothReadOneDataNode = candidateSample.dataNodeCount === 1 && baselineSample.dataNodeCount === 1;
   const hasClosedFormInterval =

@@ -297,6 +297,39 @@ export function newcombe(
   ];
 }
 
+/**
+ * Newcombe's score interval of the difference of two proportions measured on the same items, first − second
+ * (Newcombe 1998, method 10): each side's Wilson interval, combined through the correlation of the pairs.
+ */
+export function newcombePaired(first: ArrayLike<number>, second: ArrayLike<number>, level: number): [number, number] {
+  let bothYes = 0;
+  let firstOnly = 0;
+  let secondOnly = 0;
+
+  for (let item = 0; item < first.length; item++) {
+    if (first[item] === 1 && second[item] === 1) bothYes++;
+    else if (first[item] === 1) firstOnly++;
+    else if (second[item] === 1) secondOnly++;
+  }
+
+  const items = first.length;
+  const bothNo = items - bothYes - firstOnly - secondOnly;
+  const [firstYes, secondYes] = [bothYes + firstOnly, bothYes + secondOnly];
+  const [firstShare, secondShare] = [firstYes / items, secondYes / items];
+  const [firstLower, firstUpper] = wilson(firstYes, items, level);
+  const [secondLower, secondUpper] = wilson(secondYes, items, level);
+  const marginsProduct = firstYes * (items - firstYes) * secondYes * (items - secondYes);
+  const correlation = marginsProduct > 0 ? (bothYes * bothNo - firstOnly * secondOnly) / Math.sqrt(marginsProduct) : 0;
+  const difference = firstShare - secondShare;
+  const spread = (firstSide: number, secondSide: number) =>
+    Math.sqrt(Math.max(0, firstSide ** 2 - 2 * correlation * firstSide * secondSide + secondSide ** 2));
+
+  return [
+    difference - spread(firstShare - firstLower, secondUpper - secondShare),
+    difference + spread(firstUpper - firstShare, secondShare - secondLower),
+  ];
+}
+
 export interface IntervalEstimate {
   estimate: number;
   se: number;
