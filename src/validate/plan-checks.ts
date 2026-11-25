@@ -39,6 +39,31 @@ export function checkPlan(results: Results): Issue[] {
 
   if (!candidateIds.includes(results.baseline)) error("F7", "baseline", `"${results.baseline}" is not the id of a candidate`);
 
+  const declaredPairs = results.analysis?.pairs;
+
+  if (declaredPairs === "baseline" && candidateIds.length >= 3)
+    error(
+      "V57",
+      "analysis.pairs",
+      `with ${candidateIds.length} candidates, comparing each only with the baseline makes it the measure of the others: leave "pairs" out to compare every pair, or name the pairs the decision rests on`,
+    );
+
+  if (Array.isArray(declaredPairs)) {
+    const seen = new Set<string>();
+
+    declaredPairs.forEach((pair, index) => {
+      const path = `analysis.pairs[${index}]`;
+      const unknown = [pair.candidate, pair.vs].filter((id) => !candidateIds.includes(id));
+      const key = [pair.candidate, pair.vs].sort().join("\u0000");
+
+      if (unknown.length > 0) error("S11", path, `${unknown.map((id) => `"${id}"`).join(" and ")}: not the id of a candidate`);
+      else if (pair.candidate === pair.vs) error("S11", path, `"${pair.candidate}" is compared with itself`);
+      else if (seen.has(key)) error("S11", path, `"${pair.candidate}" and "${pair.vs}" are already compared: each pair once`);
+
+      seen.add(key);
+    });
+  }
+
   checkGoal();
   checkCandidates();
   checkStructure();

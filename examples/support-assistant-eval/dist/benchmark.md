@@ -5,7 +5,7 @@ Internal tasks only; does not measure latency or safety.
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="exports/readme-card-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="exports/readme-card-dark.svg">
-  <img alt="Model A against Model B: accuracy (higher is better) +6.4 points, likely better; cost per item (lower is better) +265%, worse." src="exports/readme-card-light.png">
+  <img alt="Model A against Model B: accuracy (higher is better) +6.4 points, likely better; cost per item (lower is better) +265% (3.6×), worse." src="exports/readme-card-light.png">
 </picture>
 
 Benchmark `support-assistant-eval`, version 1.2.0. Baseline: Model B.
@@ -59,7 +59,7 @@ Each candidate against the baseline, Model B. A verdict is read from the interva
 | Model A, accuracy, Support assistant eval | +6.4 points | +2.6 to +10.3 points (98.75%) | likely better |  |
 | Model A, accuracy, Reasoning | −1.5 points | −4.9 to +2.0 points (98.75%) | inconclusive |  |
 | Model A, accuracy, Coding | +14 points | +7 to +21 points (98.75%) | better |  |
-| Model A, cost per item, Support assistant eval | +265% | +263 to +266% (98.75%) | worse | successful attempts only |
+| Model A, cost per item, Support assistant eval | +265% (3.6×) | +263 to +266% (98.75%) | worse | successful attempts only |
 
 ### Exploratory comparisons
 
@@ -70,11 +70,11 @@ Not declared before measuring and not adjusted for the number of comparisons: so
 | Model A, accuracy, Math word problems | +1.2 points | −1.9 to +4.3 points (95%) | inconclusive |  |
 | Model A, accuracy, Policy questions | −4.1 points | −8.8 to +0.5 points (95%) | inconclusive |  |
 | Model A, accuracy, Bug fixes | +14 points | +9 to +20 points (95%) | better |  |
-| Model A, cost per item, Reasoning | +265% | +264 to +266% (95%) | worse | successful attempts only |
-| Model A, cost per item, Coding | +265% | +263 to +266% (95%) | worse | successful attempts only |
-| Model A, cost per item, Math word problems | +264% | +263 to +266% (95%) | worse | successful attempts only |
-| Model A, cost per item, Policy questions | +265% | +263 to +266% (95%) | worse | successful attempts only |
-| Model A, cost per item, Bug fixes | +265% | +263 to +266% (95%) | worse | successful attempts only |
+| Model A, cost per item, Reasoning | +265% (3.6×) | +264 to +266% (95%) | worse | successful attempts only |
+| Model A, cost per item, Coding | +265% (3.6×) | +263 to +266% (95%) | worse | successful attempts only |
+| Model A, cost per item, Math word problems | +264% (3.6×) | +263 to +266% (95%) | worse | successful attempts only |
+| Model A, cost per item, Policy questions | +265% (3.6×) | +263 to +266% (95%) | worse | successful attempts only |
+| Model A, cost per item, Bug fixes | +265% (3.6×) | +263 to +266% (95%) | worse | successful attempts only |
 
 ## Method
 
@@ -121,4 +121,4 @@ Declared by the author.
 
 ---
 
-<sub>results sha256 `7602801ca634` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>
+<sub>results sha256 `67b49e55a225` · 2026-11-16 · source https://github.com/example/support-assistant-eval · built with astrolabe-bench 0.1.0</sub>

@@ -59,7 +59,7 @@ Most benchmarks need two or three measurement files: a speed comparison of two l
 1. A neutral goal tied to a decision (F1, F2).
 2. Metrics, units, direction and weights the user confirmed (F3, D9).
 3. The domain researched and a workload that represents the user's real use (F4, F5, U1).
-4. The right baseline, named (F7, S3).
+4. Every candidate compared in its own right: every pair compared, each one's results drawn beside the others' before any change against one; the version in use today named as the baseline (F7, S3, V57).
 5. The same effort and a documented configuration for every candidate (F8).
 6. The environment recorded, including where it ran (bare metal, a virtual machine, a container, a CI runner), with timestamps for services you do not control; scripts and raw data published (F11, F15, F16).
 7. Repeated runs; variability and sample size beside every value; winners named from effects and their intervals (S1, S7).
@@ -107,20 +107,21 @@ benchmarks/<id>/
 Ask at most these four questions, and only those the request and the repository do not already answer:
 
 1. Which decision should this benchmark inform?
-2. Which candidates are compared, and which one is the baseline (usually what is in use today)?
-3. Which metrics matter most, how do they weigh against each other, and what is the smallest difference that would change the decision?
+2. Which candidates are compared, is one of them what is in use today (the baseline), and which comparison decides: each against that one, the newcomers against each other, or every pair?
+3. Which metrics matter most, how do they weigh against each other, and what is the smallest difference that would change the decision? A criterion named without its form ("memory", "speed") has several: peak memory or memory returned after a load, a cold start or a warm run. Propose the one or two forms that fit the decision, with the reason, from the table in its measurement file (F19); a form the user named is taken as given.
 4. What are the constraints: time budget, environment, cold or warm performance?
 
 Decide everything else yourself from the defaults in statistics.md and the measurement files, and announce it as a short plan the user can amend before anything runs. When nobody can answer (you run unattended, or the user said to go ahead), choose reasonable answers, write them in the plan, and list them in your final reply as choices made for the user.
 
-Two answers shape the whole result, so they are worth a question:
+Three answers shape the whole result, so they are worth a question:
 
 - **The goal** is the user's decision, phrased neutrally as one short question: "which parser should the nightly import use?", never "show that X is faster". The page and the README card show it as their title, so keep it to 80 characters; `validate` warns past that. When the user owns or sells a candidate, or asks for one to win, the goal stays neutral and the protocol stays the same for everyone; see the table below.
+- **The comparison that decides** comes from the decision, not from how a request is worded. "Should we leave A for B or for C?" is decided by B against C; "which of these tools?" by every pair. Every pair is compared by default, and whatever the pairs, the page shows every candidate's results side by side, as equals, before any change in percent against one of them (V57, visualization/charts.md). Name pairs in `analysis.pairs` only to compare fewer (statistics.md).
 - **The smallest difference that matters** (`minimum_meaningful`, per metric) is what separates "better" from "a real difference too small to care about". It is set before measuring. If the user has none, propose one (10% is a common choice for a run time) and say so.
 
 ## Step 2: research, and read the terms
 
-Before designing, note what the domain already knows: reference suites, standard metrics and units, known pitfalls. Start from your own knowledge, then search when you can. This goes in `domain_research`, also when nothing was found ("none found for …" is an answer; an empty list is not). Prefer a reference suite to a home-made workload; if you take a subset, justify each omission and give no overall score.
+Before designing, note what the domain already knows: reference suites, standard metrics and units, known pitfalls, and what changed between the candidates (release notes, changelogs), which says where they should differ and so which forms of each criterion to measure (F19). Start from your own knowledge, then search when you can. This goes in `domain_research`, also when nothing was found ("none found for …" is an answer; an empty list is not). Prefer a reference suite to a home-made workload; if you take a subset, justify each omission and give no overall score.
 
 For every candidate, read its licence or terms of service for a clause that restricts publishing benchmark or comparison results. Record what you read in `publication_terms`: the terms, the address or path read, the date, and the restriction or "none found". When there is a clause: quote it, say where it is, and tell the user before anything is published, with their options (ask the vendor for written permission, keep that candidate's results private, or decide knowingly). Say that whether such clauses can be enforced varies by country and that this is not legal advice. Never write "none found" for terms you did not read.
 
@@ -258,3 +259,4 @@ The rules behind steps 1 to 4. Must rules apply to every benchmark; Should rules
 | F16 | Must | Publish the scripts, configuration and raw data needed to rerun the benchmark, with the exact commands, and link them from every output. | Results nobody can check or rerun | artifacts |
 | F17 | Should | Version the benchmark itself: any change to workload, metrics or scoring creates a new version, and results from different versions are never compared directly. | Numbers from different benchmarks compared under one name | benchmark.version |
 | F18 | Must | Have the program that measures write the raw data, one line per observation, failures included: your own script, or a tool's export converted by astrolabe import. Never type or copy a measured number yourself, and never compute a statistic: run astrolabe compute. | Numbers miscopied, rounded or invented by the agent; intervals computed wrongly by hand | raw_data[], metrics[].from, results.computed (recomputed by validate) |
+| F19 | Should | When a criterion is named without its form (memory, speed, quality, cost), turn it into its precise forms (each measurement file lists them) and propose the one or two that fit the decision, ranked by what changed between the candidates in their release notes or changelogs. The user decides; running unattended, add them as exploratory. A form the user named is taken as given. | A metric chosen because the tool reports it, while the candidates differ somewhere else | metrics[].definition, domain_research |

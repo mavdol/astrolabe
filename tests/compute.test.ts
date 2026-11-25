@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { compute, ComputeError } from "../src/compute/compute.js";
+import { compute, ComputeError, primaryResamplesOf } from "../src/compute/compute.js";
+import { standingsOn } from "../src/render/standing.js";
 import type { Comparison, Results, Value } from "../src/schema/benchmark.js";
-import { planOf, rawFileOf, suiteStructure } from "./helpers.js";
+import { planOf, rawFileOf, suiteStructure, versionsBenchmarkOf } from "./helpers.js";
 
 const FAST = { resamples: 2000 };
 const close = (actual: number, expected: number, tolerance = 1e-5) =>
@@ -136,6 +137,20 @@ describe("values", () => {
     ]);
   });
 
+  it("compares two shares of yes/no answers by Newcombe's score interval, which keeps a width when every answer is no", () => {
+    const plan = planOf({
+      metrics: [{ statistic: "share", unit: "%", compare_as: "difference", minimum_meaningful: 5 }],
+      levels: [{ level: "item", field: "item", planned: 8 }],
+    });
+    const results = compute(plan, { data: rawFileOf([...itemsOf("base", Array(8).fill(0)), ...itemsOf("new", Array(8).fill(0))]) }, FAST);
+    const [comparison] = results.comparisons!;
+
+    expect(comparison.method).toBe("Newcombe score, paired by item");
+    expect(comparison.effect).toBe(0);
+    close(comparison.ci![1], 32.4408);
+    expect(comparison.ci![0]).toBe(-comparison.ci![1]);
+  });
+
   it("repeats are averaged per item first, and the items are the observations", () => {
     const plan = planOf({
       metrics: [{ statistic: "share", unit: "%" }],
@@ -264,7 +279,7 @@ describe("comparisons", () => {
     expect(value.method).toBe("bootstrap, resampling clusters (too few observations for an interval)");
   });
 
-  it("several primary comparisons share a Bonferroni level", () => {
+  it("several primary comparisons share a Bonferroni level, every pair of candidates counted", () => {
     const plan = planOf({ candidates: ["base", "new", "other"], metrics: [{}, { id: "speed", from: { raw: "data", measure: "speed" } }] });
     const rows = ["base", "new", "other"].flatMap((candidate) => [
       ...runsOf(candidate, BASE_SCORES),
@@ -272,11 +287,12 @@ describe("comparisons", () => {
     ]);
     const results = compute(plan, { data: rawFileOf(rows) }, FAST);
 
-    expect(results.comparisons).toHaveLength(4);
+    expect(results.comparisons).toHaveLength(6);
 
-    for (const comparison of results.comparisons!) expect(comparison).toMatchObject({ role: "primary", adjusted: true, ci_level: 0.9875 });
+    for (const comparison of results.comparisons!)
+      expect(comparison).toMatchObject({ role: "primary", adjusted: true, ci_level: 0.991667 });
 
-    expect(results.computed).toMatchObject({ primary_comparisons: 4, exploratory_comparisons: 0 });
+    expect(results.computed).toMatchObject({ primary_comparisons: 6, exploratory_comparisons: 0 });
   });
 
   it("the same raw files give the same digits, and computing again changes nothing", () => {
@@ -537,5 +553,61 @@ describe("what was observed", () => {
       last: "2026-11-03T08:00:00Z",
       distinct: 1,
     });
+  });
+});
+
+describe("pairs of candidates", () => {
+  it("compares every pair when the plan asks, the baseline always on the vs side, and adjusts for all of them together", () => {
+    const comparisons = versionsBenchmarkOf(3).results.comparisons!;
+    const onScriptOne = comparisons.filter((comparison) => comparison.node === "script-1");
+
+    expect(onScriptOne.map((comparison) => [comparison.id, comparison.candidate, comparison.vs])).toEqual([
+      ["wall_time__script-1__mid", "mid", "base"],
+      ["wall_time__script-1__next", "next", "base"],
+      ["wall_time__script-1__next__vs__mid", "next", "mid"],
+    ]);
+    expect(onScriptOne[2]).toMatchObject({ effect: -25, verdict: "better" });
+    expect(new Set(comparisons.map((comparison) => comparison.ci_level))).toEqual(
+      new Set([1 - 0.05 / 9].map((level) => Number(level.toFixed(6)))),
+    );
+  });
+
+  it("compares only the pairs the plan names, each on the side it was given", () => {
+    const comparisons = versionsBenchmarkOf(2, { pairs: [{ candidate: "next", vs: "mid" }] }).results.comparisons!;
+
+    expect(comparisons.map((comparison) => comparison.id)).toEqual([
+      "wall_time__script-1__next__vs__mid",
+      "wall_time__script-2__next__vs__mid",
+    ]);
+  });
+
+  it("draws more resamples for each primary comparison as they grow, so the ends of their adjusted intervals stay steady", () => {
+    expect(primaryResamplesOf(10000, 1)).toBe(10000);
+    expect(primaryResamplesOf(10000, 5)).toBe(10000);
+    expect(primaryResamplesOf(10000, 48)).toBe(96000);
+    expect(primaryResamplesOf(1000, 72)).toBe(14400);
+  });
+});
+
+describe("standings among candidates", () => {
+  const results = versionsBenchmarkOf(2).results;
+
+  it("names the best on a part from the verdicts between every pair, and leaves the ones too close to separate tied", () => {
+    expect(Object.fromEntries(standingsOn(results, "wall_time", "script-1", ["base", "mid", "next"])!)).toEqual({
+      base: "behind",
+      mid: "behind",
+      next: "best",
+    });
+    expect(Object.fromEntries(standingsOn(results, "wall_time", "script-2", ["base", "mid", "next"])!)).toEqual({
+      base: "tied",
+      mid: "tied",
+      next: "behind",
+    });
+  });
+
+  it("names no one when a pair was not compared", () => {
+    const againstTheBaseline = versionsBenchmarkOf(1, { pairs: "baseline" }).results;
+
+    expect(standingsOn(againstTheBaseline, "wall_time", "script-1", ["base", "mid", "next"])).toBeUndefined();
   });
 });

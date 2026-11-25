@@ -129,3 +129,58 @@ export function scriptsBenchmarkOf(scriptCount: number): Benchmark {
 
   return { schema_version: SCHEMA_VERSION, results: compute(plan, { data: rawFileOf(rows) }) } as Benchmark;
 }
+
+/**
+ * Three versions side by side on wall time, every pair compared: "base", "mid" and "next". On script 1, next is 40%
+ * faster than base and mid 20% faster; on script 2, base and mid are the same and next is 30% slower; past that, mid
+ * is 20% faster than base on odd scripts and next 40% faster everywhere. With `spread`, scripts grow tenfold one after
+ * the other (2 ms, 20 ms, 200 ms…), too far apart to share one scale.
+ */
+export function versionsBenchmarkOf(scriptCount: number, options: { spread?: boolean; pairs?: unknown } = {}): Benchmark {
+  const scripts = Array.from({ length: scriptCount }, (_, index) => `script-${index + 1}`);
+  const plan = planOf({
+    candidates: ["base", "mid", "next"],
+    structure: { levels: ["script"], nodes: scripts.map((id, index) => ({ id, level: "script", label: `Script ${index + 1}` })) },
+    metrics: [
+      {
+        id: "wall_time",
+        label: "Wall time",
+        unit: "s",
+        direction: "lower",
+        kind: "run_time",
+        statistic: "median",
+        compare_as: "relative",
+        minimum_meaningful: 10,
+        failures_count_as: "excluded",
+        from: { raw: "data", measure: "wall_time" },
+      },
+    ],
+    levels: [{ level: "process", field: "run", planned: 12 }],
+    analysis: { pairs: options.pairs ?? "all" },
+  });
+  const factorOf = (candidate: string, scriptIndex: number) => {
+    if (candidate === "base") return 1;
+
+    if (scriptIndex === 1) return candidate === "mid" ? 1 : 1.3;
+
+    if (candidate === "next") return 0.6;
+
+    return scriptIndex % 2 === 0 ? 0.8 : 1;
+  };
+  const rows = scripts.flatMap((node, scriptIndex) =>
+    (["base", "mid", "next"] as const).flatMap((candidate) =>
+      Array.from({ length: 12 }, (_, run) => ({
+        candidate,
+        node,
+        measure: "wall_time",
+        value:
+          (options.spread ? 0.002 * 10 ** scriptIndex : 0.1 * (scriptIndex + 1)) *
+          factorOf(candidate, scriptIndex) *
+          (1 + (run - 6) / 1000),
+        run: run + 1,
+      })),
+    ),
+  );
+
+  return { schema_version: SCHEMA_VERSION, results: compute(plan, { data: rawFileOf(rows) }, { resamples: 1000 }) } as Benchmark;
+}

@@ -25,16 +25,21 @@ const SPRING = (() => {
 
 // ---- Arrival ----
 
+/** The longest wait, in ms, between the first mark of a drawing growing and the last. */
+const LONGEST_STAGGER = 700;
+
 /** Grows the marks of a drawing into place: lines from zero or from their estimate, markers on a spring, lines drawn. */
 function playMarks(scope, delay) {
-  for (const [index, group] of [...scope.querySelectorAll("[data-grow-from]")].entries()) {
-    if (group.closest("[hidden]")) continue;
+  const growing = [...scope.querySelectorAll("[data-grow-from]")].filter((group) => !group.closest("[hidden]"));
+  // One mark after another, but a long chart arrives as fast as a short one.
+  const step = Math.min(90, LONGEST_STAGGER / Math.max(1, growing.length));
 
+  for (const [index, group] of growing.entries()) {
     group.style.transformBox = "view-box";
     group.style.transformOrigin = `${group.dataset.growFrom}px 0px`;
     group.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
       duration: 1100,
-      delay: delay + index * 90,
+      delay: delay + index * step,
       easing: EASE_OUT,
       fill: "backwards",
     });
@@ -142,6 +147,9 @@ function arrive(section) {
 }
 
 if (moves() && "IntersectionObserver" in window) {
+  // Each part now waits for the reader rather than for the stylesheet's 4 s fallback.
+  root.classList.add("arriving");
+
   for (const heading of document.querySelectorAll(".hero h1")) splitIntoWords(heading);
 
   const observer = new IntersectionObserver(
@@ -329,6 +337,69 @@ const openLinkedPart = () => {
 
 window.addEventListener("hashchange", openLinkedPart);
 openLinkedPart();
+
+// ---- Pointing ----
+
+// Pointing at a candidate's mark brings that candidate forward on its chart and fades the others; a mark with a tip
+// shows it beside the pointer. A tip only repeats what the page says elsewhere, in a chart or its data.
+const tip = document.createElement("div");
+let focusedChart = null;
+
+tip.className = "pointer-tip";
+tip.setAttribute("aria-hidden", "true");
+tip.hidden = true;
+document.body.append(tip);
+
+function focusCandidate(chart, candidate) {
+  if (focusedChart && focusedChart !== chart) focusCandidate(focusedChart, null);
+
+  focusedChart = candidate ? chart : null;
+
+  for (const element of chart.querySelectorAll("[data-candidate]"))
+    element.classList.toggle("is-faded", candidate !== null && element.dataset.candidate !== candidate);
+}
+
+function showTip(source, event) {
+  const lines = source.dataset.tip.split("\n");
+  const margin = 14;
+
+  tip.replaceChildren(
+    ...lines.map((line, index) => {
+      const element = document.createElement(index === 0 ? "strong" : "span");
+
+      element.textContent = line;
+
+      return element;
+    }),
+  );
+  tip.hidden = false;
+
+  const { width, height } = tip.getBoundingClientRect();
+  const left = Math.max(margin, Math.min(event.clientX + margin, window.innerWidth - width - margin));
+  const top = event.clientY + margin + height > window.innerHeight ? event.clientY - height - margin : event.clientY + margin;
+
+  tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+}
+
+document.addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch") return;
+
+  const chart = event.target.closest("svg");
+  const candidate = chart && event.target.closest("[data-candidate]");
+  const source = event.target.closest("[data-tip]");
+
+  if (candidate) focusCandidate(chart, candidate.dataset.candidate);
+  else if (focusedChart) focusCandidate(focusedChart, null);
+
+  if (source) showTip(source, event);
+  else tip.hidden = true;
+});
+
+document.documentElement.addEventListener("pointerleave", () => {
+  tip.hidden = true;
+
+  if (focusedChart) focusCandidate(focusedChart, null);
+});
 
 // ---- Links ----
 

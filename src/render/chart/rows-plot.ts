@@ -5,6 +5,9 @@ import {
   growsFrom,
   INTERVAL_STROKE,
   intervalAcross,
+  linkedName,
+  marker,
+  MARKER_RADIUS,
   PLOT_STYLE,
   poppingMarker,
   round,
@@ -12,6 +15,7 @@ import {
   type DrawnPlot,
   type Plot,
   type PlotArea,
+  UNDERLINE_OFFSET,
 } from "./plot.js";
 import { linearScale, logScale } from "./scale.js";
 
@@ -28,6 +32,8 @@ export interface Segment {
 
 export interface PlotRow {
   label: string;
+  /** Where the page describes the part the label names. */
+  labelLink?: string;
   /** The same on every filter state, so a page can move the row rather than redraw it. */
   key?: string;
   candidate?: string;
@@ -51,6 +57,8 @@ export interface PlotRow {
 
 export interface PlotGroup {
   heading?: string;
+  /** Where the page describes the part the heading names. */
+  link?: string;
   rows: PlotRow[];
 }
 
@@ -60,6 +68,8 @@ export interface RowsPlot {
   mark: "dot" | "bar" | "distribution" | "stack";
   /** The values the axis must enclose. Bars and stacks always enclose zero. */
   extent: [number, number];
+  /** The lowest value the measure can take, where the axis stops even when a round tick lies below: −100% for a change in percent. */
+  floor?: number;
   logScale?: boolean;
   tickText: (value: number, decimals: Decimals) => string;
   /** A zone drawn behind the marks, such as the differences too small to matter. */
@@ -68,6 +78,16 @@ export interface RowsPlot {
   zeroLine?: boolean;
   /** What each colour of a stack stands for. */
   legend?: { label: string; colour: string }[];
+  /**
+   * A scale per group, from zero to its own top, when the groups differ too much in size to share one: each group then
+   * says its range beside its heading instead of an axis under the chart.
+   */
+  groupScales?: { top: number; label: string }[];
+  /**
+   * A heading row over the columns, as a table has: what the names are, what the marks compare (with the colour of
+   * the candidate they show, when there is one), and what the figures are.
+   */
+  columnHeadings?: { names: string; marks: string; marksSeries?: SeriesStyle; figures: string };
 }
 
 export const ROW_HEIGHT = { smallest: 22, usual: 44, largest: 52 };
@@ -85,6 +105,7 @@ const CENTRE_TICK_SHARE_OF_ROW = 0.7;
 const LEGEND_LINE_HEIGHT = 20;
 const LEGEND_SWATCH = 10;
 const LEGEND_GAP = 16;
+const COLUMN_HEADINGS_HEIGHT = 30;
 
 function rowUnitsOf(plot: RowsPlot): number {
   return plot.groups.reduce(
@@ -178,7 +199,8 @@ function columnsOf(plot: RowsPlot, text: SvgTextRenderer, width: number) {
 function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
   const { x, width } = area;
   const legend = legendLayout(plot, text, width);
-  const fixedHeight = legend.height + AXIS_HEIGHT;
+  const headingsHeight = plot.columnHeadings ? COLUMN_HEADINGS_HEIGHT : 0;
+  const fixedHeight = legend.height + headingsHeight + AXIS_HEIGHT;
   const rowHeight = (area.height - fixedHeight) / rowUnitsOf(plot);
   const rows = plot.groups.flatMap((group) => group.rows);
   const { labelWidth, valueWidth, noteWidth, notesBelow, noteLinesOf } = columnsOf(plot, text, width);
@@ -189,10 +211,12 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
   const startsAtZero = plot.mark === "bar" || plot.mark === "stack";
   const scaleExtent: [number, number] = startsAtZero ? [Math.min(0, plot.extent[0]), Math.max(0, plot.extent[1])] : plot.extent;
   const targetTicks = plotRight - plotLeft < 260 ? 3 : 5;
-  const scale = plot.logScale ? logScale(scaleExtent, [plotLeft, plotRight]) : linearScale(scaleExtent, [plotLeft, plotRight], targetTicks);
+  const scale = plot.logScale
+    ? logScale(scaleExtent, [plotLeft, plotRight])
+    : linearScale(scaleExtent, [plotLeft, plotRight], targetTicks, plot.floor);
   const marks: string[] = [];
   const textLines: string[] = [];
-  const rowsTop = area.y + legend.height;
+  const rowsTop = area.y + legend.height + headingsHeight;
   const rowsBottom = rowsTop + rowUnitsOf(plot) * rowHeight;
   const baselineIn = (top: number, height: number, size: number) => top + height / 2 + (size * CAP_HEIGHT_RATIO) / 2;
   const rowSpans = rowSpansOf(plot, rowsTop, rowHeight);
@@ -214,6 +238,32 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
 
   if (legend.entries.length > 0) textLines.push(legend.entries.map((entry) => entry.label).join("  "));
 
+  if (plot.columnHeadings) {
+    const headings = plot.columnHeadings;
+    const style = { ...PLOT_STYLE.caption, fill: colours.secondary };
+    const baseline = rowsTop - headingsHeight / 2 + (PLOT_STYLE.caption.size * CAP_HEIGHT_RATIO) / 2 - 2;
+    const figures = headings.figures.toUpperCase();
+    const figuresRight = notesBelow ? x + width : x + width - (noteWidth > 0 ? noteWidth + 8 : 0);
+    const markerSpace = headings.marksSeries ? 2 * MARKER_RADIUS + 6 : 0;
+    const marksRoom = figuresRight - text.measure(figures, PLOT_STYLE.caption) - COLUMN_GAP - plotLeft - markerSpace;
+    const marksHeading = text.fit(headings.marks.toUpperCase(), PLOT_STYLE.caption, marksRoom);
+
+    if (headings.names) marks.push(text.draw(text.fit(headings.names.toUpperCase(), PLOT_STYLE.caption, labelWidth), x, baseline, style));
+
+    if (headings.marksSeries) {
+      const { shape, colour } = headings.marksSeries;
+
+      marks.push(
+        marker(shape, plotLeft + MARKER_RADIUS, baseline - (PLOT_STYLE.caption.size * CAP_HEIGHT_RATIO) / 2, colour, colours.background),
+      );
+    }
+
+    marks.push(text.draw(marksHeading, plotLeft + markerSpace, baseline, style));
+    marks.push(text.draw(figures, figuresRight, baseline, { ...style, anchor: "end" }));
+    marks.push(`<path d="M${round(x)} ${round(rowsTop - 0.5)}H${round(x + width)}" stroke="${colours.rule}" stroke-width="1"/>`);
+    textLines.push([headings.names, headings.marks, headings.figures].filter(Boolean).join("  "));
+  }
+
   if (plot.band) {
     const [from, to] = plot.band.map((value) => Math.min(Math.max(scale.position(value), plotLeft), plotRight));
 
@@ -223,7 +273,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
       );
   }
 
-  for (const tick of scale.ticks) {
+  for (const tick of plot.groupScales ? [] : scale.ticks) {
     const tickX = scale.position(tick);
     const isZeroReference = plot.zeroLine === true && tick === 0;
     const isAxisOrigin = startsAtZero && tick === 0;
@@ -239,28 +289,57 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
     );
   }
 
-  textLines.push(scale.ticks.map((tick) => plot.tickText(tick, scale.tickDecimals)).join("  "));
+  if (!plot.groupScales) textLines.push(scale.ticks.map((tick) => plot.tickText(tick, scale.tickDecimals)).join("  "));
 
   let cursorY = rowsTop;
 
   plot.groups.forEach((group, groupIndex) => {
     if (groupIndex > 0) cursorY += GAP_BETWEEN_GROUPS_ROWS * rowHeight;
 
+    const ownScale = plot.groupScales?.[groupIndex];
+    const groupScale = ownScale ? linearScale([0, ownScale.top], [plotLeft, plotRight], targetTicks) : scale;
+
     if (group.heading) {
       const headingHeight = HEADING_ROWS * rowHeight;
+      const rangeWidth = ownScale ? text.measure(ownScale.label, PLOT_STYLE.tick) : 0;
+
+      const heading = text.fit(group.heading, PLOT_STYLE.heading, width - (rangeWidth > 0 ? rangeWidth + COLUMN_GAP : 0));
+      const headingBaseline = baselineIn(cursorY, headingHeight, PLOT_STYLE.heading.size);
 
       marks.push(
-        text.draw(text.fit(group.heading, PLOT_STYLE.heading, width), x, baselineIn(cursorY, headingHeight, PLOT_STYLE.heading.size), {
-          ...PLOT_STYLE.heading,
-          fill: colours.ink,
-        }),
+        linkedName(
+          text.draw(heading, x, headingBaseline, { ...PLOT_STYLE.heading, fill: colours.ink }),
+          group.link,
+          { x, y: headingBaseline + UNDERLINE_OFFSET, width: text.measure(heading, PLOT_STYLE.heading) },
+          colours,
+        ),
       );
-      textLines.push(group.heading);
+
+      if (ownScale)
+        marks.push(
+          text.draw(ownScale.label, plotRight, baselineIn(cursorY, headingHeight, PLOT_STYLE.tick.size), {
+            ...PLOT_STYLE.tick,
+            fill: colours.secondary,
+            anchor: "end",
+          }),
+        );
+
+      textLines.push(ownScale ? `${group.heading}  ${ownScale.label}` : group.heading);
       cursorY += headingHeight;
+    }
+
+    if (ownScale) {
+      const groupBottom = cursorY + group.rows.length * rowHeight;
+
+      marks.push(
+        `<path d="M${round(plotLeft)} ${round(cursorY)}V${round(groupBottom)}" stroke="${colours.ruleStrong}" stroke-width="1"/>`,
+        `<path d="M${round(plotRight)} ${round(cursorY)}V${round(groupBottom)}" stroke="${colours.rule}" stroke-width="1"/>`,
+      );
     }
 
     for (const row of group.rows) {
       const centreY = cursorY + rowHeight / 2;
+      const scale = groupScale;
       const valueX = scale.position(row.value);
       const label = text.fit(row.label, PLOT_STYLE.label, labelWidth);
       const interval = row.interval?.map(scale.position);
@@ -268,7 +347,16 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
       if (row.key)
         marks.push(`<g data-key="${row.key}"${row.candidate ? ` data-candidate="${row.candidate}"` : ""} data-y="${round(centreY)}">`);
 
-      marks.push(text.draw(label, x, baselineIn(cursorY, rowHeight, PLOT_STYLE.label.size), { ...PLOT_STYLE.label, fill: colours.ink }));
+      const labelBaseline = baselineIn(cursorY, rowHeight, PLOT_STYLE.label.size);
+
+      marks.push(
+        linkedName(
+          text.draw(label, x, labelBaseline, { ...PLOT_STYLE.label, fill: colours.ink }),
+          row.labelLink,
+          { x, y: labelBaseline + UNDERLINE_OFFSET, width: text.measure(label, PLOT_STYLE.label) },
+          colours,
+        ),
+      );
 
       if (row.key) marks.push(`<g class="mark" data-x="${round(valueX)}">`);
 
@@ -387,7 +475,7 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
 export function rowsPlot(plot: RowsPlot): Plot {
   return {
     heightsAt(width, text) {
-      const fixedHeight = legendLayout(plot, text, width).height + AXIS_HEIGHT;
+      const fixedHeight = legendLayout(plot, text, width).height + (plot.columnHeadings ? COLUMN_HEADINGS_HEIGHT : 0) + AXIS_HEIGHT;
       const units = rowUnitsOf(plot);
       const columns = columnsOf(plot, text, width);
       const extra = columns.notesBelow ? columns.noteLineCount * NOTE_BELOW_HEIGHT : 0;

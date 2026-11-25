@@ -2,6 +2,17 @@
 
 Kind `cost`. A quality or speed result without its cost can mislead, because spending more (a bigger machine, retries, a larger model) often buys the gain. When candidates do not cost the same, cost is a metric of the benchmark.
 
+## Which form of cost (F19)
+
+"Cheaper" has several forms. When the user names none, propose the one or two that fit the decision, from what changed between the candidates:
+
+| Form | What it answers | Points to it |
+| --- | --- | --- |
+| Per unit (request, item, run) | What does one use cost? | Usage-based pricing |
+| At the user's volume, per period | What will the bill be? | Tiers, minimums, free allowances; a change in the pricing model |
+| Including fixed and setup costs | What does it cost to own? | Licences, machines, migration effort |
+| Per successful result | What does a useful answer cost, retries included? | Candidates that fail or retry at different rates |
+
 ## How to declare prices
 
 Each candidate carries its pricing, with where the price was read and when; `validate` asks for it as soon as a cost metric exists:

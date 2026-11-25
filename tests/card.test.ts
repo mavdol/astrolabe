@@ -9,7 +9,7 @@ import { pngOf } from "../src/render/png.js";
 import { SvgTextRenderer } from "../src/render/svg-text.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { seriesStylesOf, THEME } from "../src/themes/astrolabe.js";
-import { withTasksAsPrimary } from "./helpers.js";
+import { versionsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -46,8 +46,8 @@ describe("the README card", () => {
       "Interval +1.0 to +1.2%",
       "Median, n = 30 each",
       "Successful attempts only",
-      "Effects against Node.js, with their 97.5% intervals, adjusted for 2 comparisons. Lower is better.",
-      "Machine: Apple M2, 8 cores, 8 GB RAM · macOS 26.6.2 · Bare metal: a developer laptop",
+      "Effects against Node.js, with 97.5% intervals. Lower is better.",
+      "Measured on Apple M2 · macOS 26.6.2 · Bare metal",
       expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
@@ -242,6 +242,26 @@ describe("reading a card at a glance", () => {
     expect(card.altText).toBe("Model A compared with Model B, accuracy on 3 tasks: better on 1, unclear on 2.");
   });
 
+  it("writes the key of its summaries once when they differ only by how many parts they count", () => {
+    const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
+    const twoTasks = new Set(["math_word", "policy_qa"]);
+
+    suite.results.comparisons = suite.results.comparisons!.map((comparison) =>
+      comparison.metric === "cost_per_item"
+        ? { ...comparison, role: twoTasks.has(comparison.node ?? "") ? "primary" : "exploratory" }
+        : comparison,
+    );
+    suite.blocks = [
+      { id: "summary-accuracy", type: "summary", metric: "accuracy", chart: "stacked-bar" },
+      { id: "summary-cost", type: "summary", metric: "cost_per_item", chart: "stacked-bar" },
+      ...suite.blocks!,
+    ];
+    const footer = renderCard(suite, cardContentOf(suite, ["summary-accuracy", "summary-cost"]), "light", context).textLines.join(" ");
+
+    expect(footer).toContain("Each bar: the tasks, by their result against Model B.");
+    expect(footer).not.toMatch(/Each bar: the \d tasks/);
+  });
+
   it("draws the summary a card names as its block asks: stacked from the left, or grouped by result", () => {
     const suite = withTasksAsPrimary(loadBenchmark("support-assistant-eval"));
 
@@ -266,6 +286,16 @@ describe("reading a card at a glance", () => {
       cardContentOf(loadBenchmark("support-assistant-eval")).charts,
       "a total and its parts are never counted together",
     ).toBeUndefined();
+  });
+
+  it("names the candidates as peers when its summary says who is best", () => {
+    const versions = versionsBenchmarkOf(4);
+    const lines = renderCard(versions, cardContentOf(versions), "light", context).textLines;
+
+    expect(lines[0]).toContain("3 CANDIDATES");
+    expect(lines).toContain("next  3 best  0 tied for best  1 behind");
+    expect(lines.join(" ")).toContain("each measured on all 3 candidates, by where this one placed. Verdicts from 99.58% intervals.");
+    expect(lines.join(" ")).not.toMatch(/lower is better/i);
   });
 
   it("shows either headline or summary cells, never both", () => {
@@ -310,17 +340,17 @@ describe("reading a card at a glance", () => {
     expect(mixedLines.join(" ")).not.toMatch(/(Lower|Higher) is better\./);
   });
 
-  it("names the machine where its numbers were measured, only for measurements on your own machines", () => {
+  it("names the machine where its numbers were measured in a few words, only for measurements on your own machines", () => {
     const parsers = loadBenchmark("json-cli-parse");
     const card = renderCard(parsers, cardContentOf(parsers), "light", context);
 
-    expect(card.textLines).toContain("Machine: 8-core x86-64 laptop, 32 GB RAM, NVMe · Linux 6.8 · Bare metal: a laptop");
-    expect(card.svg).toContain("Machine: 8-core x86-64 laptop, 32 GB RAM, NVMe · Linux 6.8 · Bare metal: a laptop.");
+    expect(card.textLines).toContain("Measured on 8-core x86-64 laptop · Linux 6.8 · Bare metal");
+    expect(card.svg).toContain("Measured on 8-core x86-64 laptop · Linux 6.8 · Bare metal.");
 
     for (const id of ["geocoding-apis", "support-assistant-eval", "notes-apps-onboarding"]) {
       const benchmark = loadBenchmark(id);
 
-      expect(renderCard(benchmark, cardContentOf(benchmark), "light", context).textLines.join(" "), id).not.toContain("Machine:");
+      expect(renderCard(benchmark, cardContentOf(benchmark), "light", context).textLines.join(" "), id).not.toContain("Measured on");
     }
   });
 

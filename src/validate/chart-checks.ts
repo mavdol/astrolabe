@@ -12,13 +12,23 @@ import {
 import { lookupOf } from "../render/describe.js";
 import { exportPlanOf, IMAGE_SIZES } from "../render/exports.js";
 import type { Issue } from "../rules/registry.js";
+import { standingsOn } from "../render/standing.js";
 import type { Benchmark } from "../schema/benchmark.js";
 import type { ChartBlock } from "../schema/presentation.js";
 
 /** The width a chart has on the page when it is alone in its row. */
 const PAGE_CHART_WIDTH = 640;
 const CHECK_CONTEXT = { generatorVersion: "check", buildDate: "1970-01-01" };
-const CHARTS_OF_TWO_SEPARATE_VALUES = new Set(["bar", "grouped-bar", "dot-interval", "distribution", "line", "shaded-table", "scatter"]);
+const CHARTS_OF_TWO_SEPARATE_VALUES = new Set([
+  "bar",
+  "grouped-bar",
+  "dot-interval",
+  "distribution",
+  "line",
+  "shaded-table",
+  "scatter",
+  "results",
+]);
 
 function stateInWords(state: FilterState, defaults: FilterState): string {
   const changed = Object.entries(state).filter(([filterId, option]) => defaults[filterId] !== option);
@@ -160,6 +170,17 @@ function pairedComparisonsLeftToTwoIntervals(
 
       for (const comparison of comparisons)
         if (comparison.metric === block.metric && nodes.has(comparison.node)) shownAsChange.add(comparison.id);
+    }
+
+    // A results chart writes who is best and who is tied with it from the comparisons between every pair: where it can,
+    // the paired results are stated in words, not left to the reader's eye.
+    if (block.chart === "results") {
+      const candidates = benchmark.results.candidates.map((candidate) => candidate.id);
+
+      for (const node of nodesShownBy(block))
+        if (standingsOn(benchmark.results, block.metric ?? "", node, candidates))
+          for (const comparison of comparisons)
+            if (comparison.metric === block.metric && comparison.node === node) shownAsChange.add(comparison.id);
     }
   }
 

@@ -2,7 +2,7 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import { isAnswerBlock, TRUST_BLOCK_TYPES, type Block } from "../../schema/presentation.js";
 import { MAX_HEADLINES } from "../card.js";
 import { lookupOf, provenanceParts } from "../describe.js";
-import { summaryChartsOf } from "../summary.js";
+import { summaryChartsOf, type SummaryChart } from "../summary.js";
 import { blockHtml, downloadLinksOf, sectionLabel, sectionLabelsOf, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
 import type { Answer } from "./write-site.js";
@@ -53,19 +53,35 @@ export function pageRowsOf(benchmark: Benchmark): Block[][] {
 
 /**
  * A file with no presentation still answers its question, as the default README card does: its primary comparisons
- * as headlines, or, when there are more than three, a summary chart per metric with something to count.
+ * as headlines, or, when there are more than three, a summary chart per metric with something to count. When the
+ * plan compares every pair, the summaries say who is best, and each metric's results follow, candidate by candidate.
  */
 function defaultBlocksOf(benchmark: Benchmark): Block[] {
   const primary = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
   const charts = summaryChartsOf(benchmark.results);
 
-  if (primary.length > MAX_HEADLINES && charts.length > 0)
-    return charts.slice(0, MAX_HEADLINES).map((chart) => ({
+  if (primary.length > MAX_HEADLINES && charts.length > 0) {
+    const summaries: Block[] = charts.slice(0, MAX_HEADLINES).map((chart) => ({
       id: `summary-${chart.metric}`,
       type: "summary",
       metric: chart.metric,
       candidates: chart.summaries.map((summary) => summary.candidate),
+      ...(chart.count === "best" ? { count: "best" as const, sort: "declared" as const } : {}),
     }));
+    const levelOf = (chart: SummaryChart) =>
+      benchmark.results.structure?.nodes.find((node) => node.id === chart.summaries[0].comparisons[0]?.node)?.level;
+    const results: Block[] = charts.map((chart) => ({
+      id: `results-${chart.metric}`,
+      type: "chart",
+      chart: "results",
+      metric: chart.metric,
+      ...(levelOf(chart) ? { breakdown: levelOf(chart) } : {}),
+      uncertainty: "ci",
+      title: `{metric:${chart.metric}}`,
+    }));
+
+    return [...summaries, ...results];
+  }
 
   return primary
     .slice(0, MAX_HEADLINES)
@@ -177,7 +193,7 @@ function trustSectionHtml(blocks: Block[], inputs: PageInputs, number: string, i
 const TRUST_SECTION_NAME = "How it was measured";
 
 /** The whole page: the question and its answer, the parts in order with every filter state rendered in advance, the evidence. */
-export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" | "listsParts" | "titlePair">, head: PageHead): string {
+export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" | "listsParts">, head: PageHead): string {
   const { benchmark } = inputs;
   const lookup = lookupOf(benchmark.results);
   const rows = pageRowsOf(benchmark);
@@ -186,7 +202,6 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" |
     ...inputs,
     lookup,
     listsParts,
-    titlePair: head.answer.pair,
     sectionLabels: sectionLabelsOf(rows.flat(), { ...inputs, lookup, listsParts }),
   };
   const results = benchmark.results;

@@ -17,7 +17,7 @@ import {
   type ChartInputs,
 } from "./chart-content.js";
 import { candidateOrder, ChartError, metricOf, valueGroupsOf } from "./chart-data.js";
-import { mixOf, PLOT_STYLE, round, taggedWith, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
+import { linkedName, mixOf, PLOT_STYLE, round, taggedWith, UNDERLINE_OFFSET, widestOf, type DrawnPlot, type PlotArea } from "./plot.js";
 
 interface ShadedCell {
   text: string;
@@ -29,7 +29,8 @@ interface ShadedCell {
 interface ShadedTable {
   columns: string[];
   columnCandidates: string[];
-  rows: { label: string; cells: (ShadedCell | undefined)[] }[];
+  /** Each part by name, with where the page describes it, and its figure for each candidate. */
+  rows: { label: string; link?: string; cells: (ShadedCell | undefined)[] }[];
   worstText: string;
   bestText: string;
   largestShade: number;
@@ -127,11 +128,16 @@ function drawTable(table: ShadedTable, text: SvgTextRenderer, colours: Colours, 
   table.rows.forEach((row, rowIndex) => {
     const top = rowsTop + rowIndex * rowHeight;
 
+    const label = text.fit(row.label, PLOT_STYLE.label, labelWidth);
+    const labelBaseline = top + rowHeight / 2 + capHeight(13) / 2;
+
     marks.push(
-      text.draw(text.fit(row.label, PLOT_STYLE.label, labelWidth), x, top + rowHeight / 2 + capHeight(13) / 2, {
-        ...PLOT_STYLE.label,
-        fill: colours.ink,
-      }),
+      linkedName(
+        text.draw(label, x, labelBaseline, { ...PLOT_STYLE.label, fill: colours.ink }),
+        row.link,
+        { x, y: labelBaseline + UNDERLINE_OFFSET, width: text.measure(label, PLOT_STYLE.label) },
+        colours,
+      ),
     );
 
     row.cells.forEach((cell, index) => {
@@ -215,6 +221,7 @@ export function shadedTableContent(inputs: ChartInputs): ChartContent {
     columnCandidates: columns,
     rows: groups.map((group) => ({
       label: nodeLabel(group.node),
+      link: group.node === undefined ? undefined : inputs.partLink?.(group.node),
       cells: columns.map((candidate) => cellOf(group.values.find((value) => value.candidate === candidate))),
     })),
     worstText: withUnit(formatNumber(worst, decimals), metric.unit),

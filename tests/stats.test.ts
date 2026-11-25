@@ -4,6 +4,7 @@ import {
   logGamma,
   minObservations,
   newcombe,
+  newcombePaired,
   normalCdf,
   normalQuantile,
   orderStatRanks,
@@ -97,6 +98,24 @@ describe("intervals", () => {
 
     close(lo, -0.404705, 1e-6);
     close(hi, -0.0281479, 1e-6);
+  });
+  it("newcombe on paired answers: wide as the Wilson interval when every answer is no, narrower than unpaired when the answers agree", () => {
+    const noes = Array(8).fill(0);
+    const [, wilsonUpper] = wilson(0, 8, 0.95);
+    const [lo, hi] = newcombePaired(noes, noes, 0.95);
+
+    close(lo, -wilsonUpper);
+    close(hi, wilsonUpper);
+
+    const first = [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1];
+    const second = [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0];
+    const paired = newcombePaired(first, second, 0.95);
+    const unpaired = newcombe(7, 12, 6, 12, 0.95);
+
+    expect(paired[0]).toBeGreaterThan(unpaired[0]);
+    expect(paired[1]).toBeLessThan(unpaired[1]);
+    expect(paired[0]).toBeLessThan(1 / 12);
+    expect(paired[1]).toBeGreaterThan(1 / 12);
   });
   it("t and welch", () => {
     const a = [1.0, 2.5, 3.1, 4.7, 5.2, 6.9];

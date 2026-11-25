@@ -8,7 +8,7 @@ import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
 import { checkCharts } from "../src/validate/chart-checks.js";
 import { checkPresentation } from "../src/validate/presentation-checks.js";
 import { validate } from "../src/validate/validate.js";
-import { planOf, rawFileOf, scriptsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
+import { planOf, rawFileOf, scriptsBenchmarkOf, versionsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 
 const ALL_EXAMPLES = readdirSync("examples").filter((folder) => existsSync(`examples/${folder}/benchmark.json`));
 const isComputed = (id: string) => JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")).results.computed !== undefined;
@@ -560,5 +560,101 @@ describe("validate after compute on a hand-built file", () => {
 
     expect(report.issues).toEqual([]);
     expect(results.comparisons![0]).toMatchObject({ effect: 5, verdict: "better" });
+  });
+});
+
+describe("pairs of candidates", () => {
+  it("refuses a pair naming a stranger, a candidate against itself, or the same pair twice", () => {
+    const pairs = [
+      { candidate: "new", vs: "nobody" },
+      { candidate: "new", vs: "new" },
+      { candidate: "new", vs: "base" },
+      { candidate: "base", vs: "new" },
+    ];
+    const { issues } = validate({ schema_version: "0.5", results: planOf({ analysis: { pairs } }) } as Benchmark, {});
+
+    expect(issues.filter((issue) => issue.path.startsWith("results.analysis.pairs")).map((issue) => [issue.path, issue.message])).toEqual([
+      ["results.analysis.pairs[0]", '"nobody": not the id of a candidate'],
+      ["results.analysis.pairs[1]", '"new" is compared with itself'],
+      ["results.analysis.pairs[3]", '"base" and "new" are already compared: each pair once'],
+    ]);
+  });
+
+  it("refuses a summary of who is best when its candidates are not all compared with each other", () => {
+    const summary = { id: "summary", type: "summary", metric: "wall_time", count: "best" };
+    const againstTheBaseline = { ...versionsBenchmarkOf(3, { pairs: "baseline" }), blocks: [summary] } as Benchmark;
+    const everyPair = { ...versionsBenchmarkOf(3), blocks: [summary] } as Benchmark;
+
+    expect(checkPresentation(againstTheBaseline).map((issue) => [issue.rule, issue.message])).toEqual([
+      [
+        "S11",
+        'a summary that counts who is best needs every pair of its candidates compared on "wall_time": set analysis.pairs to "all", or name the pairs, and run astrolabe compute',
+      ],
+    ]);
+    expect(checkPresentation(everyPair)).toEqual([]);
+  });
+});
+
+describe("results drawn side by side", () => {
+  const results = { id: "results", type: "chart", chart: "results", metric: "wall_time", breakdown: "script", title: "Wall time" };
+  const paired = (benchmark: Benchmark) => {
+    for (const comparison of benchmark.results.comparisons!) comparison.paired = true;
+
+    return { ...benchmark, blocks: [results] } as Benchmark;
+  };
+
+  it("states paired results in words where every pair is compared, and leaves them to V13 where only the baseline is", () => {
+    const everyPair = checkCharts(paired(versionsBenchmarkOf(2)), {});
+    const againstTheBaseline = checkCharts(paired(versionsBenchmarkOf(2, { pairs: "baseline" })), {});
+
+    expect(everyPair.filter((issue) => issue.rule === "V13")).toEqual([]);
+    expect(againstTheBaseline.filter((issue) => issue.rule === "V13").map((issue) => issue.message)).toContain(
+      '"wall_time__script-1__mid" is paired, so two separate intervals cannot show its result: show it as a headline, an effect chart or a comparison-rows chart too',
+    );
+  });
+});
+
+describe("every candidate in its own right", () => {
+  const results = { id: "results", type: "chart", chart: "results", metric: "wall_time", breakdown: "script", title: "Wall time" };
+  const effects = { id: "effects", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] };
+  const rulesOnPage = (blocks: Record<string, unknown>[], candidates = 3) => {
+    const benchmark = candidates === 3 ? versionsBenchmarkOf(2) : scriptsBenchmarkOf(2);
+
+    return checkPresentation({ ...benchmark, blocks } as Benchmark)
+      .filter((issue) => issue.rule === "V57")
+      .map((issue) => issue.path);
+  };
+
+  it("refuses, with three candidates, changes against one of them above every candidate's results, or a count of verdicts against one", () => {
+    expect(rulesOnPage([effects])).toEqual(["blocks[0]"]);
+    expect(rulesOnPage([effects, results])).toEqual(["blocks[0]"]);
+    expect(rulesOnPage([results, effects])).toEqual([]);
+    expect(rulesOnPage([{ id: "summary", type: "summary", metric: "wall_time", count: "verdicts" }, results])).toEqual(["blocks[0].count"]);
+  });
+
+  it("leaves two candidates alone: their one comparison is every pair", () => {
+    expect(rulesOnPage([effects], 2)).toEqual([]);
+  });
+});
+
+describe("a page that says each thing once", () => {
+  const results = { id: "results", type: "chart", chart: "results", metric: "wall_time", breakdown: "script", title: "Wall time" };
+  const values = { id: "values", type: "table", metrics: ["wall_time"], rows: "script", show: ["n", "ci", "failures"] };
+  const againstBase = { id: "against-base", type: "table", metrics: ["wall_time"], rows: "script", cells: "effects", show: ["ci"] };
+  const againstMid = { ...againstBase, id: "against-mid", vs: "mid" };
+  const warningsOn = (blocks: Record<string, unknown>[]) =>
+    checkPresentation({ ...versionsBenchmarkOf(2), blocks } as Benchmark)
+      .filter((issue) => issue.rule === "V40")
+      .map((issue) => issue.message);
+
+  it("warns on a table of values beside the results chart that draws them, and on a second section of the same changes", () => {
+    expect(warningsOn([results, againstBase, againstMid, values])).toEqual([
+      '"against-mid" shows again the changes "against-base" shows, on the same metrics and parts, against mid: one section of changes says it, against the candidate the question measures from; remove one',
+      '"values" lists the values "results" already draws with their intervals, and each chart\'s data is one click away under it: remove the table',
+    ]);
+  });
+
+  it("leaves a table of values alone when no chart draws its metrics on its parts", () => {
+    expect(warningsOn([values])).toEqual([]);
   });
 });

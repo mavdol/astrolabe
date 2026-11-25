@@ -1,7 +1,7 @@
 import type { Issue } from "../rules/registry.js";
 import { lookupOf, resolveTemplates, type EffectFormat } from "../render/describe.js";
 import type { Benchmark, Comparison } from "../schema/benchmark.js";
-import { levelsOf, summaryChartOf } from "../render/summary.js";
+import { defaultCountOf, levelsOf, summaryChartOf } from "../render/summary.js";
 
 const TEMPLATE = /\{(\w+):([^}]+)\}/g;
 const TRUST_BLOCK_TYPES = new Set(["methodology", "environment", "limitations", "provenance"]);
@@ -21,6 +21,9 @@ interface Block {
   node?: string;
   filters?: string[];
   candidates?: unknown;
+  count?: string;
+  vs?: string;
+  rows?: string;
   metric?: string;
   show?: string[];
   effect_format?: EffectFormat;
@@ -65,6 +68,10 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
     for (const blockId of row)
       if (!blockIds.includes(blockId)) error("V38", `layout[${rowIndex}]`, `"${blockId}" is not the id of a block`);
   });
+
+  if (results.candidates.length >= 3) checkEveryCandidateInItsOwnRight(benchmark, blocks, error);
+
+  checkNothingRepeated(benchmark, blocks, warning);
 
   blocks.forEach((block, blockIndex) => {
     if (block.type !== "table") return;
@@ -167,17 +174,41 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
 
     if (block.type === "summary") {
       const named = Array.isArray(block.candidates) ? (block.candidates as unknown[]) : undefined;
-      const strangers = (named ?? []).filter((candidate) => !knownIds.candidate.has(String(candidate)) || candidate === results.baseline);
+      const countsBest = (block.count ?? defaultCountOf(results)) === "best";
+      const strangers = (named ?? []).filter(
+        (candidate) => !knownIds.candidate.has(String(candidate)) || (!countsBest && candidate === results.baseline),
+      );
 
       if (strangers.length > 0)
         error(
           "S7",
           `${path}.candidates`,
-          `${strangers.map((candidate) => `"${String(candidate)}"`).join(", ")}: not a candidate compared with the baseline`,
+          `${strangers.map((candidate) => `"${String(candidate)}"`).join(", ")}: not a candidate ${countsBest ? "of the benchmark" : "compared with the baseline"}`,
         );
       else if (!knownIds.metric.has(block.metric ?? ""))
         error("S7", `${path}.metric`, `"${String(block.metric)}" is not the id of a metric`);
-      else
+      else if (countsBest) {
+        const [summary] = summaryChartOf(results, {
+          metric: block.metric!,
+          candidates: named as string[] | undefined,
+          count: "best",
+        }).summaries;
+        const parts = summary?.standings?.length ?? 0;
+        const levels = summary ? [...levelsOf(results, summary)] : [];
+
+        if (parts === 0)
+          error(
+            "S11",
+            path,
+            `a summary that counts who is best needs every pair of its candidates compared on "${String(block.metric)}": set analysis.pairs to "all", or name the pairs, and run astrolabe compute`,
+          );
+        else if (levels.length > 1)
+          error(
+            "S11",
+            path,
+            `the parts counted on "${String(block.metric)}" sit on several levels (${levels.map((level) => level ?? "the whole benchmark").join(", ")}): a summary counts one level, so that a total is not counted with its parts`,
+          );
+      } else
         for (const summary of summaryChartOf(results, { metric: block.metric!, candidates: named as string[] | undefined }).summaries) {
           const counted = summary.comparisons;
           const levels = [...levelsOf(results, summary)];
@@ -226,4 +257,98 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
   });
 
   return issues;
+}
+
+/** Blocks that show each candidate as a change against one other: read before the results, they make that one the measure of all. */
+const showsChangesAgainstOne = (block: Block) =>
+  (block.type === "chart" && (block.chart === "effect" || block.chart === "comparison-rows")) ||
+  (block.type === "table" && block.cells === "effects");
+
+/**
+ * With three candidates or more, every candidate is compared in its own right: its results drawn beside the others'
+ * before any change against one of them, and a summary counting where each stands among them all.
+ */
+function checkEveryCandidateInItsOwnRight(
+  benchmark: Benchmark,
+  blocks: Block[],
+  error: (rule: string, path: string, message: string) => void,
+): void {
+  const pageOrder = [...new Set([...(benchmark.layout ?? []).flat(), ...blocks.map((block) => block.id)])].flatMap(
+    (blockId) => blocks.find((block) => block.id === blockId) ?? [],
+  );
+  const firstResults = pageOrder.findIndex((block) => block.type === "chart" && block.chart === "results");
+  const pathOf = (block: Block) => `blocks[${blocks.indexOf(block)}]`;
+
+  pageOrder.forEach((block, position) => {
+    if (block.type === "summary" && block.count === "verdicts")
+      error(
+        "V57",
+        `${pathOf(block)}.count`,
+        `with ${benchmark.results.candidates.length} candidates, a summary counts where each one stands among them all, not its verdicts against one: remove "count", or set it to "best"`,
+      );
+
+    if (showsChangesAgainstOne(block) && (firstResults === -1 || position < firstResults))
+      error(
+        "V57",
+        pathOf(block),
+        `"${block.id}" shows changes against one candidate ${firstResults === -1 ? "on a page that never draws" : "before"} every candidate's results side by side: add a results chart ("chart": "results") above it, so each candidate is read in its own right`,
+      );
+  });
+}
+
+const pageOrderOf = (benchmark: Benchmark, blocks: Block[]) =>
+  [...new Set([...(benchmark.layout ?? []).flat(), ...blocks.map((block) => block.id)])].flatMap(
+    (blockId) => blocks.find((block) => block.id === blockId) ?? [],
+  );
+
+/**
+ * Each block says something the page has not shown yet: a table of values beside the results charts that already draw
+ * its metrics on its parts, or a second section of changes on the same metric and parts, only makes the page longer.
+ */
+function checkNothingRepeated(benchmark: Benchmark, blocks: Block[], warning: (rule: string, path: string, message: string) => void): void {
+  const pageOrder = pageOrderOf(benchmark, blocks);
+  const pathOf = (block: Block) => `blocks[${blocks.indexOf(block)}]`;
+  const keyOf = (metric: string, level: string | undefined) => `${metric}\u0000${level ?? ""}`;
+  const resultsByKey = new Map<string, string>();
+  const changesByKey = new Map<string, string>();
+  const baseline = benchmark.results.baseline;
+  const nameOf = (candidate: string) => benchmark.results.candidates.find((entry) => entry.id === candidate)?.name ?? candidate;
+
+  for (const block of pageOrder) {
+    if (block.type === "chart" && block.chart === "results" && block.metric)
+      resultsByKey.set(keyOf(block.metric, block.breakdown), resultsByKey.get(keyOf(block.metric, block.breakdown)) ?? block.id);
+
+    const changeKeys =
+      block.type === "chart" && block.chart === "effect" && block.metric
+        ? [keyOf(block.metric, block.breakdown)]
+        : block.type === "table" && block.cells === "effects"
+          ? (block.metrics ?? []).map((metric) => keyOf(metric, block.rows))
+          : [];
+
+    if (changeKeys.length > 0) {
+      const earlier = changeKeys.map((key) => changesByKey.get(key));
+
+      if (earlier.every(Boolean))
+        warning(
+          "V40",
+          pathOf(block),
+          `"${block.id}" shows again the changes "${earlier[0]}" shows, on the same metrics and parts, against ${nameOf(block.vs ?? baseline)}: one section of changes says it, against the candidate the question measures from; remove one`,
+        );
+
+      for (const key of changeKeys) if (!changesByKey.has(key)) changesByKey.set(key, block.id);
+    }
+  }
+
+  for (const block of pageOrder) {
+    if (block.type !== "table" || block.cells === "effects") continue;
+
+    const drawnBy = (block.metrics ?? []).map((metric) => resultsByKey.get(keyOf(metric, block.rows)));
+
+    if (drawnBy.length > 0 && drawnBy.every(Boolean))
+      warning(
+        "V40",
+        pathOf(block),
+        `"${block.id}" lists the values ${[...new Set(drawnBy)].map((id) => `"${id}"`).join(" and ")} already draw${drawnBy.length > 1 ? "" : "s"} with their intervals, and each chart's data is one click away under it: remove the table`,
+      );
+  }
 }

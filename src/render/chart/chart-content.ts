@@ -38,6 +38,8 @@ export interface ChartInputs {
   rawFiles: Record<string, RawFile>;
   /** The values the main axis must cover besides this chart's own. */
   sharedExtent?: [number, number];
+  /** Where the page describes a part, so that the chart can link the part's name there; nothing outside a page. */
+  partLink?: (node: string) => string | undefined;
 }
 
 export const directionWords = (metric: Metric) => (metric.direction === "lower" ? "lower is better" : "higher is better");
@@ -51,8 +53,11 @@ export function rangeOf(numbers: number[]): string {
   return lowest === highest ? String(lowest) : `${lowest} to ${highest}`;
 }
 
+/** An interval worth drawing: one with a width. Every observation the same (prices read from a list) gives none. */
+export const spreadOf = (ci: [number, number] | undefined): [number, number] | undefined => (ci && ci[0] !== ci[1] ? ci : undefined);
+
 export function levelsOf(entries: { ci?: [number, number]; ci_level?: number }[]): string | null {
-  const levels = [...new Set(entries.filter((entry) => entry.ci && entry.ci_level).map((entry) => formatLevel(entry.ci_level!)))];
+  const levels = [...new Set(entries.filter((entry) => spreadOf(entry.ci) && entry.ci_level).map((entry) => formatLevel(entry.ci_level!)))];
 
   return levels.length > 0 ? `${levels.join("% and ")}%` : null;
 }
@@ -105,8 +110,14 @@ export function intervalPart(values: WithInterval[], name = "Lines"): ReadingPar
 
   return levels
     ? { mark: "interval", markName: name, text: `${levels} confidence intervals${methods.length > 0 ? ` (${methods.join("; ")})` : ""}.` }
-    : { text: "No interval: too few observations, or declared values." };
+    : { text: noIntervalText(values) };
 }
+
+/** Why a chart draws no interval: its values are exact, or there was too little to compute one. */
+export const noIntervalText = (entries: { ci?: [number, number] }[]) =>
+  entries.length > 0 && entries.every((entry) => entry.ci && !spreadOf(entry.ci))
+    ? "No interval: every observation was the same, so each value is exact."
+    : "No interval: too few observations, or declared values.";
 
 export const intervalSentence = (values: WithInterval[], name = "Lines") => howToReadOf([intervalPart(values, name)]);
 
@@ -150,8 +161,8 @@ export interface ValueAxis {
 }
 
 /**
- * The axis of a metric's values: from zero for bars, or when the block asks for it; otherwise fitted to the
- * values, wide enough that a difference too small to matter cannot fill it; or the powers of ten of a log scale.
+ * The axis of a metric's values: from zero, unless the block asks for an axis fitted to the values (with its reason),
+ * then wide enough that a difference too small to matter cannot fill it; or the powers of ten of a log scale.
  */
 export function valueAxisOf(inputs: ChartInputs, metric: Metric, plotted: number[], drawsBars: boolean): ValueAxis {
   const { block } = inputs;
@@ -168,7 +179,8 @@ export function valueAxisOf(inputs: ChartInputs, metric: Metric, plotted: number
   const dataExtent: [number, number] = [Math.min(...plotted), Math.max(...plotted)];
   const largest = Math.max(...plotted.map(Math.abs));
   const meaningfulInUnits = metric.compare_as === "relative" ? (metric.minimum_meaningful / 100) * largest : metric.minimum_meaningful;
-  const startsAtZero = !isLog && (drawsBars || block.scale?.zero === true);
+  // Results are read against zero; an axis fitted to the values is the exception, and says why (D2, V8).
+  const startsAtZero = !isLog && (drawsBars || block.scale?.zero !== false);
   const ownExtent: [number, number] = isLog
     ? dataExtent
     : startsAtZero

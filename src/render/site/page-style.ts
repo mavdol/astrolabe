@@ -200,6 +200,7 @@ main > section + section { border-top: 1px solid var(--rule); }
 .chapter-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .chapter-head h2 { margin: 28px 0 0; font-size: 28px; line-height: 1.18; letter-spacing: -0.025em; text-wrap: balance; }
 .chapter-head .reading { color: var(--secondary); }
+.chapter-head .reading-below { margin: 14px 0 0; font-size: 16px; line-height: 1.55; color: var(--secondary); text-wrap: pretty; }
 .chapter-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 28px 0 0; }
 .chapter-body { min-width: 0; padding: 56px ${GUTTER}px 40px; }
 .chapter-body figure { margin: 0; }
@@ -217,7 +218,15 @@ main > section + section { border-top: 1px solid var(--rule); }
 .chart-data { margin: 12px 0 0; }
 .chart-data summary, .aside summary { cursor: pointer; width: fit-content; font-family: ${MONO}; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--secondary); }
 .chart-data summary:hover, .aside summary:hover { color: var(--ink); }
-.chart-data .description { margin: 12px 0; font-size: 13px; color: var(--secondary); }
+.pointer-tip { position: fixed; top: 0; left: 0; z-index: 30; max-width: 300px; padding: 8px 11px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--background); box-shadow: 0 8px 28px rgb(0 0 0 / 0.14); font-size: 12px; line-height: 18px; color: var(--secondary); pointer-events: none; }
+.pointer-tip strong { display: block; margin-bottom: 2px; font-weight: 600; color: var(--ink); }
+.pointer-tip span { display: block; }
+svg [data-candidate] { transition: opacity 160ms; }
+svg .is-faded { opacity: 0.25; }
+[data-tip] { cursor: default; }
+.chart-data table { margin-top: 12px; }
+.chart-data th, .chart-data td { padding-top: 7px; padding-bottom: 7px; }
+tr.group-start > * { box-shadow: inset 0 1px 0 var(--rule-strong); }
 .icon-button { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--quiet); opacity: 0; transition: opacity 200ms; }
 .chapter:hover .icon-button, .icon-button:focus-visible, .icon-button.is-done { opacity: 1; }
 @media (hover: none) { .icon-button { opacity: 1; } }
@@ -249,11 +258,17 @@ th[scope="row"] { font-weight: 500; }
 td:not(.text) { white-space: nowrap; }
 .cell-detail { display: block; color: var(--secondary); font-family: ${MONO}; font-size: 11px; white-space: nowrap; }
 .value-table td, .value-table th { text-align: left; }
-.value-table .cell-detail { margin-top: 4px; white-space: normal; min-width: 160px; }
+.value-table .cell-detail { margin-top: 4px; white-space: normal; min-width: 120px; }
+.value-table tbody th[scope="row"] { min-width: 150px; }
+.value-table thead th[data-candidate] { white-space: normal; }
+.value-table.candidate-rows thead th { white-space: normal; }
+.value-table.candidate-rows tbody th[scope="row"] { min-width: 110px; }
+.value-table.candidate-rows .cell-line { flex-wrap: wrap; row-gap: 6px; }
+.value-table tbody tr[data-candidate] th[scope="row"]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--series, var(--ink)); }
 .value-table thead th[data-candidate]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--series, var(--ink)); }
 .cell-line { display: flex; align-items: center; gap: 10px; }
-.effects-table thead td { border: 0; }
-.effects-table thead th[scope="colgroup"] { font-family: ${MONO}; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 400; color: var(--secondary); }
+.effects-table { table-layout: fixed; }
+.effects-table thead th:first-child { width: 36%; }
 .effects-table .effect-cell { color: var(--secondary); }
 .effects-table .effect-cell.good { color: var(--good); }
 .effects-table .effect-cell.bad { color: var(--bad); }
@@ -303,6 +318,8 @@ td:not(.text) { white-space: nowrap; }
 .part-list details:target summary { color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule-strong); text-underline-offset: 4px; }
 .part-link { color: inherit; text-decoration: underline dotted var(--rule-strong); text-underline-offset: 4px; }
 .part-link:hover { text-decoration-color: currentColor; }
+svg .part-link { text-decoration: none; }
+svg .part-link:hover .part-underline { stroke: var(--ink); stroke-dasharray: none; }
 .verdicts { padding: 32px ${GUTTER}px; border-top: 1px solid var(--rule); }
 .verdicts .mono-label { margin: 0 0 8px; }
 .verdict-list + .aside, .verdict-list + .aside-note { margin: 14px 0 28px; }
@@ -330,11 +347,13 @@ td:not(.text) { white-space: nowrap; }
 
 [data-width="narrow"] { display: none; }
 
-.motion :is(${ARRIVING}):not(.is-in) { opacity: 0; transform: translateY(16px); filter: blur(6px); animation: appear 0s 4s forwards; }
+.motion :is(${ARRIVING}):not(.is-in) { opacity: 0; transform: translateY(16px); filter: blur(6px); }
 .motion :is(${ARRIVING}) { transition: opacity 900ms ${EASE_OUT}, transform 900ms ${EASE_OUT}, filter 900ms ${EASE_OUT}; transition-delay: var(--delay, 0ms); }
-.motion .hero h1:not(.is-split) { opacity: 0; animation: appear 0s 4s forwards; }
+.motion .hero h1:not(.is-split) { opacity: 0; }
 .motion .hero h1 .word { display: inline-block; transition: opacity 900ms ${EASE_OUT}, transform 900ms ${EASE_OUT}, filter 900ms ${EASE_OUT}; transition-delay: calc(var(--word) * 38ms + 150ms); }
-.motion .hero h1:not(.is-in) .word { opacity: 0; transform: translateY(0.35em); filter: blur(10px); animation: appear 0s 4s forwards; }
+.motion .hero h1:not(.is-in) .word { opacity: 0; transform: translateY(0.35em); filter: blur(10px); }
+/* Without the page's script, every part shows itself after 4 s. With it, a part waits for the reader: shown early, its marks would be drawn, then grown again from zero. */
+.motion:not(.arriving) :is(${ARRIVING}):not(.is-in), .motion:not(.arriving) .hero h1:not(.is-split), .motion:not(.arriving) .hero h1:not(.is-in) .word { animation: appear 0s 4s forwards; }
 @keyframes appear { to { opacity: 1; transform: none; filter: none; } }
 
 @media (max-width: ${SINGLE_COLUMN_BELOW}px) {

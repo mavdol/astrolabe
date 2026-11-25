@@ -12,6 +12,7 @@ import {
   type Estimator,
   type GroupsAggregation,
   type Sample,
+  yesNoAnswersOf,
 } from "./sample.js";
 import { mean, orderStatRanks, quantileSorted, tInterval, wilson } from "./stats.js";
 import { aggregationPlanFor, type Aggregation, type NodeId, type NodeTree } from "./structure.js";
@@ -46,30 +47,27 @@ export function measuredValue({ observations, sample, groupsAggregation, candida
   const sortedObservations = () => entries.flatMap((entry) => entry.observations).sort((a, b) => a - b);
   const readsOneDataNodeWithoutClusters = sample.dataNodeCount === 1 && !observations.hasClusters;
   const everyUnitHasOneObservation = entries.every((entry) => entry.observations.length === 1);
+  const answers = yesNoAnswersOf(observations, sample, groupsAggregation);
 
-  if (readsOneDataNodeWithoutClusters && statistic.type !== "quantile") {
+  if (answers) {
+    const [lower, upper] = wilson(
+      answers.reduce((sum, answer) => sum + answer, 0),
+      answers.length,
+      VALUE_INTERVAL_LEVEL,
+    );
+
+    value.ci = [100 * lower, 100 * upper];
+    value.method = "wilson";
+  } else if (readsOneDataNodeWithoutClusters && statistic.type !== "quantile") {
     const unitMeans = entries.map((entry) => entry.scaledMean);
-    const isShareOfYesNoAnswers =
-      statistic.scale === 100 &&
-      everyUnitHasOneObservation &&
-      entries.every((entry) => entry.observations[0] === 0 || entry.observations[0] === 1);
+    const interval = tInterval(unitMeans, VALUE_INTERVAL_LEVEL);
+    const totalFactor = statistic.type === "total" ? unitMeans.length : 1;
 
-    if (isShareOfYesNoAnswers) {
-      const successes = entries.reduce((sum, entry) => sum + entry.observations[0], 0);
-      const [lower, upper] = wilson(successes, entries.length, VALUE_INTERVAL_LEVEL);
+    if (interval.ci) value.ci = [totalFactor * interval.ci[0], totalFactor * interval.ci[1]];
 
-      value.ci = [100 * lower, 100 * upper];
-      value.method = "wilson";
-    } else {
-      const interval = tInterval(unitMeans, VALUE_INTERVAL_LEVEL);
-      const totalFactor = statistic.type === "total" ? unitMeans.length : 1;
+    if (unitMeans.length > 1) value.se = totalFactor * interval.se;
 
-      if (interval.ci) value.ci = [totalFactor * interval.ci[0], totalFactor * interval.ci[1]];
-
-      if (unitMeans.length > 1) value.se = totalFactor * interval.se;
-
-      value.method = statistic.type === "total" ? "t, scaled to the total" : "t";
-    }
+    value.method = statistic.type === "total" ? "t, scaled to the total" : "t";
   } else if (readsOneDataNodeWithoutClusters && statistic.type === "quantile" && everyUnitHasOneObservation) {
     const sorted = sortedObservations();
     const ranks = orderStatRanks(sorted.length, statistic.probability, VALUE_INTERVAL_LEVEL);

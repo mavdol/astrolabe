@@ -13,7 +13,9 @@ The examples continue example.benchmark.json: `quickmark` against the baseline `
 
 ## Colour
 
-The default needs nothing: the `astrolabe` theme, a dark page, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Leave `style` out entirely unless the user asks for something, `mode` included: set it only when the user wants the page light, or following the reader's system.
+The default needs nothing: the `astrolabe` theme, a dark page, the first candidate in cyan and the others in greys, told apart by their labels and marker shapes. Set `mode` only when the user wants the page light, or following the reader's system.
+
+The colours are your choice, from what the user wants the reader to see; ask when the request does not say. The default puts the eye on the first candidate, which suits a page about it (then name it in `highlight`). On a page of peers, decide whether one should stand out: when none should, give each candidate a colour of its own in `series`, of similar weight, so that colour ranks no one. In a chart of results the candidates' bars sit side by side on every part, so choose colours a reader tells apart at a glance.
 
 ```json
 {
@@ -39,11 +41,11 @@ The default needs nothing: the `astrolabe` theme, a dark page, the first candida
 - **Colours go in `style` only**, never in a block. The generator checks every colour against the background in both modes, adjusts its lightness when the contrast is too low, and refuses what it cannot fix.
 - **Four candidates fit in the theme's colours.** Beyond that, set `highlight`, ask the user for colours, or split the chart.
 - **Better and worse have their own colours, always beside their word**: green and orange on the verdicts, the headline figures and the README card. A candidate's own colour never changes with a verdict, so no candidate looks bad because of its colour.
-- **Colour is never the only cue**: labels sit on the chart and markers differ in shape, so the page reads in greyscale and for colour-blind readers.
+- **Colour is never the only cue**: labels sit on the chart and markers differ in shape; in a chart of results, the candidates keep one order on every part and the legend names them in it, so the page reads in greyscale and for colour-blind readers.
 
 ## Titles and descriptions
 
-A reader remembers the title more than the chart, so a title states the finding, and only a finding the results support. Then the chart speaks: the page writes the title in ink and your reading right after it in grey, as one short paragraph beside the chart, and the images do the same above it. Keep both short enough to read at a glance:
+A reader remembers the title more than the chart, so a title states the finding, and only a finding the results support. Then the chart speaks: the page writes the title in ink and your reading right after it in grey, as one short paragraph beside the chart (when the two pass 90 characters, the reading moves under the title in smaller type), and the images do the same above it. Keep both short enough to read at a glance:
 
 - **Each metric is named as a reader would name it**: its `label` is the everyday word ("Build time", "Accuracy", "Cost per request"), never the measuring term ("wall time", "pass@1", "p50"), which goes with how it was measured in `definition`; the page prints the definition with each chart and table of values. The labels appear in every heading, summary and card, so they are worth the user's confirmation.
 - **The title is the claim, in a few words**: 60 characters at most as the reader sees it (a template counts as the text it becomes), no second clause; `validate` warns past that. "The gap comes from coding", not "Model A is more accurate than Model B overall, and most of the difference comes from the coding tasks".
@@ -57,7 +59,7 @@ A reader remembers the title more than the chart, so a title states the finding,
 - **Only primary comparisons in a title or a headline.** An exploratory comparison is shown in charts and tables, labelled exploratory, and never claimed.
 - **Words follow the verdict**, as presentation.md says: its wording rules hold for titles as for sentences.
 - **A title without a verdict describes** ("Every run, build time"); it needs no `asserts`.
-- **`description` is that one-sentence reading**, with templates. The generator adds the factual part (what is plotted, the values, the comparisons) to it for the long text alternative; together they are what a screen reader hears.
+- **`description` is that one-sentence reading**, with templates. The generator adds the factual part (what is plotted, the values, the comparisons) to it for the long text alternative; together they are what a screen reader hears. It reads only what the chart draws: the generator draws no reference or threshold line, so a threshold that matters (a time budget, a score) is said with its number, not pointed at ("only quickmark stays under the 2 s budget", not "the line marks the budget").
 - **Text blocks** (`"type": "text"`) are the last resort: context no chart and no trust block can carry (why the benchmark was run, a decision taken from it), three sentences at most, under the same template rules. A finding is never a text block: draw it (charts.md).
 
 | Instead of | Write |
@@ -91,9 +93,10 @@ A reader remembers the title more than the chart, so a title states the finding,
 | `rows` | A level of `structure`: one row per node of that level. Left out, one row for `node` (or the whole benchmark) |
 | `columns` | `candidate` |
 | `cells` | `values` (the default): each candidate's value. `effects`: each compared candidate's change against the baseline, with its verdict in its colour and a bar from zero |
+| `vs` | On a table of effects: the candidate the changes are against, the baseline by default (the plan must compare those pairs) |
 | `show` | What sits under each value: `n`, `ci`, `failures`, and `evidence` (a link to the raw file). `n` always, `ci` when values have intervals, `failures` when any attempt failed: `validate` refuses a table without them. A table of effects needs only `ci` |
 
-A **table of effects** is the recommended way to show a long breakdown: one row per node, one column per compared candidate and metric, so thirty files compared on two metrics fit in thirty rows. Past about 8 rows it reads faster than an `effect` chart (charts.md). Without a title, a table is headed by what it holds ("Build time and identical pages compared with markly, size by size"), so two tables on the same metrics never share a heading.
+A **table of effects** is a section of its own, after the results, when the question asks how much changed against one candidate (the version in use today, or the other of the two that decide, with `vs`). It is the recommended way to show a long breakdown of changes: one row per node and one column per compared candidate, the metrics stacked as one table each (a metric measured on a few nodes shows only those rows), so thirty files compared on two metrics still fit the page's width. Past about 8 rows it reads faster than an `effect` chart (charts.md). Without a title, a table is headed by what it holds ("Build time and identical pages compared with markly, size by size"), so two tables on the same metrics never share a heading.
 
 ```json
 {

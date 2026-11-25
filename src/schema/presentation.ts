@@ -15,6 +15,7 @@ export const CHART_TYPES = [
   "shaded-table",
   "stacked-bar",
   "comparison-rows",
+  "results",
 ] as const;
 /**
  * How a summary draws its counts: bars diverging from a line, better on one side and worse on the other, so that both
@@ -75,6 +76,8 @@ const summaryBlock = z.strictObject({
   candidates: z.array(id).min(1).optional(),
   chart: z.enum(SUMMARY_CHARTS).optional(),
   sort: z.enum(["value", "declared"]).optional(),
+  /** What a bar counts: its verdicts against the baseline (the default), or where it stands among the candidates on each part. */
+  count: z.enum(["verdicts", "best"]).optional(),
 });
 
 const chartBlock = z.strictObject({
@@ -96,6 +99,8 @@ const chartBlock = z.strictObject({
   annotations: z.array(z.strictObject({ candidate: id.optional(), node: id.optional(), text })).optional(),
   comparisons: z.array(text).min(1).optional(),
   effect_format: z.enum(["percent", "times"]).optional(),
+  /** On an effect chart, the candidate the changes are against: the baseline by default. */
+  vs: id.optional(),
 });
 
 const tableBlock = z.strictObject({
@@ -108,6 +113,8 @@ const tableBlock = z.strictObject({
   columns: z.literal("candidate").optional(),
   /** What each cell holds: the values (the default), or each candidate's change against the baseline with its verdict. */
   cells: z.enum(["values", "effects"]).optional(),
+  /** On a table of effects, the candidate the changes are against: the baseline by default. */
+  vs: id.optional(),
   show: z.array(z.enum(["n", "ci", "failures", "evidence"])).min(1),
 });
 

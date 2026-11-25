@@ -9,10 +9,13 @@ import { extentAroundData, linearScale, logScale } from "../src/render/chart/sca
 import { exportPlanOf, IMAGE_SIZES } from "../src/render/exports.js";
 import { cellFill, LARGEST_SHADE } from "../src/render/chart/shaded-table.js";
 import { loadRaw } from "../src/compute/files.js";
-import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
+import { benchmarkSchema, type Benchmark, type Comparison, type Metric } from "../src/schema/benchmark.js";
+import { effectAndInterval } from "../src/render/describe.js";
 import { blockSchema, CHART_TYPES, type ChartBlock } from "../src/schema/presentation.js";
 import { contrastRatio, MARK_CONTRAST, seriesStylesOf, TEXT_CONTRAST, THEME, visibleOn } from "../src/themes/astrolabe.js";
-import { scriptsBenchmarkOf } from "./helpers.js";
+import { scriptsBenchmarkOf, versionsBenchmarkOf } from "./helpers.js";
+import { displayUnitOf, roundTopAbove } from "../src/render/units.js";
+import { placesOn, type Standing } from "../src/render/standing.js";
 import { decodePng } from "./png.js";
 
 const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.parse(readFileSync(`examples/${id}/benchmark.json`, "utf8")));
@@ -45,6 +48,13 @@ describe("the scale of an axis", () => {
     expect(linearScale([0, 1], [0, 100]).tickDecimals).toBe(1);
     expect(linearScale([0, 10], [0, 100], 4).ticks).toEqual([0, 2.5, 5, 7.5, 10]);
     expect(linearScale([0, 10], [0, 100], 4).tickDecimals).toBe(1);
+  });
+
+  it("stops at a floor no value can pass, its ticks still round", () => {
+    const scale = linearScale([-25, 2158], [0, 100], 5, -100);
+
+    expect(scale.domain).toEqual([-100, 2500]);
+    expect(scale.ticks).toEqual([0, 500, 1000, 1500, 2000, 2500]);
   });
 
   it("still has a span when every value is the same", () => {
@@ -144,7 +154,7 @@ describe("a chart of values", () => {
     const chart = draw(runtimes, chartBlock({ chart: "bar", metric: "peak_rss", title: "Peak memory", sort: "declared" }));
 
     expect(chart.textLines).toContain("Node.js  213");
-    expect(chart.table.rows[0]).toEqual(["Node.js", "212.88", "212.81 to 212.92 (95%)", "30"]);
+    expect(chart.table.rows[0]).toEqual(["Node.js", "212.88", "212.81 to 212.92", "30"]);
   });
 
   it("refuses a bar chart of negative values", () => {
@@ -168,21 +178,17 @@ describe("a chart of values", () => {
     );
   });
 
-  it("fits a dot chart to its values and says so, and starts it at zero when the block asks", () => {
+  it("starts a dot chart at zero, and fits it to the values only when the block asks, with its reason", () => {
     const time = { chart: "dot-interval", metric: "wall_time", title: "Wall time" };
-    const fitted = draw(parsers, chartBlock(time));
-    const fromZero = draw(parsers, chartBlock({ ...time, scale: { zero: true } }));
+    const fromZero = draw(parsers, chartBlock(time));
     const withReason = draw(parsers, chartBlock({ ...time, scale: { zero: false, reason: "The candidates differ by a few percent" } }));
 
     expect(fromZero.textLines).toContain("0  1  2  3  4  5");
-    expect(fitted.textLines).not.toContain("0  1  2  3  4  5");
-    expect(fitted.howToRead).toContain(
-      "The axis is fitted to the values rather than drawn from zero, so that the candidates can be told apart.",
-    );
+    expect(fromZero.howToRead).not.toContain("fitted to the values");
+    expect(withReason.textLines).not.toContain("0  1  2  3  4  5");
     expect(withReason.howToRead).toContain(
       "The axis is fitted to the values rather than drawn from zero: The candidates differ by a few percent.",
     );
-    expect(fromZero.howToRead).not.toContain("fitted to the values");
   });
 
   it("draws a log scale with real values on its ticks, names it, and refuses bars on it", () => {
@@ -203,7 +209,7 @@ describe("a chart broken down by node", () => {
   it("shows one group per node under the block's node, candidates in the same order in each", () => {
     const chart = draw(notes, tasks);
 
-    expect(chart.table.header).toEqual(["Group", "Candidate", "Share (%)", "Interval", "n"]);
+    expect(chart.table.header).toEqual(["Item", "Candidate", "Share (%)", "95% interval", "n"]);
     expect([...new Set(chart.table.rows.map((row) => row[0]))]).toEqual([
       "Create and format a note",
       "Share a note with a colleague",
@@ -226,6 +232,24 @@ describe("a chart broken down by node", () => {
 
     expect(groupsOf(block)).toEqual(["Script 1", "Script 2", "Script 3", "Script 4"]);
     expect(groupsOf({ ...block, sort: "effect" })).toEqual(["Script 1", "Script 3", "Script 2", "Script 4"]);
+  });
+
+  it("shows the parts that hold the claims when an effect chart names neither a part nor a level", () => {
+    const scripts = scriptsBenchmarkOf(3);
+    const block = { id: "chart-scripts", type: "chart", chart: "effect", metric: "wall_time", title: "By script" } as ChartBlock;
+    const partsOf = (chart: ChartBlock) => [...new Set(draw(scripts, chart).table.rows.map((row) => row[0]))];
+
+    expect(draw(scripts, block).table.header[0]).toBe("Script");
+    expect(partsOf(block)).toEqual(["Script 1", "Script 2", "Script 3"]);
+    expect(draw(scripts, { ...block, node: "script-2" }).table.rows.map((row) => row[0])).toEqual(["new"]);
+  });
+
+  it("heads an effect chart with what its names are and what its marks compare, as a table heads its columns", () => {
+    const block = { id: "chart-scripts", type: "chart", chart: "effect", metric: "wall_time", title: "By script" } as ChartBlock;
+    const headingsOf = (benchmark: Benchmark) => draw(benchmark, block).textLines.find((line) => line.endsWith("Change"));
+
+    expect(headingsOf(scriptsBenchmarkOf(3))).toBe("Script  new against base  Change");
+    expect(headingsOf(versionsBenchmarkOf(3))).toBe("Against base  Change");
   });
 
   it("resolves the templates of the author's reading", () => {
@@ -262,7 +286,7 @@ describe("a chart of effects", () => {
   });
 
   it("names the level of its intervals, adjusted or not", () => {
-    expect(chart.howToRead).toContain("Lines: 98.75% confidence intervals, adjusted for 4 primary comparisons.");
+    expect(chart.howToRead).toContain("Lines: 99.17% confidence intervals, adjusted for 6 primary comparisons.");
   });
 
   it("labels its rows by node when a single candidate is compared across nodes", () => {
@@ -271,6 +295,29 @@ describe("a chart of effects", () => {
 
     expect(byCategory.subtitle).toBe("Accuracy: change of Model A against Model B, in points · higher is better");
     expect(byCategory.textLines).toContain("Reasoning  −1.5 points  inconclusive");
+  });
+
+  it("stops a change in percent at −100%, as far as a value can fall, and writes a large one with its factor too", () => {
+    const versions = versionsBenchmarkOf(2);
+    const next = versions.results.comparisons!.find((comparison) => comparison.id === "wall_time__script-1__next")!;
+
+    Object.assign(next, { effect: 1500, ci: [1300, 1700] });
+
+    const chart = draw(versions, chartBlock({ chart: "effect", metric: "wall_time", node: "script-1" }));
+
+    expect(ticksOf(chart)).toMatch(/^0%  \+500%/);
+    expect(
+      chart.textLines.some((line) => line.startsWith("next  +1500% (16.0×)")),
+      "a change from a doubling on carries its factor",
+    ).toBe(true);
+  });
+
+  it("does not call a change of shares exact when its interval has no width: a few more items could differ", () => {
+    const share = { id: "solved", label: "Solved", unit: "%", direction: "higher", kind: "quality", statistic: "share" } as Metric;
+    const noWidth = { effect: 0, ci: [0, 0], ci_level: 0.95, source: "computed" } as unknown as Comparison;
+
+    expect(effectAndInterval(share, noWidth).exact).toBe(false);
+    expect(effectAndInterval({ ...share, statistic: "mean", unit: "USD" }, noWidth).exact).toBe(true);
   });
 
   it("says that exploratory comparisons are not claims", () => {
@@ -399,7 +446,7 @@ function withCostAsTotal(): Benchmark {
 
 describe("the chart set", () => {
   it("accepts only the closed set of chart types: no angle, no area, no second axis", () => {
-    expect(CHART_TYPES).toHaveLength(10);
+    expect(CHART_TYPES).toHaveLength(11);
 
     for (const refused of ["pie", "donut", "bubble", "radar", "dual-axis", "area"])
       expect(blockSchema.safeParse({ id: "chart", type: "chart", chart: refused, title: "A chart" }).success).toBe(false);
@@ -643,5 +690,138 @@ describe("the shape of the data", () => {
   it("asks for bars in groups for a breakdown, and a breakdown for bars in groups", () => {
     expect(() => draw(support, chartBlock({ chart: "bar", metric: "accuracy", breakdown: "category" }))).toThrow(/use grouped-bar/);
     expect(() => draw(support, chartBlock({ chart: "grouped-bar", metric: "accuracy" }))).toThrow(/set breakdown/);
+  });
+});
+
+describe("results, candidate by candidate", () => {
+  const block = {
+    id: "results",
+    type: "chart",
+    chart: "results",
+    metric: "wall_time",
+    breakdown: "script",
+    title: "Wall time",
+  } as ChartBlock;
+
+  it("draws each candidate's result on each part from zero, writing a best on every part and who is too close to it to tell apart", () => {
+    const chart = draw(versionsBenchmarkOf(2), block);
+
+    expect(chart.textLines).toContain("0  100  200  300  400  500");
+    expect(chart.textLines).toEqual(
+      expect.arrayContaining(["next  60.0 ms  best", "mid  80.0 ms", "base  200 ms  best", "mid  200 ms  tied", "next  260 ms"]),
+    );
+    expect(chart.subtitle).toBe("Wall time, median in ms · lower is better");
+    expect(chart.howToRead).toContain(
+      "Best: the lowest median on that part, in green when it is clearly ahead of every other candidate; tied: too close to the best to tell apart; no word: another candidate is clearly better.",
+    );
+  });
+
+  it("writes the best in the good colour only when it is clearly ahead of every other candidate", () => {
+    const standings = new Map<string, Standing>([
+      ["base", "tied"],
+      ["mid", "tied"],
+      ["next", "behind"],
+    ]);
+    const measured = [
+      { candidate: "base", value: 200 },
+      { candidate: "mid", value: 199 },
+      { candidate: "next", value: 260 },
+    ];
+
+    expect([...placesOn(standings, measured, "lower")]).toEqual([
+      ["base", "tied"],
+      ["mid", "best"],
+    ]);
+    expect([...placesOn(standings, measured, "higher")]).toEqual([
+      ["base", "best"],
+      ["mid", "tied"],
+    ]);
+    const clearly = new Map<string, Standing>([
+      ["base", "behind"],
+      ["mid", "behind"],
+      ["next", "best"],
+    ]);
+
+    expect([...placesOn(clearly, [...measured.slice(0, 2), { candidate: "next", value: 150 }], "lower")]).toEqual([["next", "clear best"]]);
+  });
+
+  it("gives each part its own scale and unit when the parts are too far apart in size to share one, and says so", () => {
+    const chart = draw(versionsBenchmarkOf(3, { spread: true }), block);
+
+    expect(chart.textLines).toEqual(
+      expect.arrayContaining(["Script 1  0 to 2.5 ms", "next  1.20 ms  best", "Script 3  0 to 250 ms", "base  200 ms"]),
+    );
+    expect(chart.textLines).not.toContain("0  100  200  300  400  500");
+    expect(chart.subtitle).toBe("Wall time, median · lower is better");
+    expect(chart.howToRead).toContain("Each part has its own scale, from zero to the figure written with its name");
+  });
+
+  it("keeps the declared order of the candidates on every part, and refuses an axis away from zero", () => {
+    const chart = draw(versionsBenchmarkOf(2), block);
+
+    expect(chart.table.rows.map((row) => row[1])).toEqual(["base", "mid", "next", "base", "mid", "next"]);
+    expect(() => draw(versionsBenchmarkOf(2), { ...block, scale: { zero: false, reason: "Close values" } })).toThrow(/bars from zero/);
+  });
+
+  it("names the candidates once, in a key drawn in the order their bars take on every part", () => {
+    const chart = draw(versionsBenchmarkOf(2), block);
+
+    expect(chart.textLines.slice(chart.textLines.indexOf("base"), chart.textLines.indexOf("base") + 4)).toEqual([
+      "base",
+      "mid",
+      "next",
+      "Script 1",
+    ]);
+    expect(chart.svg.match(/<g data-candidate="base"><rect /g), "the key's stub of bar").toHaveLength(1);
+    expect(draw(versionsBenchmarkOf(2), block, { plotOnly: true }).svg.match(/>base<\/text>/g), "named in the key only").toHaveLength(1);
+  });
+
+  it("names each bar beside it, with no key, when the chart shows one part", () => {
+    const chart = draw(versionsBenchmarkOf(2), { ...block, breakdown: undefined, node: "script-1" }, { plotOnly: true });
+
+    expect(chart.svg).not.toMatch(/<g data-candidate="base"><rect /);
+    expect(chart.svg.match(/>base<\/text>/g), "beside its bar").toHaveLength(1);
+    expect(chart.textLines).toContain("next  60.0 ms  best");
+  });
+
+  it("wraps a long part name on two lines beside its bars, and puts the names above the bars when two lines are not enough", () => {
+    const named = (label: string) => {
+      const versions = versionsBenchmarkOf(2);
+
+      versions.results.structure!.nodes[0].label = label;
+
+      return draw(versions, block, { plotOnly: true, width: 640 }).svg;
+    };
+    const headingsOf = (svg: string) => [...svg.matchAll(/font-weight="600" fill="[^"]+">([^<]+)<\/text>/g)].map((match) => match[1]);
+
+    expect(headingsOf(named("Allocation and garbage collection")).slice(0, 2)).toEqual(["Allocation and garbage", "collection"]);
+    expect(headingsOf(named("Allocation and garbage collection of the young and the old generations")).slice(0, 2)).toEqual([
+      "Allocation and garbage collection of the young and the old generations",
+      "Script 2",
+    ]);
+  });
+
+  it("gives each bar a tip with its interval and place, and puts the place in the data table", () => {
+    const chart = draw(versionsBenchmarkOf(2), block);
+
+    expect(chart.svg).toMatch(
+      /data-key="script-1\|next" data-candidate="next" data-y="[\d.]+" data-tip="next · Script 1&#10;Median 60\.0 ms&#10;95% interval: [\d.]+ ms to [\d.]+ ms&#10;Best: clearly ahead of every other candidate"/,
+    );
+    expect(chart.table.header).toEqual(["Script", "Candidate", "Median (s)", "95% interval", "n", "Place"]);
+    expect(chart.table.rows.map((row) => row[5])).toEqual(["", "", "best", "best", "tied", ""]);
+  });
+});
+
+describe("units a reader reads at a glance", () => {
+  it("moves time and bytes to the unit where the largest figure is at least 1, and leaves other units alone", () => {
+    expect(displayUnitOf("s", 0.042)).toEqual({ unit: "ms", factor: 1000 });
+    expect(displayUnitOf("s", 2.3)).toEqual({ unit: "s", factor: 1 });
+    expect(displayUnitOf("ms", 2300)).toEqual({ unit: "s", factor: 0.001 });
+    expect(displayUnitOf("MiB", 0.8)).toEqual({ unit: "KiB", factor: 1024 });
+    expect(displayUnitOf("points", 0.2)).toEqual({ unit: "points", factor: 1 });
+  });
+
+  it("ends an axis from zero on a round number just above the largest figure", () => {
+    expect([2.3, 2.5, 0.0019, 902, 26].map(roundTopAbove)).toEqual([2.5, 2.5, 0.002, 1000, 50]);
   });
 });

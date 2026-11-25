@@ -9,6 +9,7 @@ import {
   chartPairOf,
   comparisonsOfChart,
   countsByVerdict,
+  listedNames,
   summaryChartOf,
   summaryChartsOf,
   summaryClaimOf,
@@ -102,6 +103,13 @@ export interface Answer {
   description?: string;
 }
 
+/** The names of the candidates the claims compare, in the order the plan declares them. */
+function comparedNamesOf(benchmark: Benchmark, claims: Comparison[]): string[] {
+  const compared = new Set(claims.flatMap((claim) => [claim.candidate, claim.vs]));
+
+  return benchmark.results.candidates.filter((candidate) => compared.has(candidate.id)).map((candidate) => candidate.name);
+}
+
 export function answerPartsOf(benchmark: Benchmark): Answer {
   const lookup = lookupOf(benchmark.results);
   const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
@@ -110,11 +118,24 @@ export function answerPartsOf(benchmark: Benchmark): Answer {
   if (!lead) return {};
 
   const baseline = lookup.candidateName.get(benchmark.results.baseline);
+  const comparedNames = comparedNamesOf(benchmark, claims);
   const stated = "chart" in lead ? comparisonsOfChart(lead.chart) : [lead.comparison];
   const pairs =
     "chart" in lead
-      ? [chartPairOf(lookup, lead.chart), `${lead.chart.summaries.length} candidates compared with ${baseline}`]
-      : [`${lookup.candidateName.get(lead.comparison.candidate)} compared with ${lookup.candidateName.get(lead.comparison.vs)}`];
+      ? [
+          chartPairOf(lookup, lead.chart),
+          lead.chart.count === "best"
+            ? `${lead.chart.summaries.length} candidates`
+            : `${lead.chart.summaries.length} candidates compared with ${baseline}`,
+        ]
+      : comparedNames.length > 2
+        ? claims.every((claim) => claim.vs === benchmark.results.baseline)
+          ? [
+              `${listedNames(comparedNames.filter((name) => name !== baseline))} compared with ${baseline}`,
+              `${comparedNames.length - 1} candidates compared with ${baseline}`,
+            ]
+          : [listedNames(comparedNames), `${comparedNames.length} candidates`]
+        : [`${lookup.candidateName.get(lead.comparison.candidate)} compared with ${lookup.candidateName.get(lead.comparison.vs)}`];
   const claim =
     "chart" in lead
       ? lead.chart.summaries.map((summary) => summaryClaimOf(lookup, summary)).join(" ")

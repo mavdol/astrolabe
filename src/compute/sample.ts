@@ -27,6 +27,23 @@ export interface Sample {
   unitEntryCount: number;
 }
 
+/**
+ * The answers of a share of yes/no answers, one 0 or 1 per item in the order of the sample's groups, when the share
+ * pools every item it reads (one part, or parts pooled): such a share takes score intervals, which stay honest at 0% and
+ * 100%, where a resample of answers that are all the same has no width. Null for any other sample.
+ */
+export function yesNoAnswersOf(observations: MetricObservations, sample: Sample, groupsAggregation: GroupsAggregation): number[] | null {
+  const { statistic, hasClusters } = observations;
+  const poolsEveryItem = sample.dataNodeCount === 1 || groupsAggregation === "micro";
+
+  if (statistic.type !== "mean" || statistic.scale !== 100 || hasClusters || !poolsEveryItem) return null;
+
+  const entries = sample.groups.flat();
+  const isAnswer = (entry: UnitEntry) => entry.observations.length === 1 && (entry.observations[0] === 0 || entry.observations[0] === 1);
+
+  return entries.length > 0 && entries.every(isAnswer) ? entries.map((entry) => entry.observations[0]) : null;
+}
+
 export function buildSample(
   observations: MetricObservations,
   tree: NodeTree,

@@ -285,6 +285,14 @@
     "explained_in": "SKILL.md"
   },
   {
+    "id": "F19",
+    "level": "should",
+    "text": "When a criterion is named without its form (memory, speed, quality, cost), turn it into its precise forms (each measurement file lists them) and propose the one or two that fit the decision, ranked by what changed between the candidates in their release notes or changelogs. The user decides; running unattended, add them as exploratory. A form the user named is taken as given.",
+    "pitfall": "A metric chosen because the tool reports it, while the candidates differ somewhere else",
+    "proved_by": "metrics[].definition, domain_research",
+    "explained_in": "SKILL.md"
+  },
+  {
     "id": "H1",
     "level": "must",
     "text": "Publish only when the user asks. Never push, change repository settings or create an account on your own initiative",
@@ -873,7 +881,7 @@
   {
     "id": "V13",
     "level": "should",
-    "text": "To show who wins, chart the difference itself with its interval and the minimum meaningful difference as a band, rather than leaving the reader to compare two overlapping intervals. When the comparison is paired, two separate intervals cannot show the result at all: the page must then show it as an effect chart, a comparison-rows chart or a headline.",
+    "text": "To show who wins, chart the difference itself with its interval and the minimum meaningful difference as a band, rather than leaving the reader to compare two overlapping intervals. When the comparison is paired, two separate intervals cannot show the result at all: the page must then show it as an effect chart, a comparison-rows chart, a headline, or a results chart whose candidates are compared pair by pair.",
     "pitfall": "Winners read from overlapping or non-overlapping error bars",
     "proved_by": "comparisons[].paired (checked by the generator)",
     "explained_in": "visualization/charts.md"
@@ -1088,8 +1096,8 @@
   {
     "id": "V40",
     "level": "should",
-    "text": "Give each chart one message. When too many elements compete in one chart, split it, aggregate, filter, sort it by effect, or show it as a table of effects.",
-    "pitfall": "A chart that shows everything and says nothing",
+    "text": "Give each chart one message, and each block something the page has not shown yet. When too many elements compete in one chart, split it, aggregate, filter, sort it by effect, or show it as a table of effects; a table of values beside results charts of the same metrics and parts, or a second section of changes on them, repeats the page.",
+    "pitfall": "A chart that shows everything and says nothing; a page that says the same thing twice and buries what it adds",
     "proved_by": "blocks[]",
     "explained_in": "visualization/page.md"
   },
@@ -1136,7 +1144,7 @@
   {
     "id": "V46",
     "level": "must",
-    "text": "Every chart has a text alternative in two parts: a short one naming the chart, and a longer one, visible to everyone, giving scales, values and the trend. The generator writes the factual part from `results` (what is plotted, extremes, comparisons); the agent's `description` adds the reading.",
+    "text": "Every chart has a text alternative in two parts: a short one naming the chart, and a longer one, visible to everyone, giving scales, values and the trend: on a page, the reading under the chart, its data table and its description; in an image, its long description. The generator writes the factual part from `results` (what is plotted, extremes, comparisons); the agent's `description` adds the reading.",
     "pitfall": "A chart that says nothing to a screen reader, or an alt text that only says \"bar chart\"",
     "proved_by": "blocks[].description (plus generated text)",
     "explained_in": "visualization/page.md"
@@ -1220,5 +1228,13 @@
     "pitfall": "A typed-in figure or an unchecked declaration read with the same trust as a computed result",
     "proved_by": "values[].source, comparisons[].qualifier and .role (generated)",
     "explained_in": "visualization/style.md"
+  },
+  {
+    "id": "V57",
+    "level": "must",
+    "text": "Compare every candidate in its own right. With three candidates or more, compare every pair (the default) or name the pairs the decision rests on, never only each against the baseline; draw every candidate's results side by side, from zero, before any change against one of them; and count across parts where each candidate stands among them all (best, tied for best, behind).",
+    "pitfall": "A page framed on one candidate: the others appear only as changes against it, and the alternatives the reader chooses between are never compared",
+    "proved_by": "analysis.pairs, blocks[] (checked by validate)",
+    "explained_in": "visualization/charts.md"
   }
 ]

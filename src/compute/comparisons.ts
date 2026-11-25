@@ -11,8 +11,9 @@ import {
   TOO_FEW_FOR_AN_INTERVAL,
   requireResamplableSize,
   type Sample,
+  yesNoAnswersOf,
 } from "./sample.js";
-import { tInterval, welch } from "./stats.js";
+import { mean, newcombe, newcombePaired, tInterval, welch } from "./stats.js";
 import { aggregationPlanFor, descendantsOf, nodeTreeOf, type NodeId, type NodeTree } from "./structure.js";
 import { failureWarningOf } from "./verdict.js";
 
@@ -50,9 +51,11 @@ interface EffectRequest {
   level: number;
   seed: string;
   resamples: number;
+  /** The name of the comparison's random stream; the candidate alone when compared with the baseline, so existing results keep their digits. */
+  stream?: string;
 }
 
-export function measuredEffect({ observations, tree, candidate, baseline, node, level, seed, resamples }: EffectRequest): Effect {
+export function measuredEffect({ observations, tree, candidate, baseline, node, level, seed, resamples, stream }: EffectRequest): Effect {
   const { metric, statistic } = observations;
   const groupsAggregation = metric.aggregation?.groups ?? "micro";
   const path = `results.metrics[${metric.id}]`;
@@ -61,6 +64,23 @@ export function measuredEffect({ observations, tree, candidate, baseline, node, 
   const paired = matched !== null;
   const candidateSample = matched?.candidateSample ?? buildSample(observations, tree, candidate, node)!;
   const baselineSample = matched?.baselineSample ?? buildSample(observations, tree, baseline, node)!;
+
+  const candidateAnswers = yesNoAnswersOf(observations, candidateSample, groupsAggregation);
+  const baselineAnswers = yesNoAnswersOf(observations, baselineSample, groupsAggregation);
+
+  if (candidateAnswers && baselineAnswers && metric.compare_as === "difference") {
+    const yesCount = (answers: number[]) => answers.reduce((sum, answer) => sum + answer, 0);
+    const [lower, upper] = paired
+      ? newcombePaired(candidateAnswers, baselineAnswers, level)
+      : newcombe(yesCount(candidateAnswers), candidateAnswers.length, yesCount(baselineAnswers), baselineAnswers.length, level);
+
+    return {
+      effect: 100 * (mean(candidateAnswers) - mean(baselineAnswers)),
+      ci: [100 * lower, 100 * upper],
+      paired,
+      method: paired ? "Newcombe score, paired by item" : "Newcombe score",
+    };
+  }
 
   const bothReadOneDataNode = candidateSample.dataNodeCount === 1 && baselineSample.dataNodeCount === 1;
   const hasClosedFormInterval =
@@ -97,7 +117,7 @@ export function measuredEffect({ observations, tree, candidate, baseline, node, 
   requireResamplableSize(Math.max(candidateSample.groups.length, baselineSample.groups.length), path);
 
   // A paired resample draws the same items on both sides; an unpaired one draws the candidate's groups first, then the baseline's.
-  const generator = generatorFor(seed, "comparison", metric.id, node, candidate);
+  const generator = generatorFor(seed, "comparison", metric.id, node, stream ?? candidate);
   const resampledCandidateGroups = new Int32Array(candidateSample.groups.length);
   const resampledBaselineGroups = paired ? resampledCandidateGroups : new Int32Array(baselineSample.groups.length);
   const resampledEffects = new Float64Array(resamples);
@@ -185,7 +205,7 @@ export function failedAttemptsUnder(
  */
 export function applyFailureWarnings(comparisons: Comparison[], treeOrResults: NodeTree | Results): void {
   const tree = "nodesInDeclaredOrder" in treeOrResults ? treeOrResults : nodeTreeOf(treeOrResults);
-  const key = (metric: string, node: NodeId, candidate: string) => `${metric}\u0000${node ?? ""}\u0000${candidate}`;
+  const key = (metric: string, node: NodeId, candidate: string, vs: string) => `${metric}\u0000${node ?? ""}\u0000${candidate}\u0000${vs}`;
   const warnsOnItsOwnShares = new Map<string, boolean>();
   const warnsForItsParents = new Map<string, boolean>();
 
@@ -194,7 +214,7 @@ export function applyFailureWarnings(comparisons: Comparison[], treeOrResults: N
 
     if (!share) continue;
 
-    const comparisonKey = key(comparison.metric, comparison.node, comparison.candidate);
+    const comparisonKey = key(comparison.metric, comparison.node, comparison.candidate, comparison.vs);
 
     warnsOnItsOwnShares.set(comparisonKey, failureWarningOf(share));
     warnsForItsParents.set(
@@ -213,9 +233,9 @@ export function applyFailureWarnings(comparisons: Comparison[], treeOrResults: N
       comparison.node === undefined
         ? []
         : descendantsOf(tree, comparison.node).filter(
-            (descendant) => warnsForItsParents.get(key(comparison.metric, descendant, comparison.candidate)) === true,
+            (descendant) => warnsForItsParents.get(key(comparison.metric, descendant, comparison.candidate, comparison.vs)) === true,
           );
-    const warnsHere = warnsOnItsOwnShares.get(key(comparison.metric, comparison.node, comparison.candidate)) === true;
+    const warnsHere = warnsOnItsOwnShares.get(key(comparison.metric, comparison.node, comparison.candidate, comparison.vs)) === true;
 
     comparison.failure_warning = warnsHere || warningNodesBelow.length > 0;
 

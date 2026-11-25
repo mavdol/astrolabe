@@ -4,11 +4,24 @@ Three kinds of metric: `run_time` (how long one job takes), `latency` (how long 
 
 ## Contents
 
+- Which form of speed
 - Decisions to make
 - Run time of a command, with hyperfine
 - Your own timing script
 - Latency, and services you do not control
 - Rules
+
+## Which form of speed (F19)
+
+"Faster" has several forms. When the user names none, propose the one or two that fit the decision, from what changed between the candidates:
+
+| Form | What it answers | Points to it |
+| --- | --- | --- |
+| Cold start | How long until the first useful result? | A command run once, a function started on demand; a change in start-up or loading |
+| Warm run | How fast once everything is loaded and compiled? | A server, a long job; a change in a JIT or a cache |
+| Median | What does a typical run take? | The default for run times |
+| Tail (p95, p99) | How slow are the worst runs or requests? | Users waiting on each request; a change in scheduling, garbage collection or I/O |
+| Throughput under load | How much work per second at the load the user has? | A service with many clients; a change in concurrency |
 
 ## Decisions to make
 

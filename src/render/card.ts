@@ -28,14 +28,14 @@ import {
   summaryChartOf,
   summaryChartsOf,
   summaryClaimOf,
-  verdictBarsOf,
+  barsOf,
   type BarSide,
   type Summary,
   type SummaryChart,
   type SummaryDrawing,
   type VerdictBar,
 } from "./summary.js";
-import { CAP_HEIGHT_RATIO, SvgTextRenderer, type TextStyle } from "./svg-text.js";
+import { CAP_HEIGHT_RATIO, escapeXml, SvgTextRenderer, type TextStyle } from "./svg-text.js";
 
 export type CardMode = Mode;
 
@@ -116,6 +116,7 @@ interface HeadlineBlock {
   candidates?: string[];
   chart?: SummaryDrawing;
   sort?: "value" | "declared";
+  count?: "verdicts" | "best";
 }
 
 /** Every comparison the card's cells stand for: one per headline, all those a summary counts. */
@@ -231,10 +232,17 @@ function machineOf(benchmark: Benchmark, content: CardContent): string[] | undef
   );
   const parts = ["hardware", "os", "host"]
     .map((key) => results.environment[key])
-    .filter((setting): setting is string => typeof setting === "string" && setting !== "");
+    .filter((setting): setting is string => typeof setting === "string" && setting !== "")
+    .map(essentialOf);
 
   return measuredOnYourMachines && parts.length > 0 ? parts : undefined;
 }
+
+/**
+ * The first clause of an environment setting, which names the thing: "Apple M2" for "Apple M2 (Mac14,7), 8 cores, 8 GB
+ * RAM", "Bare metal" for "Bare metal: a laptop, not a virtual machine". The page keeps the whole setting.
+ */
+const essentialOf = (setting: string) => setting.split(/ \(|, |: |; /)[0].trim();
 
 const normalizedWords = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}%+−.]+/gu, " ");
 
@@ -285,6 +293,7 @@ function rangeOfChildren(lookup: Lookup, comparison: Comparison): string | null 
     (candidate) =>
       candidate.metric === comparison.metric &&
       candidate.candidate === comparison.candidate &&
+      candidate.vs === comparison.vs &&
       candidate.node !== undefined &&
       children.has(candidate.node),
   );
@@ -326,10 +335,11 @@ export interface Detail {
 /** The level is written once in the legend when every headline shares it, as primary comparisons do. */
 export function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: string | null): Detail[] {
   const metric = lookup.metricById.get(comparison.metric)!;
-  const { interval, level } = effectAndInterval(metric, comparison);
+  const { interval, level, exact } = effectAndInterval(metric, comparison);
   const details: Detail[] = [];
 
   if (comparison.source === "declared") details.push({ text: "Declared values, no interval" });
+  else if (exact) details.push({ text: "Exact: every observation the same" });
   else if (interval) details.push({ text: level === sharedLevel ? `Interval ${interval}` : `${level} interval: ${interval}` });
   else details.push({ text: "No interval: too few observations" });
 
@@ -351,8 +361,6 @@ export function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: s
 
   return details;
 }
-
-const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** The text alternative: every headline in words, for screen readers and for the alt of the README image. */
 export function cardAltText(benchmark: Benchmark, content: CardContent): string {
@@ -643,7 +651,10 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const centreOfLine = (top: number, style: { size: number }) => baselineOf(top, style) - (style.size * CAP_HEIGHT_RATIO) / 2;
 
   const sharedPair = sharedPairOf(lookup, content);
-  const compared = sharedPair ?? `${results.candidates.length - 1} candidates against ${lookup.candidateName.get(results.baseline)}`;
+  const countsWhoIsBest = content.charts?.some((chart) => chart.count === "best") ?? false;
+  const compared = countsWhoIsBest
+    ? `${results.candidates.length} candidates`
+    : (sharedPair ?? `${results.candidates.length - 1} candidates against ${lookup.candidateName.get(results.baseline)}`);
   const eyebrowGroups: EyebrowGroup[] = [
     [
       { text: results.benchmark.id, fill: colours.ink },
@@ -938,20 +949,23 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         chart,
         metric,
         labelLines: text.wrapParts(
-          [metric.label, ...(sharedDirection ? [] : [directionWords(metric)])].map((part) => part.toUpperCase()),
+          [metric.label, ...(sharedDirection || chart.count === "best" ? [] : [directionWords(metric)])].map((part) => part.toUpperCase()),
           STYLE.label,
           columnWidth,
         ),
         legendLines: legendLines.filter((line) => line.length > 0),
-        details: chart.summaries.flatMap((summary) =>
-          text.wrap(
-            chart.summaries.length > 1
-              ? `${nameOf(summary)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
-              : effectRangeOf(lookup, summary),
-            STYLE.detail,
-            columnWidth,
-          ),
-        ),
+        details:
+          chart.count === "best"
+            ? []
+            : chart.summaries.flatMap((summary) =>
+                text.wrap(
+                  chart.summaries.length > 1
+                    ? `${nameOf(summary)}: ${lowerFirstLetterOfWord(effectRangeOf(lookup, summary))}`
+                    : effectRangeOf(lookup, summary),
+                  STYLE.detail,
+                  columnWidth,
+                ),
+              ),
       };
     });
 
@@ -982,7 +996,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
           if (under.length > 0) drawLines([under.join(" · ")], STYLE.detail, colours.secondary, x, barTop + STACK_HEIGHT + 4);
 
           textLines.push(
-            `${nameOf(summary)}  ${verdictBarsOf(cell.metric, summary.comparisons)
+            `${nameOf(summary)}  ${barsOf(cell.metric, summary)
               .map((bar) => `${bar.count} ${bar.words}${likelyPartOf(bar)}`)
               .join("  ")}`,
           );
@@ -1140,27 +1154,17 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
 
   cursorY = footerRuleY + 22;
 
-  const primaryCount = results.computed.primary_comparisons;
-  const everyHeadlineAdjusted = shownComparisons.every((comparison) => comparison.adjusted);
+  // The footer keeps what a card read alone needs: what a mark is, the interval's level, the direction when it is
+  // not already in the counts; the adjustment and the rest of the method are on the page.
   const isSingle = shownComparisons.length === 1;
-  const possessive = isSingle ? "its" : "their";
-  const intervalNoun = isSingle ? "interval" : "intervals";
-  const intervalPhrase =
-    sharedLevel && everyHeadlineAdjusted
-      ? `${possessive} ${sharedLevel} ${intervalNoun}, adjusted for ${primaryCount} comparisons`
-      : sharedLevel
-        ? `${possessive} ${sharedLevel} ${intervalNoun}`
-        : `${possessive} ${intervalNoun}`;
+  const intervals = `${sharedLevel ? `${sharedLevel} ` : ""}${isSingle ? "interval" : "intervals"}`;
   const readingOfCells =
     content.charts && content.charts.length > 0
-      ? [
-          `Compared with ${lookup.candidateName.get(results.baseline)}; each verdict is read from ${intervalPhrase}.`,
-          ...new Set(content.charts.map((chart) => summaryKeyOf(lookup, chart))),
-        ]
-      : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervalPhrase}.`];
+      ? [...summaryKeysOf(lookup, content.charts), `Verdicts from ${intervals}.`]
+      : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervals}.`];
   const legendSentences = [
     ...readingOfCells,
-    ...(sharedDirection ? [sharedDirection === "lower" ? "Lower is better." : "Higher is better."] : []),
+    ...(sharedDirection && !countsWhoIsBest ? [sharedDirection === "lower" ? "Lower is better." : "Higher is better."] : []),
     ...(drawsStrips ? ["Shaded band: too small to matter."] : []),
     ...(content.omitted.length > 0
       ? [
@@ -1181,16 +1185,10 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     );
 
   const machine = machineOf(benchmark, content);
-  const machineText = machine ? `Machine: ${machine.join(" · ")}` : "";
+  const machineText = machine ? `Measured on ${machine.join(" · ")}` : "";
 
   if (machine)
-    cursorY = drawLines(
-      text.wrapParts([`Machine: ${machine[0]}`, ...machine.slice(1)], STYLE.detail, innerWidth),
-      STYLE.detail,
-      colours.secondary,
-      PADDING,
-      cursorY,
-    );
+    cursorY = drawLines(text.wrapParts([machineText], STYLE.detail, innerWidth), STYLE.detail, colours.secondary, PADDING, cursorY);
 
   cursorY += 6;
 
@@ -1221,4 +1219,12 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   ].join("");
 
   return { svg, altText, textLines, charactersWithoutGlyph: text.charactersWithoutGlyph() };
+}
+
+/** The keys of the summaries on a card, once each: one uncounted key when they differ only by how many parts they count. */
+function summaryKeysOf(lookup: Lookup, charts: SummaryChart[]): string[] {
+  const counted = [...new Set(charts.map((chart) => summaryKeyOf(lookup, chart)))];
+  const uncounted = [...new Set(charts.map((chart) => summaryKeyOf(lookup, chart, { counted: false })))];
+
+  return counted.length > 1 && uncounted.length === 1 ? uncounted : counted;
 }

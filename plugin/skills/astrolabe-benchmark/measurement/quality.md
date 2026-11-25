@@ -4,6 +4,7 @@ Kind `quality`: outputs checked against a reference (right or wrong, a pass rate
 
 ## Contents
 
+- Which form of quality
 - Checking that outputs are right
 - Items, repeats and groups
 - Suites: `structure`
@@ -11,6 +12,17 @@ Kind `quality`: outputs checked against a reference (right or wrong, a pass rate
 - Judges
 - Contamination
 - Rules
+
+## Which form of quality (F19)
+
+"Better answers" has several forms. When the user names none, propose the one or two that fit the decision, from what changed between the candidates:
+
+| Form | What it answers | Points to it |
+| --- | --- | --- |
+| Overall accuracy or pass rate | How often is it right across the whole suite? | The default |
+| Worst group | Where is it weakest? | A change of model or prompt that may trade one kind of question for another |
+| Consistency across repeats | Does it give the same answer twice? | A non-deterministic system, a sampling setting |
+| Severity of failures | When wrong, how wrong or how costly? | Answers acted on without review |
 
 ## Checking that outputs are right
 
@@ -54,7 +66,7 @@ When items fall into tasks or categories, declare them, so that no average hides
 }
 ```
 
-Give each part a `description` when its label does not tell a reader what it does or contains, in one or two plain sentences: what the script runs, what the questions ask. The page lists the parts in its method, each opening to its description, and links every table row to it; a reader who does not know the suite learns what a row measured without leaving the page.
+Give each part a `description` when its label does not tell a reader what it does or contains, in one or two plain sentences: what the script runs, what the questions ask. The page lists the parts in its method, each opening to its description, and links every part's name to it, on its tables and its charts; a reader who does not know the suite learns what a row measured without leaving the page.
 
 A metric says how groups combine in `aggregation.groups`: `macro` gives each child the same weight, `micro` weighs by number of items. The report shows the overall value with the best and the worst group. Declare the primary comparisons at the top node (`{ "metric": "accuracy", "node": "suite" }`); the per-group comparisons are then exploratory, which is what they should be when there are many. Never report a headline from the best group alone.
 
