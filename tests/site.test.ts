@@ -663,6 +663,25 @@ describe("the site", () => {
     expect(html).not.toContain("n = 12");
   });
 
+  it("names a chart of comparison rows after the candidate they are all against, or pair by pair when they are against several", () => {
+    const pageOf = (comparisons: string[]) => {
+      const versions = {
+        ...versionsBenchmarkOf(2),
+        blocks: [{ id: "rows", type: "chart", chart: "comparison-rows", comparisons, title: "Side by side" }],
+      } as Benchmark;
+      const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+      buildOutputs(versions, ["site"], folder, context, { rawFiles: {} });
+
+      return readFileSync(join(folder, "site", "index.html"), "utf8");
+    };
+
+    expect(pageOf(["wall_time__script-1__mid", "wall_time__script-2__mid"])).toContain('01<span class="dim"> / </span>Against base<');
+    expect(pageOf(["wall_time__script-1__mid", "wall_time__script-1__next__vs__mid"])).toContain(
+      '01<span class="dim"> / </span>Pair by pair<',
+    );
+  });
+
   it("lays a table of effects out as one row per node: the change, its verdict in the reader's words and colour, a bar from zero", () => {
     const scripts = {
       ...scriptsBenchmarkOf(3),

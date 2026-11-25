@@ -19,7 +19,7 @@ import { linearScale, type AxisScale } from "./scale.js";
 /** One candidate's result on one part. */
 export interface ResultBar {
   candidate: string;
-  /** The candidate's name, for the text alternative: the chart itself names it in its key. */
+  /** The candidate's name: beside its bar when the chart shows one part, else in the key and the text alternative. */
   name: string;
   /** The same on every filter state, so a page can move the bar rather than redraw it. */
   key: string;
@@ -47,7 +47,7 @@ export interface ResultGroup {
 /**
  * Every candidate's result on every part, each part a block of bars glued together, one per candidate in the same order
  * and colour on every part, named once in a key drawn in that order; the part's name beside its block, or above it when the chart is too
- * narrow for a column of names.
+ * narrow for a column of names. A chart of one part names each bar beside it instead, with no key.
  */
 export interface ResultsPlot {
   groups: ResultGroup[];
@@ -75,10 +75,36 @@ const LARGEST_NAME_SHARE = 0.32;
 const NAME_LINES_BESIDE = 2;
 
 const barCountOf = (plot: ResultsPlot) => plot.groups.reduce((count, group) => count + group.bars.length, 0);
+/** With one part and no name over it, each bar is named beside it: a key would only make the reader match colours. */
+const namesEachBar = (plot: ResultsPlot) => plot.groups.length === 1 && !plot.groups[0].name;
+const keyRowsOf = (plot: ResultsPlot) => (namesEachBar(plot) ? 0 : plot.key.length);
 /** Every row the plot draws at the pitch of a bar: the key's, one per candidate, then the bars. */
-const rowCountOf = (plot: ResultsPlot) => plot.key.length + barCountOf(plot);
+const rowCountOf = (plot: ResultsPlot) => keyRowsOf(plot) + barCountOf(plot);
 
 function layoutOf(plot: ResultsPlot, text: SvgTextRenderer, width: number) {
+  const bars = plot.groups.flatMap((group) => group.bars);
+
+  if (namesEachBar(plot)) {
+    const barNameWidth = Math.min(
+      width * LARGEST_NAME_SHARE,
+      widestOf(
+        text,
+        bars.map((bar) => bar.name),
+        PLOT_STYLE.label,
+      ),
+    );
+
+    return {
+      ...valueColumnsOf(plot, text),
+      namesBeside: false,
+      nameWidth: 0,
+      barNameWidth,
+      nameLines: [[]],
+      sharesScale: true,
+      fixedHeight: GROUP_GAP + AXIS_HEIGHT,
+    };
+  }
+
   const named = plot.groups.some((group) => group.name);
   const nameWidth = Math.min(
     width * LARGEST_NAME_SHARE,
@@ -100,17 +126,6 @@ function layoutOf(plot: ResultsPlot, text: SvgTextRenderer, width: number) {
     named &&
     nameLines.every((lines) => lines.length <= NAME_LINES_BESIDE) &&
     plot.groups.every((group) => !group.scale || text.measure(group.scale.label, PLOT_STYLE.tick) <= nameWidth);
-  const bars = plot.groups.flatMap((group) => group.bars);
-  const valueWidth = widestOf(
-    text,
-    bars.map((bar) => bar.valueText),
-    PLOT_STYLE.value,
-  );
-  const noteWidth = widestOf(
-    text,
-    bars.map((bar) => bar.note ?? ""),
-    PLOT_STYLE.note,
-  );
   const sharesScale = plot.groups.every((group) => !group.scale);
   const fixedHeight =
     GROUP_GAP +
@@ -118,18 +133,45 @@ function layoutOf(plot: ResultsPlot, text: SvgTextRenderer, width: number) {
     (plot.groups.length - 1) * GROUP_GAP +
     (named && !namesBeside ? plot.groups.length * NAME_ABOVE_HEIGHT : 0);
 
-  return { namesBeside, nameWidth: namesBeside ? nameWidth : 0, nameLines, valueWidth, noteWidth, sharesScale, fixedHeight };
+  return {
+    ...valueColumnsOf(plot, text),
+    namesBeside,
+    nameWidth: namesBeside ? nameWidth : 0,
+    barNameWidth: 0,
+    nameLines,
+    sharesScale,
+    fixedHeight,
+  };
+}
+
+function valueColumnsOf(plot: ResultsPlot, text: SvgTextRenderer) {
+  const bars = plot.groups.flatMap((group) => group.bars);
+
+  return {
+    valueWidth: widestOf(
+      text,
+      bars.map((bar) => bar.valueText),
+      PLOT_STYLE.value,
+    ),
+    noteWidth: widestOf(
+      text,
+      bars.map((bar) => bar.note ?? ""),
+      PLOT_STYLE.note,
+    ),
+  };
 }
 
 function drawResults(plot: ResultsPlot, text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot {
   const { x, width } = area;
   const layout = layoutOf(plot, text, width);
   const room = area.height - layout.fixedHeight;
+  const keyRows = keyRowsOf(plot);
   // An image with room to spare thickens the bars, not the key, whose stubs only name the colours.
   const keyPitch = Math.min(room / rowCountOf(plot), BAR_PITCH.usual);
-  const pitch = (room - plot.key.length * keyPitch) / barCountOf(plot);
+  const pitch = (room - keyRows * keyPitch) / barCountOf(plot);
   const barHeight = pitch * BAR_SHARE;
-  const plotLeft = x + (layout.namesBeside ? layout.nameWidth + COLUMN_GAP : 0);
+  const namesWidth = layout.namesBeside ? layout.nameWidth : layout.barNameWidth;
+  const plotLeft = x + (namesWidth > 0 ? namesWidth + COLUMN_GAP : 0);
   const valueRight = x + width - (layout.noteWidth > 0 ? layout.noteWidth + NOTE_GAP : 0);
   const plotRight = valueRight - layout.valueWidth - COLUMN_GAP;
   const targetTicks = plotRight - plotLeft < 260 ? 3 : 5;
@@ -141,7 +183,7 @@ function drawResults(plot: ResultsPlot, text: SvgTextRenderer, colours: Colours,
 
   // The key is a block like the parts': each candidate's stub of bar in the place its bar has on every part, so the
   // order names the bars as well as the colour does.
-  plot.key.forEach((entry, index) => {
+  plot.key.slice(0, keyRows).forEach((entry, index) => {
     const top = area.y + index * keyPitch;
     const swatchHeight = keyPitch * BAR_SHARE;
 
@@ -156,7 +198,7 @@ function drawResults(plot: ResultsPlot, text: SvgTextRenderer, colours: Colours,
     textLines.push(entry.name);
   });
 
-  let cursorY = area.y + plot.key.length * keyPitch + GROUP_GAP;
+  let cursorY = area.y + keyRows * keyPitch + GROUP_GAP;
 
   plot.groups.forEach((group, groupIndex) => {
     if (groupIndex > 0) {
@@ -238,6 +280,15 @@ function drawResults(plot: ResultsPlot, text: SvgTextRenderer, colours: Colours,
       );
 
       marks.push("</g>");
+
+      if (layout.barNameWidth > 0)
+        marks.push(
+          text.draw(text.fit(bar.name, PLOT_STYLE.label, layout.barNameWidth), x, middleOf(cursorY, pitch, PLOT_STYLE.label.size), {
+            ...PLOT_STYLE.label,
+            fill: colours.ink,
+          }),
+        );
+
       marks.push(
         text.draw(bar.valueText, valueRight, middleOf(cursorY, pitch, PLOT_STYLE.value.size), {
           ...PLOT_STYLE.value,
@@ -298,7 +349,7 @@ export function resultsPlot(plot: ResultsPlot): Plot {
       return {
         smallest: fixedHeight + rows * BAR_PITCH.smallest,
         usual: fixedHeight + rows * BAR_PITCH.usual,
-        largest: fixedHeight + plot.key.length * BAR_PITCH.usual + barCountOf(plot) * BAR_PITCH.largest,
+        largest: fixedHeight + keyRowsOf(plot) * BAR_PITCH.usual + barCountOf(plot) * BAR_PITCH.largest,
       };
     },
     draw: (text, colours, area) => drawResults(plot, text, colours, area),

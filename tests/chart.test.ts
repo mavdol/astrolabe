@@ -9,7 +9,8 @@ import { extentAroundData, linearScale, logScale } from "../src/render/chart/sca
 import { exportPlanOf, IMAGE_SIZES } from "../src/render/exports.js";
 import { cellFill, LARGEST_SHADE } from "../src/render/chart/shaded-table.js";
 import { loadRaw } from "../src/compute/files.js";
-import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
+import { benchmarkSchema, type Benchmark, type Comparison, type Metric } from "../src/schema/benchmark.js";
+import { effectAndInterval } from "../src/render/describe.js";
 import { blockSchema, CHART_TYPES, type ChartBlock } from "../src/schema/presentation.js";
 import { contrastRatio, MARK_CONTRAST, seriesStylesOf, TEXT_CONTRAST, THEME, visibleOn } from "../src/themes/astrolabe.js";
 import { scriptsBenchmarkOf, versionsBenchmarkOf } from "./helpers.js";
@@ -47,6 +48,13 @@ describe("the scale of an axis", () => {
     expect(linearScale([0, 1], [0, 100]).tickDecimals).toBe(1);
     expect(linearScale([0, 10], [0, 100], 4).ticks).toEqual([0, 2.5, 5, 7.5, 10]);
     expect(linearScale([0, 10], [0, 100], 4).tickDecimals).toBe(1);
+  });
+
+  it("stops at a floor no value can pass, its ticks still round", () => {
+    const scale = linearScale([-25, 2158], [0, 100], 5, -100);
+
+    expect(scale.domain).toEqual([-100, 2500]);
+    expect(scale.ticks).toEqual([0, 500, 1000, 1500, 2000, 2500]);
   });
 
   it("still has a span when every value is the same", () => {
@@ -287,6 +295,23 @@ describe("a chart of effects", () => {
 
     expect(byCategory.subtitle).toBe("Accuracy: change of Model A against Model B, in points · higher is better");
     expect(byCategory.textLines).toContain("Reasoning  −1.5 points  inconclusive");
+  });
+
+  it("stops a change in percent at −100%, as far as a value can fall", () => {
+    const versions = versionsBenchmarkOf(2);
+    const next = versions.results.comparisons!.find((comparison) => comparison.id === "wall_time__script-1__next")!;
+
+    Object.assign(next, { effect: 1500, ci: [1300, 1700] });
+
+    expect(ticksOf(draw(versions, chartBlock({ chart: "effect", metric: "wall_time", node: "script-1" })))).toMatch(/^0%  \+500%/);
+  });
+
+  it("does not call a change of shares exact when its interval has no width: a few more items could differ", () => {
+    const share = { id: "solved", label: "Solved", unit: "%", direction: "higher", kind: "quality", statistic: "share" } as Metric;
+    const noWidth = { effect: 0, ci: [0, 0], ci_level: 0.95, source: "computed" } as unknown as Comparison;
+
+    expect(effectAndInterval(share, noWidth).exact).toBe(false);
+    expect(effectAndInterval({ ...share, statistic: "mean", unit: "USD" }, noWidth).exact).toBe(true);
   });
 
   it("says that exploratory comparisons are not claims", () => {
@@ -743,6 +768,14 @@ describe("results, candidate by candidate", () => {
     ]);
     expect(chart.svg.match(/<g data-candidate="base"><rect /g), "the key's stub of bar").toHaveLength(1);
     expect(draw(versionsBenchmarkOf(2), block, { plotOnly: true }).svg.match(/>base<\/text>/g), "named in the key only").toHaveLength(1);
+  });
+
+  it("names each bar beside it, with no key, when the chart shows one part", () => {
+    const chart = draw(versionsBenchmarkOf(2), { ...block, breakdown: undefined, node: "script-1" }, { plotOnly: true });
+
+    expect(chart.svg).not.toMatch(/<g data-candidate="base"><rect /);
+    expect(chart.svg.match(/>base<\/text>/g), "beside its bar").toHaveLength(1);
+    expect(chart.textLines).toContain("next  60.0 ms  best");
   });
 
   it("wraps a long part name on two lines beside its bars, and puts the names above the bars when two lines are not enough", () => {

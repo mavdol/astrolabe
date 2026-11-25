@@ -28,16 +28,22 @@ function isHalfStep(step: number): boolean {
 }
 
 /**
- * A linear scale whose ends are round numbers that enclose the data, drawn from start to end pixels.
- * There is no other kind: no break, and the ticks are evenly spaced values.
+ * A linear scale whose ends are round numbers that enclose the data, drawn from start to end pixels, and that stops at
+ * the floor when one is given. There is no other kind: no break, and the ticks are evenly spaced values.
  */
-export function linearScale(dataExtent: [number, number], pixels: [number, number], targetCount = TARGET_TICK_COUNT): AxisScale {
+export function linearScale(
+  dataExtent: [number, number],
+  pixels: [number, number],
+  targetCount = TARGET_TICK_COUNT,
+  floor = -Infinity,
+): AxisScale {
   const [low, high] = dataExtent[0] === dataExtent[1] ? [dataExtent[0] - 1, dataExtent[1] + 1] : dataExtent;
   const step = niceStep(high - low, targetCount);
-  const first = Math.floor(low / step + 1e-9) * step;
+  const first = Math.max(Math.floor(low / step + 1e-9) * step, floor);
   const last = Math.ceil(high / step - 1e-9) * step;
-  const tickCount = Math.round((last - first) / step) + 1;
-  const ticks = Array.from({ length: tickCount }, (_, index) => Number((first + index * step).toPrecision(12)));
+  const firstTick = Math.ceil(first / step - 1e-9) * step;
+  const tickCount = Math.round((last - firstTick) / step) + 1;
+  const ticks = Array.from({ length: tickCount }, (_, index) => Number((firstTick + index * step).toPrecision(12)));
   const [startPixel, endPixel] = pixels;
 
   return {

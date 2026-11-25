@@ -68,6 +68,8 @@ export interface RowsPlot {
   mark: "dot" | "bar" | "distribution" | "stack";
   /** The values the axis must enclose. Bars and stacks always enclose zero. */
   extent: [number, number];
+  /** The lowest value the measure can take, where the axis stops even when a round tick lies below: −100% for a change in percent. */
+  floor?: number;
   logScale?: boolean;
   tickText: (value: number, decimals: Decimals) => string;
   /** A zone drawn behind the marks, such as the differences too small to matter. */
@@ -209,7 +211,9 @@ function drawRows(plot: RowsPlot, text: SvgTextRenderer, colours: Colours, area:
   const startsAtZero = plot.mark === "bar" || plot.mark === "stack";
   const scaleExtent: [number, number] = startsAtZero ? [Math.min(0, plot.extent[0]), Math.max(0, plot.extent[1])] : plot.extent;
   const targetTicks = plotRight - plotLeft < 260 ? 3 : 5;
-  const scale = plot.logScale ? logScale(scaleExtent, [plotLeft, plotRight]) : linearScale(scaleExtent, [plotLeft, plotRight], targetTicks);
+  const scale = plot.logScale
+    ? logScale(scaleExtent, [plotLeft, plotRight])
+    : linearScale(scaleExtent, [plotLeft, plotRight], targetTicks, plot.floor);
   const marks: string[] = [];
   const textLines: string[] = [];
   const rowsTop = area.y + legend.height + headingsHeight;

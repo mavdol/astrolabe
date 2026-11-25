@@ -59,7 +59,7 @@ A reader remembers the title more than the chart, so a title states the finding,
 - **Only primary comparisons in a title or a headline.** An exploratory comparison is shown in charts and tables, labelled exploratory, and never claimed.
 - **Words follow the verdict**, as presentation.md says: its wording rules hold for titles as for sentences.
 - **A title without a verdict describes** ("Every run, build time"); it needs no `asserts`.
-- **`description` is that one-sentence reading**, with templates. The generator adds the factual part (what is plotted, the values, the comparisons) to it for the long text alternative; together they are what a screen reader hears.
+- **`description` is that one-sentence reading**, with templates. The generator adds the factual part (what is plotted, the values, the comparisons) to it for the long text alternative; together they are what a screen reader hears. It reads only what the chart draws: the generator draws no reference or threshold line, so a threshold that matters (a time budget, a score) is said with its number, not pointed at ("only quickmark stays under the 2 s budget", not "the line marks the budget").
 - **Text blocks** (`"type": "text"`) are the last resort: context no chart and no trust block can carry (why the benchmark was run, a decision taken from it), three sentences at most, under the same template rules. A finding is never a text block: draw it (charts.md).
 
 | Instead of | Write |

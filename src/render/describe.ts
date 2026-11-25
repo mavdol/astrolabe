@@ -177,7 +177,12 @@ export function effectAndInterval(
   const unit = effectUnit(metric);
   const effectNumber = formatNumber(comparison.effect, decimals, { signed: true });
   // An interval of no width (every observation the same, as prices read from a list) says the change is exact: it is written so.
-  const exact = comparison.source !== "declared" && comparison.ci !== undefined && comparison.ci[0] === comparison.ci[1];
+  // Not for a share: two shares of 0% on a few items resample to no width, yet the next items could differ.
+  const exact =
+    comparison.source !== "declared" &&
+    metric.statistic !== "share" &&
+    comparison.ci !== undefined &&
+    comparison.ci[0] === comparison.ci[1];
   const hasMeasuredInterval = comparison.ci !== undefined && comparison.source !== "declared" && !exact;
 
   return {

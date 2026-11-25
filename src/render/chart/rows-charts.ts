@@ -383,7 +383,7 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     },
     levels
       ? { mark: "interval", markName: "Lines", text: `${levels} confidence intervals${adjustment}.` }
-      : { text: noIntervalText(comparisons) },
+      : { text: metric.statistic === "share" ? "" : noIntervalText(comparisons) },
     { mark: "band", markName: "Shaded band", text: `changes under ${formatNumber(minimum, null)}${unit}, too small to matter.` },
     { text: hasExploratory ? "Exploratory comparisons were not declared before measuring: none is a claim of the benchmark." : "" },
     { text: caveatSentences(lookup, metric, comparisons) },
@@ -400,6 +400,8 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
       tickText: (value, tickDecimals: Decimals) => `${formatNumber(value, tickDecimals, { signed: true })}${unit === "%" ? "%" : ""}`,
       band: [-minimum, minimum],
       zeroLine: true,
+      // A value cannot fall by more than all of itself.
+      ...(unit === "%" ? { floor: -100 } : {}),
       columnHeadings: {
         names: onlyCandidate ? capitalised(breakdownOf(block, lookup) ?? "") : "",
         marks: onlyCandidate ? `${onlyCandidate} against ${baselineName}` : `Against ${baselineName}`,

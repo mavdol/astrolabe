@@ -378,7 +378,6 @@ interface SectionName {
 function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefined {
   const { lookup } = inputs;
   const metricLabel = (metricId: string | undefined) => (metricId ? (lookup.metricById.get(metricId)?.label ?? metricId) : "");
-  const baseline = lookup.candidateName.get(lookup.results.baseline);
   const againstOf = (block: { vs?: string }) => lookup.candidateName.get(block.vs ?? lookup.results.baseline);
   const same = (name: string) => ({ short: name, full: name });
 
@@ -388,7 +387,15 @@ function sectionNameOf(block: Block, inputs: PageInputs): SectionName | undefine
 
       const exploratory = showsOnlyExploratory(block, inputs) ? " · exploratory" : "";
 
-      if (block.chart === "comparison-rows") return same(`Against ${baseline}${exploratory}`);
+      if (block.chart === "comparison-rows") {
+        const against = new Set(
+          (lookup.results.comparisons ?? [])
+            .filter((comparison) => block.comparisons?.includes(comparison.id))
+            .map((comparison) => comparison.vs),
+        );
+
+        return same(`${against.size === 1 ? `Against ${lookup.candidateName.get([...against][0])}` : "Pair by pair"}${exploratory}`);
+      }
 
       const metric = metricLabel(block.metric);
 
