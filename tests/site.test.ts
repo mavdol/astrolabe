@@ -82,11 +82,12 @@ describe("the rows of the page", () => {
   });
 
   it("answer the question of a file with no presentation with its primary comparisons", () => {
-    const rows = pageRowsOf(loadBenchmark("js-runtimes"));
+    const rows = pageRowsOf({ ...loadBenchmark("json-cli-parse"), blocks: undefined, layout: undefined });
 
     expect(rows[0].map((block) => [block.type, "comparison" in block ? block.comparison : ""])).toEqual([
-      ["headline", "wall_time__deno"],
-      ["headline", "peak_rss__deno"],
+      ["headline", "wall_time__fastjson"],
+      ["headline", "wall_time__tinyjson"],
+      ["headline", "wall_time__tinyjson__vs__fastjson"],
     ]);
   });
 });
@@ -790,6 +791,19 @@ describe("the site", () => {
     ]);
   });
 
+  it("says the author's answer after the question when the file gives one, and leads the description with it", () => {
+    const speech = loadBenchmark("speech-to-text");
+    const answer = "Use Whisper large-v3-turbo: as accurate as Whisper medium on clean audio, likely faster";
+    const page = buildSite("speech-to-text").html;
+
+    expect(answerPartsOf(speech).stated).toBe(answer);
+    expect(page).toContain(`<span class="answer">${answer}</span></h1>`);
+    expect(answerOf(speech).startsWith(`${answer}. `)).toBe(true);
+    expect(buildSite("speech-to-text", { benchmark: { ...speech, answer: undefined } }).html).toContain(
+      '<span class="answer">5 candidates</span></h1>',
+    );
+  });
+
   it("names every candidate the claims compare, and writes as exact the values whose observations never vary", () => {
     const prices = { base: 10, mid: 12, next: 15 };
     const plan = planOf({
@@ -949,9 +963,12 @@ describe("the site", () => {
   });
 
   it("says when no blocks are declared, so the page has headlines only, and stays quiet when they are", () => {
-    const noBlocksWarning = (id: string) => buildSite(id).built.warnings.filter((warning) => warning.startsWith("no blocks declared"));
+    const noBlocksWarning = (id: string, without: Partial<Benchmark> = {}) =>
+      buildSite(id, { benchmark: { ...loadBenchmark(id), ...without } }).built.warnings.filter((warning) =>
+        warning.startsWith("no blocks declared"),
+      );
 
-    expect(noBlocksWarning("js-runtimes")).toEqual([
+    expect(noBlocksWarning("json-cli-parse", { blocks: undefined, layout: undefined })).toEqual([
       "no blocks declared: the page shows only the first primary comparisons as headlines, with no chart or table; visualization/page.md says how to choose them",
     ]);
     expect(noBlocksWarning("json-cli-parse")).toEqual([]);
@@ -1089,9 +1106,18 @@ describe("the site", () => {
     const headline = (id: string) =>
       support.html.match(new RegExp(`<article class="block stat headline" id="${id}">[\\s\\S]*?</article>`))![0];
 
-    expect(headline("headline-cost")).toContain('<svg class="micro values"');
-    expect(headline("headline-cost")).toMatch(/<text class="name"[^>]*>Model A<\/text>/);
-    expect(headline("headline-accuracy")).toContain('<svg class="micro strip good"');
+    expect(headline("headline-cost")).toContain('<div class="micro values"');
+    expect(headline("headline-cost"), "names are text of the page, never shrunk with a drawing").toContain(
+      '<span class="name">Model A</span>',
+    );
+    expect(headline("headline-accuracy")).toContain('<div class="micro strip good"');
+    expect(headline("headline-accuracy"), "the strip's labels too").toMatch(
+      /<div class="strip-labels"><span style="left: [\d.]+%">0<\/span>/,
+    );
+    expect(headline("headline-accuracy")).not.toContain("<text");
+    expect(headline("headline-cost"), "a range stays in percent, its factor would read as the whole range's").toContain(
+      "<li>+265% in every one of the categories</li>",
+    );
     expect(headline("headline-accuracy")).toContain(
       '<p class="figure good"><span data-count="6.4" data-decimals="1">+6.4</span><small>points</small></p>',
     );

@@ -29,6 +29,7 @@ import {
   summaryChartsOf,
   summaryClaimOf,
   barsOf,
+  listedNames,
   type BarSide,
   type Summary,
   type SummaryChart,
@@ -212,6 +213,61 @@ function sharedPairOf(lookup: Lookup, content: CardContent): string | null {
   return pairs.size === 1 ? [...pairs][0] : null;
 }
 
+/** The candidates every headline shares on one side, or undefined: the card names them once instead of in each cell. */
+function sharedSidesOf(content: CardContent): { candidate?: string; vs?: string } {
+  const comparisons = shownComparisonsOf(content);
+  const onlyOne = (ids: string[]) => (new Set(ids).size === 1 ? ids[0] : undefined);
+
+  return {
+    candidate: onlyOne(comparisons.map((comparison) => comparison.candidate)),
+    vs: onlyOne(comparisons.map((comparison) => comparison.vs)),
+  };
+}
+
+/** The longest line naming who the card compares, two lines of its eyebrow at most; past it, the candidates are counted instead. */
+const LONGEST_COMPARED = 72;
+
+/** Who the card compares, named once above the question: the shared pair, one candidate against several, or several against one. */
+function comparedOf(lookup: Lookup, content: CardContent): string {
+  const sharedPair = sharedPairOf(lookup, content);
+
+  if (sharedPair) return sharedPair;
+
+  const comparisons = shownComparisonsOf(content);
+  const name = (id: string) => lookup.candidateName.get(id) ?? id;
+  const distinct = (ids: string[]) => [...new Set(ids)];
+  const subjects = distinct(comparisons.map((comparison) => comparison.candidate));
+  const opponents = distinct(comparisons.map((comparison) => comparison.vs));
+  const involved = distinct(comparisons.flatMap((comparison) => [comparison.candidate, comparison.vs]));
+  const named =
+    subjects.length === 1
+      ? `${name(subjects[0])} against ${listedNames(opponents.map(name))}`
+      : opponents.length === 1
+        ? `${listedNames(subjects.map(name))} against ${name(opponents[0])}`
+        : listedNames(involved.map(name));
+  const counted =
+    subjects.length === 1
+      ? `${name(subjects[0])} against ${opponents.length} candidates`
+      : opponents.length === 1
+        ? `${subjects.length} candidates against ${name(opponents[0])}`
+        : `${involved.length} candidates`;
+
+  return named.length <= LONGEST_COMPARED ? named : counted;
+}
+
+/** What a cell names beside its measure: whatever of its pair the card does not name once for all. */
+function cellPairOf(lookup: Lookup, content: CardContent, comparison: Comparison): string | undefined {
+  if (sharedPairOf(lookup, content)) return undefined;
+
+  const shared = sharedSidesOf(content);
+
+  if (shared.candidate) return `against ${lookup.candidateName.get(comparison.vs)}`;
+
+  if (shared.vs) return lookup.candidateName.get(comparison.candidate);
+
+  return pairOf(lookup, comparison);
+}
+
 const directionWords = (metric: Metric) => (metric.direction === "lower" ? "lower is better" : "higher is better");
 
 /** The direction every headline of the card shares, said once under the cells; undefined when they differ, so each cell says its own. */
@@ -307,9 +363,12 @@ function rangeOfChildren(lookup: Lookup, comparison: Comparison): string | null 
   const childLevel = lookup.results.structure?.nodes.find((node) => node.id === sorted[0].node)?.level ?? "group";
   const groups = pluralOf(childLevel);
 
-  if (lowest.effect === highest.effect) return `${lowest.effect} in every one of the ${groups}`;
+  // A range stays in its unit: a factor after it would read as the factor of the whole range.
+  const [lowestText, highestText] = [lowest, highest].map((end) => `${end.effectNumber}${end.unit}`);
 
-  return `From ${lowest.effectNumber} to ${highest.effect} across ${groups}`;
+  if (lowestText === highestText) return `${lowestText} in every one of the ${groups}`;
+
+  return `From ${lowest.effectNumber} to ${highestText} across ${groups}`;
 }
 
 function observationsOf(lookup: Lookup, comparison: Comparison): string | null {
@@ -457,9 +516,18 @@ export function valuesDrawnFromZero(lookup: Lookup, comparison: Comparison): Val
   ];
 }
 
-const valuesHeight = (rows: number) => (rows - 1) * BAR_ROW + BAR_HEIGHT + 2;
+/** The share of a cell the names beside the bars may take; a longer name goes above its bar, never cut. */
+const NAMES_BESIDE_SHARE = 0.4;
+const NAME_ABOVE_HEIGHT = 18;
+const GAP_UNDER_BAR = 8;
 
-/** The two values as bars from zero, each in its candidate's colour, the name before and the value after. */
+const namesFitBeside = (text: SvgTextRenderer, names: string[], width: number) =>
+  Math.max(...names.map((name) => text.measure(name, STYLE.name))) + 12 <= width * NAMES_BESIDE_SHARE;
+
+const valuesHeight = (rows: number, beside: boolean) =>
+  beside ? (rows - 1) * BAR_ROW + BAR_HEIGHT + 2 : rows * (NAME_ABOVE_HEIGHT + BAR_HEIGHT) + (rows - 1) * GAP_UNDER_BAR + 2;
+
+/** The two values as bars from zero, each in its candidate's colour, the name before (or above, when long) and the value after. */
 function valuesFromZero(
   text: SvgTextRenderer,
   metric: Metric,
@@ -470,21 +538,31 @@ function valuesFromZero(
   colours: Colours,
 ): { marks: string; textLines: string[] } {
   const shown = rows.map((row) => withUnit(formatNumber(row.value.value, labelDecimals(metric, row.value)), metric.unit));
-  const nameWidth = Math.min(Math.max(...rows.map((row) => text.measure(row.name, STYLE.name))) + 12, width * 0.4);
+  const beside = namesFitBeside(
+    text,
+    rows.map((row) => row.name),
+    width,
+  );
+  const nameWidth = beside ? Math.max(...rows.map((row) => text.measure(row.name, STYLE.name))) + 12 : 0;
   const valueWidth = Math.max(...shown.map((label) => text.measure(label, STYLE.scale))) + 8;
   const barRoom = width - nameWidth - valueWidth;
   const largest = Math.max(...rows.map((row) => row.value.value));
   const zero = x + nameWidth;
   const marks: string[] = [];
   const textLines: string[] = [];
+  const barTopOf = (index: number) =>
+    beside ? y + index * BAR_ROW + 1 : y + index * (NAME_ABOVE_HEIGHT + BAR_HEIGHT + GAP_UNDER_BAR) + NAME_ABOVE_HEIGHT;
 
   rows.forEach((row, index) => {
-    const top = y + index * BAR_ROW;
+    const top = barTopOf(index) - 1;
     const centreY = top + 1 + BAR_HEIGHT / 2;
     const barWidth = largest > 0 ? (row.value.value / largest) * barRoom : 0;
-    const name = text.fit(row.name, STYLE.name, nameWidth - 12);
+    const name = beside ? row.name : text.fit(row.name, STYLE.name, width);
+    const nameBaseline = beside
+      ? centreY + (STYLE.name.size * CAP_HEIGHT_RATIO) / 2
+      : barTopOf(index) - NAME_ABOVE_HEIGHT + STYLE.name.size * CAP_HEIGHT_RATIO + 1;
 
-    marks.push(text.draw(name, x, centreY + (STYLE.name.size * CAP_HEIGHT_RATIO) / 2, { ...STYLE.name, fill: colours.ink }));
+    marks.push(text.draw(name, x, nameBaseline, { ...STYLE.name, fill: colours.ink }));
     marks.push(
       `<rect x="${round(zero)}" y="${top + 1}" width="${round(Math.max(barWidth, 1))}" height="${BAR_HEIGHT}" rx="2" fill="${row.colour}"/>`,
     );
@@ -496,7 +574,9 @@ function valuesFromZero(
     );
     textLines.push(`${name}  ${shown[index]}`);
   });
-  marks.push(`<path d="M${round(zero)} ${y - 2}V${y + valuesHeight(rows.length) + 2}" stroke="${colours.ruleStrong}" stroke-width="1"/>`);
+  marks.push(
+    `<path d="M${round(zero)} ${round(barTopOf(0) - 3)}V${round(barTopOf(rows.length - 1) + BAR_HEIGHT + 3)}" stroke="${colours.ruleStrong}" stroke-width="1"/>`,
+  );
 
   return { marks: marks.join(""), textLines };
 }
@@ -650,11 +730,8 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   };
   const centreOfLine = (top: number, style: { size: number }) => baselineOf(top, style) - (style.size * CAP_HEIGHT_RATIO) / 2;
 
-  const sharedPair = sharedPairOf(lookup, content);
   const countsWhoIsBest = content.charts?.some((chart) => chart.count === "best") ?? false;
-  const compared = countsWhoIsBest
-    ? `${results.candidates.length} candidates`
-    : (sharedPair ?? `${results.candidates.length - 1} candidates against ${lookup.candidateName.get(results.baseline)}`);
+  const compared = countsWhoIsBest ? `${results.candidates.length} candidates` : comparedOf(lookup, content);
   const eyebrowGroups: EyebrowGroup[] = [
     [
       { text: results.benchmark.id, fill: colours.ink },
@@ -697,6 +774,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   }
 
   cursorY = drawLines(text.wrap(results.benchmark.goal, STYLE.title, innerWidth), STYLE.title, colours.ink, PADDING, cursorY + 16);
+
   cursorY += 30;
 
   const headerRuleY = cursorY;
@@ -724,7 +802,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
       const metric = lookup.metricById.get(comparison.metric)!;
       const labelParts = [
         measuredOf(lookup, comparison),
-        ...(sharedPair ? [] : [lookup.candidateName.get(comparison.candidate)!]),
+        ...[cellPairOf(lookup, content, comparison) ?? []].flat(),
         ...(sharedDirection ? [] : [directionWords(metric)]),
       ].map((part) => part.toUpperCase());
       const { effectNumber, unit } = effectAndInterval(metric, comparison);
@@ -748,7 +826,16 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
         unit: unit.trim(),
         verdict,
         fromZero,
-        drawingHeight: fromZero ? valuesHeight(fromZero.length) : STRIP_HEIGHT + STRIP_SCALE_ROW,
+        drawingHeight: fromZero
+          ? valuesHeight(
+              fromZero.length,
+              namesFitBeside(
+                text,
+                fromZero.map((entry) => lookup.candidateName.get(entry.candidate)!),
+                columnWidth,
+              ),
+            )
+          : STRIP_HEIGHT + STRIP_SCALE_ROW,
         titleLines:
           resolvedTitle && addsInformation(resolvedTitle, lookup, comparison) ? text.wrap(resolvedTitle, STYLE.heading, columnWidth) : [],
         details,
@@ -1161,7 +1248,11 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const readingOfCells =
     content.charts && content.charts.length > 0
       ? [...summaryKeysOf(lookup, content.charts), `Verdicts from ${intervals}.`]
-      : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervals}.`];
+      : [
+          sharedSidesOf(content).vs
+            ? `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(sharedSidesOf(content).vs!)}, with ${intervals}.`
+            : `Effects against the candidate each cell names, with ${intervals}.`,
+        ];
   const legendSentences = [
     ...readingOfCells,
     ...(sharedDirection && !countsWhoIsBest ? [sharedDirection === "lower" ? "Lower is better." : "Higher is better."] : []),

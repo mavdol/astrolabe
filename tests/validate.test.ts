@@ -21,6 +21,12 @@ function loadExample(id: string): { benchmark: Benchmark; rawFiles: Record<strin
   return { benchmark, rawFiles: loadRaw(benchmark.results, path) };
 }
 
+/**
+ * Warnings an example keeps on purpose. speech-to-text is a real agent run, kept as planned: its speed was declared
+ * before measuring on all excerpts, not per condition, and changing that after the results would rewrite its plan.
+ */
+const KEPT_WARNINGS: Record<string, string[]> = { "speech-to-text": ["T13"] };
+
 const errorsOf = (issues: Issue[]) => issues.filter((issue) => issue.severity === "error");
 const rulesOf = (issues: Issue[]) => issues.map((issue) => issue.rule);
 const copyOf = <T>(value: T): T => structuredClone(value);
@@ -30,7 +36,7 @@ describe("the reference examples", () => {
     const { benchmark, rawFiles } = loadExample(id);
     const report = validate(benchmark, rawFiles);
 
-    expect(report.issues).toEqual([]);
+    expect(report.issues.filter((issue) => !(issue.severity === "warning" && KEPT_WARNINGS[id]?.includes(issue.rule)))).toEqual([]);
     expect(report.state).toBe("computed");
     expect(report.resultsHash).toMatch(/^[0-9a-f]{64}$/);
   });
@@ -203,6 +209,33 @@ describe("claims in the presentation", () => {
     });
 
     expect(rulesOf(errorsOf(validate(exploratory, rawFiles).issues))).toEqual(["S11"]);
+  });
+
+  it("an answer follows the rules of a title: templates that name something, no typed number, verdicts that still hold, said as firmly as they are", () => {
+    const withAnswer = (answer: Record<string, unknown>) => ({ ...copyOf(benchmark), answer });
+    const issuesOf = (answer: Record<string, unknown>) =>
+      validate(withAnswer(answer), rawFiles).issues.map((issue) => [issue.severity, issue.rule, issue.path]);
+    const sound = {
+      text: "{candidate:model_a}, likely more accurate, at a higher cost per item",
+      asserts: { accuracy__suite__model_a: "likely better", cost_per_item__suite__model_a: "worse" },
+    };
+
+    expect(issuesOf(sound)).toEqual([]);
+    expect(issuesOf({ text: "{candidate:model_c} wins" })).toEqual([["error", "V26", "answer.text"]]);
+    expect(issuesOf({ text: "{candidate:model_a}, 6 points ahead" })).toEqual([["error", "V26", "answer.text"]]);
+    expect(issuesOf({ ...sound, asserts: { cost_per_item__suite__model_a: "better" } })).toEqual([["error", "V25", "answer.asserts"]]);
+    expect(
+      issuesOf({ text: "{candidate:model_a} is more accurate", asserts: { accuracy__suite__model_a: "likely better" } }),
+      "the words leave out likely",
+    ).toEqual([["warning", "V25", "answer.asserts"]]);
+    expect(issuesOf({ text: "On math, {candidate:model_a}", asserts: { accuracy__math_word__model_a: "inconclusive" } })).toContainEqual([
+      "error",
+      "S11",
+      "answer.asserts",
+    ]);
+    expect(issuesOf({ text: `{candidate:model_a}${", and the rest of a long sentence".repeat(3)}` })).toEqual([
+      ["warning", "V25", "answer.text"],
+    ]);
   });
 
   it("a number typed in a title is refused, a template is not", () => {
@@ -414,7 +447,7 @@ describe("plan checks", () => {
   });
 
   it("measurements on your own machines say where they ran: bare metal, a virtual machine, a container or a CI runner", () => {
-    const { benchmark } = loadExample("js-runtimes");
+    const { benchmark } = loadExample("json-cli-parse");
     const { host: _host, ...environment } = benchmark.results.environment;
     const issues = validate({ ...benchmark, results: { ...benchmark.results, environment } }, {}).issues;
 

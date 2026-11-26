@@ -230,6 +230,15 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
 
     return comparison;
   });
+  // Rows on several parts say which part each is on: "Word error rate" twice would read as one measure.
+  const onSeveralParts = new Set(comparisons.map((comparison) => comparison.node)).size > 1;
+  const measureOf = (comparison: Comparison) => {
+    const label = lookup.metricById.get(comparison.metric)!.label;
+
+    return onSeveralParts && comparison.node !== undefined
+      ? `${label} · ${lookup.nodeLabel.get(comparison.node) ?? comparison.node}`
+      : label;
+  };
   const rows: ComparisonRow[] = comparisons.map((comparison) => {
     const metric = lookup.metricById.get(comparison.metric)!;
     const [baselineValue, candidateValue] = [valueAt(comparison, comparison.vs), valueAt(comparison, comparison.candidate)];
@@ -250,7 +259,7 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
     });
 
     return {
-      title: metric.label,
+      title: measureOf(comparison),
       direction: directionWords(metric),
       sides: [
         side(baselineValue, comparison.vs, baselineColour),
@@ -263,10 +272,12 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
   const levels = levelsOf(comparisons);
   const pairs = [...new Set(comparisons.map((comparison) => `${comparison.candidate} ${comparison.vs}`))];
   const [onlyCandidate, onlyBaseline] = pairs.length === 1 ? pairs[0].split(" ") : [undefined, undefined];
+  const againstOnes = [...new Set(comparisons.map((comparison) => comparison.vs))];
+  const against = againstOnes.length === 1 ? candidateNameOf(lookup, againstOnes[0]) : undefined;
   const primaryComparisons = lookup.results.computed!.primary_comparisons;
   const everyComparisonAdjusted = comparisons.every((comparison) => comparison.adjusted);
   const howToRead = [
-    `Each row: one comparison on its own scale, both bars from zero${onlyBaseline ? `, ${candidateNameOf(lookup, onlyBaseline)} above and ${candidateNameOf(lookup, onlyCandidate!)} below` : ", the baseline above"}.`,
+    `Each row: one comparison on its own scale, both bars from zero${onlyBaseline ? `, ${candidateNameOf(lookup, onlyBaseline)} above and ${candidateNameOf(lookup, onlyCandidate!)} below` : against ? `, ${against} above` : ", the candidate compared with above"}.`,
     levels
       ? `Lines: ${levels} confidence intervals of the values; the interval of each change is printed under it${everyComparisonAdjusted && primaryComparisons > 1 ? `, adjusted for ${primaryComparisons} primary comparisons` : ""}.`
       : "",
@@ -291,12 +302,12 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
       draw: (text, palette, area) => drawComparisonRows(rows, text, palette, area),
     },
     subtitle: `${measuresInWords(comparisons.map((comparison) => lookup.metricById.get(comparison.metric)!.label))}, each on its own scale${
-      onlyCandidate ? "" : ", each candidate against the baseline"
+      onlyCandidate ? "" : against ? `, each candidate against ${against}` : ", pair by pair"
     }`,
     howToRead,
     kind: "Comparison rows, one per measure, each on its own scale",
     table: {
-      header: ["Measure", "Baseline", "Candidate", "Change", "Interval of the change", "Verdict"],
+      header: ["Measure", against ? "Against" : "Compared with", "Candidate", "Change", "Interval of the change", "Verdict"],
       rows: comparisons.map((comparison, index) => {
         const metric = lookup.metricById.get(comparison.metric)!;
         const [baseline, candidate] = rows[index].sides;
@@ -307,7 +318,7 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
         const withIntervalOf = (entry: Side) => `${entry.label}: ${entry.valueText}${entry.intervalText ? ` (${entry.intervalText})` : ""}`;
 
         return [
-          metric.label,
+          measureOf(comparison),
           withIntervalOf(baseline),
           withIntervalOf(candidate),
           asFactor?.factor ?? percent.effect,

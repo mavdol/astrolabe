@@ -9,33 +9,33 @@ const context = { generatorVersion: "0.1.0", buildDate: "2026-11-15" };
 
 describe("what the Markdown output says", () => {
   const usability = renderMarkdown(loadBenchmark("notes-apps-onboarding"), context);
-  const runtimes = renderMarkdown(loadBenchmark("js-runtimes"), context);
+  const speech = renderMarkdown(loadBenchmark("speech-to-text"), context);
 
   it("keeps the interval, the number of observations and the failures next to every value", () => {
-    expect(runtimes).toContain("| Candidate | Median (s) | 95% interval | min | max | n | Failures |");
-    expect(runtimes).toContain("| Deno | 0.241 | 0.238 to 0.243 | 0.231 | 0.258 | 30 | 0 |");
+    expect(speech).toContain("| Node | Candidate | Median (s) | 95% interval | min | max | n | Failures |");
+    expect(speech).toContain("| &emsp;&emsp;Read audiobooks | Whisper tiny | 1.10 | 1.01 to 1.18 | 0.97 | 1.19 | 6 | 0 |");
     expect(usability).toContain("| 5 of 24 |");
   });
 
   it("rounds a value that has no interval to what its lowest and highest observation support", () => {
-    const threeRuns = loadBenchmark("js-runtimes");
-    const wallTimes = threeRuns.results.values!.filter((value) => value.metric === "wall_time");
+    const withoutIntervals = loadBenchmark("speech-to-text");
+    const wallTimes = withoutIntervals.results.values!.filter((value) => value.metric === "time_per_min");
 
     for (const value of wallTimes) {
       delete value.ci;
       delete value.ci_level;
     }
 
-    const table = renderMarkdown(threeRuns, context);
+    const table = renderMarkdown(withoutIntervals, context);
 
-    expect(table).toContain("| Deno | 0.241 | — | 0.231 | 0.258 | 30 | 0 |");
+    expect(table).toContain("| &emsp;&emsp;Read audiobooks | Whisper tiny | 1.10 | — | 0.97 | 1.19 | 6 | 0 |");
     expect(table).toContain("Min and max: the lowest and the highest observation.");
   });
 
   it("marks declared figures, qualified verdicts and results that leave failures out", () => {
     expect(usability).toContain("(declared)");
     expect(usability).toContain("Declared by the author, not computed from raw data.");
-    expect(runtimes).toContain("| likely better | successful attempts only |");
+    expect(speech).toContain("| likely better | successful attempts only |");
     expect(usability).toContain(
       "Create and format a note | −9.4% | −31.5 to +14.8% (95%) | inconclusive | successful attempts only; warning: the candidates did not fail equally often",
     );
@@ -50,24 +50,24 @@ describe("what the Markdown output says", () => {
     expect(suite).toContain("- Price: per token; source: public price page, read on 2026-11-02");
     expect(suite).toContain("- Judge: Judge Model C (family provider-z)");
     expect(suite).toContain("- Items: private, not published");
-    expect(runtimes).toContain("- Variants tried: none other than the one measured");
+    expect(renderMarkdown(loadBenchmark("json-cli-parse"), context)).toContain("- Variants tried: none other than the one measured");
   });
 
   it("states the level of adjusted intervals", () => {
-    expect(runtimes).toContain("(97.5%)");
-    expect(runtimes).toContain("widened together for the 2 comparisons (Bonferroni)");
+    expect(speech).toContain("(99.67%)");
+    expect(speech).toContain("widened together for the 15 comparisons (Bonferroni)");
   });
 
   it("ends with a provenance line that carries the hash of the results", () => {
-    const shortHash = resultsHash(loadBenchmark("js-runtimes").results).slice(0, 12);
+    const shortHash = resultsHash(loadBenchmark("speech-to-text").results).slice(0, 12);
 
-    expect(runtimes.trimEnd().split("\n").at(-1)).toBe(
+    expect(speech.trimEnd().split("\n").at(-1)).toBe(
       `<sub>results sha256 \`${shortHash}\` · 2026-11-15 · source https://github.com/mavdol/astrolabe · built with astrolabe-bench 0.1.0</sub>`,
     );
   });
 
   it("drops the built-with mention when style.attribution is false, and keeps the rest", () => {
-    const benchmark = { ...loadBenchmark("js-runtimes"), style: { attribution: false } };
+    const benchmark = { ...loadBenchmark("speech-to-text"), style: { attribution: false } };
     const lastLine = renderMarkdown(benchmark, context).trimEnd().split("\n").at(-1)!;
 
     expect(lastLine).not.toContain("built with");
@@ -77,7 +77,7 @@ describe("what the Markdown output says", () => {
 
   it("adds the commit and the run link when built in CI", () => {
     const continuousIntegration = { commit: "5e7550ddd55d63b851cc16c56680619ea4ea9808", runUrl: "https://github.com/o/r/actions/runs/1" };
-    const lastLine = renderMarkdown(loadBenchmark("js-runtimes"), { ...context, continuousIntegration })
+    const lastLine = renderMarkdown(loadBenchmark("speech-to-text"), { ...context, continuousIntegration })
       .trimEnd()
       .split("\n")
       .at(-1)!;
@@ -86,9 +86,9 @@ describe("what the Markdown output says", () => {
   });
 
   it("refuses results that have not been computed", () => {
-    const { computed: _stamp, ...plan } = loadBenchmark("js-runtimes").results;
+    const { computed: _stamp, ...plan } = loadBenchmark("speech-to-text").results;
 
-    expect(() => renderMarkdown({ ...loadBenchmark("js-runtimes"), results: plan }, context)).toThrow(/astrolabe compute/);
+    expect(() => renderMarkdown({ ...loadBenchmark("speech-to-text"), results: plan }, context)).toThrow(/astrolabe compute/);
   });
 });
 

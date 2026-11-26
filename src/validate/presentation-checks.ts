@@ -33,6 +33,9 @@ interface Block {
 const LONGEST_TITLE = 60;
 const BLOCKS_WITH_WRITTEN_TITLES = new Set(["headline", "chart", "text"]);
 
+/** The answer after the question at the top of the page: a sentence, read before anything else. */
+export const LONGEST_ANSWER = 90;
+
 function verdictLabel(comparison: Comparison): string {
   return comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
 }
@@ -127,37 +130,73 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
     return comparison;
   };
 
+  const checkTemplates = (text: unknown, path: string) => {
+    if (typeof text !== "string") return;
+
+    for (const [, kind, id] of text.matchAll(TEMPLATE)) {
+      if (!knownIds[kind]) error("V26", path, `unknown template "{${kind}:…}": use candidate, metric, node, effect or verdict`);
+      else if (!knownIds[kind].has(id))
+        error("V26", path, `"{${kind}:${id}}" does not name an existing ${kind === "effect" || kind === "verdict" ? "comparison" : kind}`);
+    }
+  };
+  const checkNoTypedNumber = (text: unknown, path: string, what: string) => {
+    if (typeof text === "string" && /\d/.test(text.replace(TEMPLATE, "")))
+      error("V26", path, `a number is typed in ${what}: numbers come from {effect:id}, and names that contain a digit from {metric:id}`);
+  };
+  /** The verdicts a written claim relies on still hold, rest on primary comparisons, and are said as firmly as they are. */
+  const checkAsserts = (asserts: unknown, words: string, path: string, what: string) => {
+    if (asserts === undefined || typeof asserts !== "object" || asserts === null) return;
+
+    for (const [comparisonId, assertedVerdict] of Object.entries(asserts)) {
+      const comparison = requirePrimary(comparisonId, path, `${what} that states a result`);
+      const assertionHolds = comparison && (assertedVerdict === comparison.verdict || assertedVerdict === verdictLabel(comparison));
+
+      if (comparison && !assertionHolds) {
+        error(
+          "V25",
+          path,
+          `${what} relies on "${comparisonId}" being "${String(assertedVerdict)}", but the computed verdict is "${verdictLabel(comparison)}": rewrite it`,
+        );
+      }
+
+      const saysTheQualifier =
+        words.includes(`{verdict:${comparisonId}}`) || new RegExp(`\\b${comparison?.qualifier ?? ""}\\b`, "i").test(words);
+
+      // Checked on the words, whichever form asserts takes: "likely better" asserted under a title that says "more" is still a firmer claim.
+      if (comparison?.qualifier && assertionHolds && !saysTheQualifier)
+        warning(
+          "V25",
+          path,
+          `${what} relies on "${comparisonId}", whose verdict is "${verdictLabel(comparison)}", but ${what === "the title" ? "neither the title nor the reading says" : `${what} does not say`} "${comparison.qualifier}": write it${assertedVerdict === comparison.verdict ? `, and assert "${verdictLabel(comparison)}"` : ""}`,
+        );
+    }
+  };
+
+  if (benchmark.answer) {
+    const { text, asserts } = benchmark.answer;
+    const shownAnswer = resolveTemplates(text, lookup);
+
+    checkTemplates(text, "answer.text");
+    checkNoTypedNumber(text, "answer.text", "the answer");
+
+    if (shownAnswer.length > LONGEST_ANSWER)
+      warning(
+        "V25",
+        "answer.text",
+        `the answer reads "${shownAnswer}", ${shownAnswer.length} characters: keep it to ${LONGEST_ANSWER} at most; the blocks below it give the detail`,
+      );
+
+    checkAsserts(asserts, text, "answer.asserts", "the answer");
+  }
+
   blocks.forEach((block, blockIndex) => {
     if (TRUST_BLOCK_TYPES.has(block.type)) return;
 
     const path = `blocks[${blockIndex}]`;
 
-    for (const textField of ["title", "description"] as const) {
-      const text = block[textField];
+    for (const textField of ["title", "description"] as const) checkTemplates(block[textField], `${path}.${textField}`);
 
-      if (typeof text !== "string") continue;
-
-      for (const [, kind, id] of text.matchAll(TEMPLATE)) {
-        if (!knownIds[kind])
-          error("V26", `${path}.${textField}`, `unknown template "{${kind}:…}": use candidate, metric, node, effect or verdict`);
-        else if (!knownIds[kind].has(id))
-          error(
-            "V26",
-            `${path}.${textField}`,
-            `"{${kind}:${id}}" does not name an existing ${kind === "effect" || kind === "verdict" ? "comparison" : kind}`,
-          );
-      }
-    }
-
-    const isHeadlineOrChart = block.type === "headline" || block.type === "chart";
-
-    if (isHeadlineOrChart && typeof block.title === "string" && /\d/.test(block.title.replace(TEMPLATE, ""))) {
-      error(
-        "V26",
-        `${path}.title`,
-        "a number is typed in the title: numbers come from {effect:id}, and names that contain a digit from {metric:id}",
-      );
-    }
+    if (block.type === "headline" || block.type === "chart") checkNoTypedNumber(block.title, `${path}.title`, "the title");
 
     if (BLOCKS_WITH_WRITTEN_TITLES.has(block.type) && typeof block.title === "string") {
       const shownTitle = resolveTemplates(block.title, lookup, block.effect_format);
@@ -228,32 +267,7 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
         }
     }
 
-    if (block.asserts !== undefined && typeof block.asserts === "object" && block.asserts !== null) {
-      for (const [comparisonId, assertedVerdict] of Object.entries(block.asserts)) {
-        const comparison = requirePrimary(comparisonId, `${path}.asserts`, "a title that states a result");
-        const assertionHolds = comparison && (assertedVerdict === comparison.verdict || assertedVerdict === verdictLabel(comparison));
-
-        if (comparison && !assertionHolds) {
-          error(
-            "V25",
-            `${path}.asserts`,
-            `the title relies on "${comparisonId}" being "${String(assertedVerdict)}", but the computed verdict is "${verdictLabel(comparison)}": rewrite the title`,
-          );
-        }
-
-        const words = `${String(block.title ?? "")} ${String(block.description ?? "")}`;
-        const saysTheQualifier =
-          words.includes(`{verdict:${comparisonId}}`) || new RegExp(`\\b${comparison?.qualifier ?? ""}\\b`, "i").test(words);
-
-        // Checked on the words, whichever form asserts takes: "likely better" asserted under a title that says "more" is still a firmer claim.
-        if (comparison?.qualifier && assertionHolds && !saysTheQualifier)
-          warning(
-            "V25",
-            `${path}.asserts`,
-            `the title relies on "${comparisonId}", whose verdict is "${verdictLabel(comparison)}", but neither the title nor the reading says "${comparison.qualifier}": write it${assertedVerdict === comparison.verdict ? `, and assert "${verdictLabel(comparison)}"` : ""}`,
-          );
-      }
-    }
+    checkAsserts(block.asserts, `${String(block.title ?? "")} ${String(block.description ?? "")}`, `${path}.asserts`, "the title");
   });
 
   return issues;

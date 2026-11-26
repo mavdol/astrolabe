@@ -94,7 +94,7 @@ export interface PageHead {
   /** The preview image, relative to the site, with its text alternative. */
   previewImage?: { path: string; alt: string; width: number; height: number };
   description: string;
-  /** The pair the title names after the question; the answer itself is in the description and the blocks. */
+  /** What the title says after the question: the author's answer, else who is compared; the description says the claims. */
   answer: Answer;
 }
 
@@ -278,7 +278,8 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" |
   ].map((part) => `<span>${part}</span>`);
   const credit = provenance.attribution ? `<span class="credit"><a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a></span>` : "";
   const lede = results.benchmark.scope ? escapeHtml(results.benchmark.scope) : "";
-  const answer = head.answer.pair ? ` <span class="answer">${escapeHtml(head.answer.pair)}</span>` : "";
+  const afterQuestion = head.answer.stated ?? head.answer.pair;
+  const answer = afterQuestion ? ` <span class="answer">${escapeHtml(afterQuestion)}</span>` : "";
 
   return [
     "<!doctype html>",

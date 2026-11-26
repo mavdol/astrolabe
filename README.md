@@ -35,9 +35,9 @@ It combines a skill and a command-line tool. The skill brings together best prac
     </td>
     <td valign="top" width="40%">
       <picture>
-        <source media="(prefers-color-scheme: light)" srcset="assets/readme/card-light.png">
-        <source media="(prefers-color-scheme: dark)" srcset="assets/readme/card-dark.png">
-        <img alt="A README card: three headline results with their verdicts and intervals" src="assets/readme/card-light.png">
+        <source media="(prefers-color-scheme: light)" srcset="examples/speech-to-text/dist/exports/readme-card-light.svg">
+        <source media="(prefers-color-scheme: dark)" srcset="examples/speech-to-text/dist/exports/readme-card-dark.svg">
+        <img alt="A README card answering which Whisper model to run for podcast transcripts: three headline results with their verdicts and intervals" src="examples/speech-to-text/dist/exports/readme-card-light.svg">
       </picture>
       <br><sub><b>README</b> · a card linked to a full Markdown report</sub>
     </td>

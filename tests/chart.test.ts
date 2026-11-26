@@ -150,11 +150,11 @@ describe("a chart of values", () => {
   });
 
   it("prints at most three significant figures beside a bar, and keeps every supported digit in its table", () => {
-    const runtimes = loadBenchmark("js-runtimes");
-    const chart = draw(runtimes, chartBlock({ chart: "bar", metric: "peak_rss", title: "Peak memory", sort: "declared" }));
+    const speech = loadBenchmark("speech-to-text");
+    const chart = draw(speech, chartBlock({ chart: "bar", metric: "peak_memory", node: "suite", title: "Peak memory", sort: "declared" }));
 
-    expect(chart.textLines).toContain("Node.js  213");
-    expect(chart.table.rows[0]).toEqual(["Node.js", "212.88", "212.81 to 212.92", "30"]);
+    expect(chart.textLines).toContain("Whisper base  395");
+    expect(chart.table.rows[1]).toEqual(["Whisper base", "395.3", "393.7 to 396.0", "24"]);
   });
 
   it("refuses a bar chart of negative values", () => {
@@ -536,6 +536,19 @@ describe("a distribution", () => {
 describe("comparison rows", () => {
   const parsers = loadBenchmark("json-cli-parse");
   const fastjson = chartBlockOf(parsers, "chart-fastjson");
+
+  it("names the part of each row when its rows are on several parts, and the candidate compared with when it is not the baseline", () => {
+    const versions = versionsBenchmarkOf(2);
+    const chart = draw(
+      versions,
+      chartBlock({ chart: "comparison-rows", comparisons: ["wall_time__script-1__next__vs__mid", "wall_time__script-2__next__vs__mid"] }),
+    );
+
+    expect(chart.table.rows.map((row) => row[0])).toEqual(["Wall time · Script 1", "Wall time · Script 2"]);
+    expect(chart.table.header[1]).toBe("Against");
+    expect(chart.howToRead).toContain("both bars from zero, mid above and next below");
+    expect(chart.subtitle).not.toContain("baseline");
+  });
 
   it("shows each comparison on its own row, with a factor and its word, or the verdict instead of a figure", () => {
     const chart = draw(parsers, fastjson);

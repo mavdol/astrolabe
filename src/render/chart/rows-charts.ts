@@ -30,6 +30,7 @@ import {
   statisticWord,
   unionOf,
   valueAxisOf,
+  withUnit,
   type ChartContent,
   type ReadingPart,
   type ChartInputs,
@@ -247,7 +248,7 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
   const plotGroups: ResultGroup[] = groups.map((group, index) => {
     const { unit, factor } = unitOfGroup(index);
     const digits = finestDecimals(group.values.map((value) => decimalsIn(value, factor)));
-    const inUnit = (figure: number) => `${formatNumber(figure * factor, digits)} ${unit}`;
+    const inUnit = (figure: number) => withUnit(formatNumber(figure * factor, digits), unit);
 
     return {
       name: group.heading,

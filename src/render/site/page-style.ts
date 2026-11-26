@@ -191,9 +191,14 @@ main > section + section { border-top: 1px solid var(--rule); }
 .micro .halo { fill: currentColor; fill-opacity: 0.16; }
 .micro.good { color: var(--good); }
 .micro.bad { color: var(--bad); }
-.micro text { font-family: ${MONO}; font-size: 11px; fill: var(--secondary); }
-.micro .name { fill: var(--ink); font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 500; }
-.micro .bar { fill: var(--series, var(--ink)); }
+.micro svg { display: block; width: 100%; height: auto; overflow: visible; }
+.strip-labels { position: relative; height: 16px; margin-top: 4px; font-family: ${MONO}; font-size: 12px; line-height: 16px; color: var(--secondary); }
+.strip-labels span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.micro.values { display: grid; grid-template-columns: fit-content(45%) minmax(48px, 1fr) auto; align-items: center; gap: 8px 10px; }
+.micro.values .name { font-size: 13px; line-height: 17px; font-weight: 500; color: var(--ink); }
+.micro.values .track { display: block; height: 12px; border-left: 1px solid var(--secondary); }
+.micro.values .bar { display: block; height: 100%; border-radius: 0 2px 2px 0; background: var(--series, var(--ink)); }
+.micro.values .value { font-family: ${MONO}; font-size: 12px; color: var(--secondary); white-space: nowrap; }
 
 .chapter, .trust-section { display: grid; grid-template-columns: ${CHAPTER_HEAD_WIDTH}px minmax(0, 1fr); }
 .chapter-head { padding: 48px ${GUTTER}px; border-right: 1px solid var(--rule); }
