@@ -1,6 +1,6 @@
 {
   "name": "astrolabe",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Design, run and report honest benchmarks and comparisons: scripts write the raw data, and the astrolabe command (npm package astrolabe-bench) computes every number and verdict.",
   "author": {
     "name": "Astrolabe"
