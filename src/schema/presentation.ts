@@ -123,6 +123,15 @@ const trustBlock = z.strictObject({ id, type: z.enum(TRUST_BLOCK_TYPES) });
 
 export const blockSchema = z.discriminatedUnion("type", [headlineBlock, summaryBlock, chartBlock, tableBlock, textBlock, trustBlock]);
 
+/**
+ * The answer to the question in one line, written by the author after the results: shown after the question at the
+ * top of the page, its figures from templates, and the verdicts it relies on in asserts, as a title's.
+ */
+export const answerSchema = z.strictObject({
+  text,
+  asserts: z.record(text, z.enum(VERDICT_WORDS)).optional(),
+});
+
 export const exportSchema = z.strictObject({
   id,
   blocks: z.array(id).min(1),
@@ -140,6 +149,7 @@ export type SummaryBlock = z.infer<typeof summaryBlock>;
 export type HeadlineBlock = z.infer<typeof headlineBlock>;
 export type TableBlock = z.infer<typeof tableBlock>;
 export type Export = z.infer<typeof exportSchema>;
+export type Answer = z.infer<typeof answerSchema>;
 export type ChartType = (typeof CHART_TYPES)[number];
 export type ExportSize = (typeof EXPORT_SIZES)[number];
 

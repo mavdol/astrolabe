@@ -15,7 +15,7 @@ import {
   summaryClaimOf,
   type SummaryChart,
 } from "../summary.js";
-import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
+import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, resolveTemplates, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
 import { pageModeOf, pageRowsOf, renderPage, type PageHead } from "./page.js";
@@ -97,6 +97,8 @@ export const LONGEST_TITLE_PAIR = 50;
 
 /** The top of the page: a short pair after the question, and the answer in words for link previews and search results. */
 export interface Answer {
+  /** The author's answer, written after the results, with its templates filled: the title shows it instead of the pair. */
+  stated?: string;
   /** "quickmark compared with markly", left out when longer than LONGEST_TITLE_PAIR. */
   pair?: string;
   /** The claim the page leads with, then a count of the other primary comparisons. */
@@ -115,11 +117,14 @@ export function answerPartsOf(benchmark: Benchmark): Answer {
   const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
   const lead = leadOf(benchmark, claims);
 
-  if (!lead) return {};
+  const stated = benchmark.answer ? resolveTemplates(benchmark.answer.text, lookup) : undefined;
+  const asSentence = (words: string) => (/[.!?]$/.test(words) ? words : `${words}.`);
+
+  if (!lead) return stated ? { stated, description: asSentence(stated) } : {};
 
   const baseline = lookup.candidateName.get(benchmark.results.baseline);
   const comparedNames = comparedNamesOf(benchmark, claims);
-  const stated = "chart" in lead ? comparisonsOfChart(lead.chart) : [lead.comparison];
+  const statedComparisons = "chart" in lead ? comparisonsOfChart(lead.chart) : [lead.comparison];
   const pairs =
     "chart" in lead
       ? [
@@ -140,13 +145,14 @@ export function answerPartsOf(benchmark: Benchmark): Answer {
     "chart" in lead
       ? lead.chart.summaries.map((summary) => summaryClaimOf(lookup, summary)).join(" ")
       : `${pairOf(lookup, lead.comparison)}: ${lowerFirstLetterOfWord(measuredOf(lookup, lead.comparison))} ${effectAndInterval(lookup.metricById.get(lead.comparison.metric)!, lead.comparison).effect}, ${verdictLabel(lead.comparison)}.`;
-  const others = claims.filter((other) => !stated.includes(other));
+  const others = claims.filter((other) => !statedComparisons.includes(other));
   const othersCounted =
     others.length > 0 ? `${others.length} more result${others.length === 1 ? "" : "s"}: ${countsByVerdict(others)}.` : "";
 
   return {
+    ...(stated ? { stated } : {}),
     pair: pairs.find((pair) => pair.length <= LONGEST_TITLE_PAIR),
-    description: [claim, othersCounted].filter(Boolean).join(" "),
+    description: [stated ? asSentence(stated) : "", claim, othersCounted].filter(Boolean).join(" "),
   };
 }
 
