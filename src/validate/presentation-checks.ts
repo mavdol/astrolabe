@@ -33,9 +33,6 @@ interface Block {
 const LONGEST_TITLE = 60;
 const BLOCKS_WITH_WRITTEN_TITLES = new Set(["headline", "chart", "text"]);
 
-/** The answer after the question at the top of the page: a sentence, read before anything else. */
-export const LONGEST_ANSWER = 90;
-
 function verdictLabel(comparison: Comparison): string {
   return comparison.qualifier ? `${comparison.qualifier} ${comparison.verdict}` : comparison.verdict;
 }
@@ -171,23 +168,6 @@ export function checkPresentation(benchmark: Benchmark): Issue[] {
         );
     }
   };
-
-  if (benchmark.answer) {
-    const { text, asserts } = benchmark.answer;
-    const shownAnswer = resolveTemplates(text, lookup);
-
-    checkTemplates(text, "answer.text");
-    checkNoTypedNumber(text, "answer.text", "the answer");
-
-    if (shownAnswer.length > LONGEST_ANSWER)
-      warning(
-        "V25",
-        "answer.text",
-        `the answer reads "${shownAnswer}", ${shownAnswer.length} characters: keep it to ${LONGEST_ANSWER} at most; the blocks below it give the detail`,
-      );
-
-    checkAsserts(asserts, text, "answer.asserts", "the answer");
-  }
 
   blocks.forEach((block, blockIndex) => {
     if (TRUST_BLOCK_TYPES.has(block.type)) return;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { answerSchema, blockSchema, exportSchema, filterSchema, styleSchema } from "./presentation.js";
+import { blockSchema, exportSchema, filterSchema, styleSchema } from "./presentation.js";
 
 /** Version of the file format. */
 export const SCHEMA_VERSION = "0.5";
@@ -272,13 +272,12 @@ export const resultsSchema = z.strictObject({
     .optional(),
 });
 
-/** The whole file: one verifiable part, results, and six presentation sections. */
+/** The whole file: one verifiable part, results, and five presentation sections. */
 export const benchmarkSchema = z.looseObject({
   $schema: z.string().optional(),
   schema_version: z.literal(SCHEMA_VERSION),
   results: resultsSchema,
   style: styleSchema.optional(),
-  answer: answerSchema.optional(),
   filters: z.array(filterSchema).optional(),
   layout: z.array(z.array(z.string()).min(1)).optional(),
   blocks: z.array(blockSchema).optional(),

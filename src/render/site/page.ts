@@ -5,7 +5,6 @@ import { lookupOf, provenanceParts } from "../describe.js";
 import { summaryChartsOf, type SummaryChart } from "../summary.js";
 import { blockHtml, downloadLinksOf, sectionLabel, sectionLabelsOf, type PageInputs } from "./blocks.js";
 import { CHAPTER_HEAD_WIDTH, GUTTER, PAGE_WIDTH } from "./page-style.js";
-import type { Answer } from "./write-site.js";
 import { escapeHtml } from "./html.js";
 
 const ASTROLABE_REPOSITORY = "https://github.com/mavdol/astrolabe";
@@ -93,9 +92,8 @@ export interface PageHead {
   url?: string;
   /** The preview image, relative to the site, with its text alternative. */
   previewImage?: { path: string; alt: string; width: number; height: number };
+  /** The claims in words, for link previews and search results. */
   description: string;
-  /** What the title says after the question: the author's answer, else who is compared; the description says the claims. */
-  answer: Answer;
 }
 
 /**
@@ -278,8 +276,6 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" |
   ].map((part) => `<span>${part}</span>`);
   const credit = provenance.attribution ? `<span class="credit"><a href="${ASTROLABE_REPOSITORY}">Built with Astrolabe</a></span>` : "";
   const lede = results.benchmark.scope ? escapeHtml(results.benchmark.scope) : "";
-  const afterQuestion = head.answer.stated ?? head.answer.pair;
-  const answer = afterQuestion ? ` <span class="answer">${escapeHtml(afterQuestion)}</span>` : "";
 
   return [
     "<!doctype html>",
@@ -292,7 +288,7 @@ export function renderPage(inputs: Omit<PageInputs, "lookup" | "sectionLabels" |
     '<main id="top">',
     '<section class="hero">',
     `<p class="mono-label hero-label"><span><span class="tick-mark" aria-hidden="true"></span><span class="benchmark-name">${escapeHtml(results.benchmark.id)}</span> <span class="benchmark-version">v${escapeHtml(results.benchmark.version)}</span></span> <span>updated ${escapeHtml(provenance.date)}</span> <span>baseline ${escapeHtml(lookup.candidateName.get(results.baseline)!)}</span></p>`,
-    `<h1><span class="question">${escapeHtml(results.benchmark.goal)}</span>${answer}</h1>`,
+    `<h1>${escapeHtml(results.benchmark.goal)}</h1>`,
     lede ? `<p class="lede">${lede}</p>` : "",
     "</section>",
     ...sections,

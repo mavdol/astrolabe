@@ -40,10 +40,6 @@ Exports     the README card (light and dark), a wide image of the effect chart
 
 The user amends it; then write the sections, run `astrolabe validate`, and build. Running unattended, choose with the recommendations in charts.md, and list in the final reply each alternative you took and why.
 
-## The answer, after the question
-
-`answer` is the answer in one line, shown after the question at the top of the page and first in the description a shared link shows (the README card keeps the question alone): `{ "text": "Use {candidate:quickmark}: as fast as {candidate:markly}, with half the memory", "asserts": { "wall_time__quickmark": "equivalent", "peak_rss__quickmark": "better" } }`. Write it once the results are in, when they point to an answer: it weighs what the user said matters, as a recommendation does (presentation.md), and it follows the rules of a title (style.md): figures and names from templates, the verdicts it relies on in `asserts`, "likely" said where a verdict is likely, 90 characters at most. Without it, the top of the page names who is compared ("quickmark compared with markly", "3 candidates"). Leave it out when no comparison settles the question: the blocks then show why.
-
 ## Blocks and their order
 
 `blocks` lists every block once; `layout` places them, one array per row. Two blocks per row read well, three when they are all headlines or summaries; more and each gets too narrow. Order the rows from the answer to the evidence:
