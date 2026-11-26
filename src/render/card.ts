@@ -307,9 +307,12 @@ function rangeOfChildren(lookup: Lookup, comparison: Comparison): string | null 
   const childLevel = lookup.results.structure?.nodes.find((node) => node.id === sorted[0].node)?.level ?? "group";
   const groups = pluralOf(childLevel);
 
-  if (lowest.effect === highest.effect) return `${lowest.effect} in every one of the ${groups}`;
+  // A range stays in its unit: a factor after it would read as the factor of the whole range.
+  const [lowestText, highestText] = [lowest, highest].map((end) => `${end.effectNumber}${end.unit}`);
 
-  return `From ${lowest.effectNumber} to ${highest.effect} across ${groups}`;
+  if (lowestText === highestText) return `${lowestText} in every one of the ${groups}`;
+
+  return `From ${lowest.effectNumber} to ${highestText} across ${groups}`;
 }
 
 function observationsOf(lookup: Lookup, comparison: Comparison): string | null {

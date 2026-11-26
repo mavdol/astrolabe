@@ -1089,9 +1089,18 @@ describe("the site", () => {
     const headline = (id: string) =>
       support.html.match(new RegExp(`<article class="block stat headline" id="${id}">[\\s\\S]*?</article>`))![0];
 
-    expect(headline("headline-cost")).toContain('<svg class="micro values"');
-    expect(headline("headline-cost")).toMatch(/<text class="name"[^>]*>Model A<\/text>/);
-    expect(headline("headline-accuracy")).toContain('<svg class="micro strip good"');
+    expect(headline("headline-cost")).toContain('<div class="micro values"');
+    expect(headline("headline-cost"), "names are text of the page, never shrunk with a drawing").toContain(
+      '<span class="name">Model A</span>',
+    );
+    expect(headline("headline-accuracy")).toContain('<div class="micro strip good"');
+    expect(headline("headline-accuracy"), "the strip's labels too").toMatch(
+      /<div class="strip-labels"><span style="left: [\d.]+%">0<\/span>/,
+    );
+    expect(headline("headline-accuracy")).not.toContain("<text");
+    expect(headline("headline-cost"), "a range stays in percent, its factor would read as the whole range's").toContain(
+      "<li>+265% in every one of the categories</li>",
+    );
     expect(headline("headline-accuracy")).toContain(
       '<p class="figure good"><span data-count="6.4" data-decimals="1">+6.4</span><small>points</small></p>',
     );

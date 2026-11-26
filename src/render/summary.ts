@@ -331,8 +331,11 @@ export function effectRangeOf(lookup: Lookup, summary: Summary): string {
   const lowest = effectAndInterval(metric, sorted[0]);
   const highest = effectAndInterval(metric, sorted[sorted.length - 1]);
 
-  if (lowest.unit.trim() !== "%")
-    return lowest.effect === highest.effect ? `${lowest.effect} on every one` : `From ${lowest.effectNumber} to ${highest.effect}`;
+  if (lowest.unit.trim() !== "%") {
+    const [lowestText, highestText] = [lowest, highest].map((end) => `${end.effectNumber}${end.unit}`);
+
+    return lowestText === highestText ? `${lowestText} on every one` : `From ${lowest.effectNumber} to ${highestText}`;
+  }
 
   const words = directionWordsOf(metric);
   const sideOf = (effect: number) => (effect < 0 === (metric.direction === "lower") ? words.better : words.worse);
