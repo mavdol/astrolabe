@@ -224,8 +224,8 @@ function sharedSidesOf(content: CardContent): { candidate?: string; vs?: string 
   };
 }
 
-/** The longest line naming who the card compares; past it, the candidates are counted instead. */
-const LONGEST_COMPARED = 56;
+/** The longest line naming who the card compares, two lines of its eyebrow at most; past it, the candidates are counted instead. */
+const LONGEST_COMPARED = 72;
 
 /** Who the card compares, named once above the question: the shared pair, one candidate against several, or several against one. */
 function comparedOf(lookup: Lookup, content: CardContent): string {
@@ -245,7 +245,12 @@ function comparedOf(lookup: Lookup, content: CardContent): string {
       : opponents.length === 1
         ? `${listedNames(subjects.map(name))} against ${name(opponents[0])}`
         : listedNames(involved.map(name));
-  const counted = opponents.length === 1 ? `${subjects.length} candidates against ${name(opponents[0])}` : `${involved.length} candidates`;
+  const counted =
+    subjects.length === 1
+      ? `${name(subjects[0])} against ${opponents.length} candidates`
+      : opponents.length === 1
+        ? `${subjects.length} candidates against ${name(opponents[0])}`
+        : `${involved.length} candidates`;
 
   return named.length <= LONGEST_COMPARED ? named : counted;
 }
@@ -1262,7 +1267,11 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   const readingOfCells =
     content.charts && content.charts.length > 0
       ? [...summaryKeysOf(lookup, content.charts), `Verdicts from ${intervals}.`]
-      : [`${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(results.baseline)}, with ${intervals}.`];
+      : [
+          sharedSidesOf(content).vs
+            ? `${isSingle ? "Effect" : "Effects"} against ${lookup.candidateName.get(sharedSidesOf(content).vs!)}, with ${intervals}.`
+            : `Effects against the candidate each cell names, with ${intervals}.`,
+        ];
   const legendSentences = [
     ...readingOfCells,
     ...(sharedDirection && !countsWhoIsBest ? [sharedDirection === "lower" ? "Lower is better." : "Higher is better."] : []),

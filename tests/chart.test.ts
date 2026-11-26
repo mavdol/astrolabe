@@ -150,11 +150,11 @@ describe("a chart of values", () => {
   });
 
   it("prints at most three significant figures beside a bar, and keeps every supported digit in its table", () => {
-    const runtimes = loadBenchmark("js-runtimes");
-    const chart = draw(runtimes, chartBlock({ chart: "bar", metric: "peak_rss", title: "Peak memory", sort: "declared" }));
+    const speech = loadBenchmark("speech-to-text");
+    const chart = draw(speech, chartBlock({ chart: "bar", metric: "peak_memory", node: "suite", title: "Peak memory", sort: "declared" }));
 
-    expect(chart.textLines).toContain("Node.js  213");
-    expect(chart.table.rows[0]).toEqual(["Node.js", "212.88", "212.81 to 212.92", "30"]);
+    expect(chart.textLines).toContain("Whisper base  395");
+    expect(chart.table.rows[1]).toEqual(["Whisper base", "395.3", "393.7 to 396.0", "24"]);
   });
 
   it("refuses a bar chart of negative values", () => {

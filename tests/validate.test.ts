@@ -21,6 +21,12 @@ function loadExample(id: string): { benchmark: Benchmark; rawFiles: Record<strin
   return { benchmark, rawFiles: loadRaw(benchmark.results, path) };
 }
 
+/**
+ * Warnings an example keeps on purpose. speech-to-text is a real agent run, kept as planned: its speed was declared
+ * before measuring on all excerpts, not per condition, and changing that after the results would rewrite its plan.
+ */
+const KEPT_WARNINGS: Record<string, string[]> = { "speech-to-text": ["T13"] };
+
 const errorsOf = (issues: Issue[]) => issues.filter((issue) => issue.severity === "error");
 const rulesOf = (issues: Issue[]) => issues.map((issue) => issue.rule);
 const copyOf = <T>(value: T): T => structuredClone(value);
@@ -30,7 +36,7 @@ describe("the reference examples", () => {
     const { benchmark, rawFiles } = loadExample(id);
     const report = validate(benchmark, rawFiles);
 
-    expect(report.issues).toEqual([]);
+    expect(report.issues.filter((issue) => !(issue.severity === "warning" && KEPT_WARNINGS[id]?.includes(issue.rule)))).toEqual([]);
     expect(report.state).toBe("computed");
     expect(report.resultsHash).toMatch(/^[0-9a-f]{64}$/);
   });
@@ -414,7 +420,7 @@ describe("plan checks", () => {
   });
 
   it("measurements on your own machines say where they ran: bare metal, a virtual machine, a container or a CI runner", () => {
-    const { benchmark } = loadExample("js-runtimes");
+    const { benchmark } = loadExample("json-cli-parse");
     const { host: _host, ...environment } = benchmark.results.environment;
     const issues = validate({ ...benchmark, results: { ...benchmark.results, environment } }, {}).issues;
 

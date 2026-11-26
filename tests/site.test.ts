@@ -82,11 +82,12 @@ describe("the rows of the page", () => {
   });
 
   it("answer the question of a file with no presentation with its primary comparisons", () => {
-    const rows = pageRowsOf(loadBenchmark("js-runtimes"));
+    const rows = pageRowsOf({ ...loadBenchmark("json-cli-parse"), blocks: undefined, layout: undefined });
 
     expect(rows[0].map((block) => [block.type, "comparison" in block ? block.comparison : ""])).toEqual([
-      ["headline", "wall_time__deno"],
-      ["headline", "peak_rss__deno"],
+      ["headline", "wall_time__fastjson"],
+      ["headline", "wall_time__tinyjson"],
+      ["headline", "wall_time__tinyjson__vs__fastjson"],
     ]);
   });
 });
@@ -949,9 +950,12 @@ describe("the site", () => {
   });
 
   it("says when no blocks are declared, so the page has headlines only, and stays quiet when they are", () => {
-    const noBlocksWarning = (id: string) => buildSite(id).built.warnings.filter((warning) => warning.startsWith("no blocks declared"));
+    const noBlocksWarning = (id: string, without: Partial<Benchmark> = {}) =>
+      buildSite(id, { benchmark: { ...loadBenchmark(id), ...without } }).built.warnings.filter((warning) =>
+        warning.startsWith("no blocks declared"),
+      );
 
-    expect(noBlocksWarning("js-runtimes")).toEqual([
+    expect(noBlocksWarning("json-cli-parse", { blocks: undefined, layout: undefined })).toEqual([
       "no blocks declared: the page shows only the first primary comparisons as headlines, with no chart or table; visualization/page.md says how to choose them",
     ]);
     expect(noBlocksWarning("json-cli-parse")).toEqual([]);

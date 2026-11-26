@@ -16,8 +16,9 @@ const loadBenchmark = (id: string): Benchmark => benchmarkSchema.parse(JSON.pars
 const context = { generatorVersion: "0.1.0", buildDate: "2026-11-15" };
 
 describe("the README card", () => {
-  const runtimes = loadBenchmark("js-runtimes");
-  const card = renderCard(runtimes, cardContentOf(runtimes), "light", context);
+  const speech = loadBenchmark("speech-to-text");
+  const readmeHeadlines = ["headline-clean", "headline-time", "headline-medium"];
+  const card = renderCard(speech, cardContentOf(speech, readmeHeadlines), "light", context);
 
   it("is a standalone image: no text element, no script, no external resource", () => {
     expect(card.svg).not.toMatch(/<text|<script|<foreignObject|<image|@import|url\(/);
@@ -25,38 +26,60 @@ describe("the README card", () => {
     for (const reference of card.svg.matchAll(/href="([^"]*)"/g)) expect(reference[1]).toMatch(/^#g/);
   });
 
-  it("can be read alone: the question, effects, verdicts, intervals, how to read and the provenance", () => {
+  it("can be read alone: the question and its answer, effects, verdicts, intervals, how to read and the provenance", () => {
     expect(card.textLines).toEqual([
-      "js-runtimes v1.0.0 · DENO AGAINST NODE.JS",
-      "Node.js or Deno: which runs our short scripts faster and with less",
-      "memory?",
-      "WALL TIME",
-      "\u221210%",
+      "speech-to-text v1.1.0 · WHISPER LARGE-V3-TURBO AGAINST WHISPER SMALL AND WHISPER MEDIUM",
+      "Which Whisper model should we run with whisper.cpp for",
+      "podcast transcripts?",
+      "Use Whisper large-v3-turbo: as accurate as Whisper medium on",
+      "clean audio, likely faster",
+      "WORD ERROR RATE, CLEAN",
+      "AUDIO",
+      "AGAINST WHISPER SMALL",
+      "\u22122.1 points",
       "LIKELY BETTER",
-      "Deno  0.241 s",
-      "Node.js  0.269 s",
-      "Interval \u221212 to \u22129%",
-      "Median, n = 30 each",
+      "\u22122  0  +2",
+      "Interval \u22123.5 to \u22121.0 points",
+      "Mean, n = 12 each",
+      "From \u22122.9 to \u22121.3 points",
+      "across sources",
       "Successful attempts only",
-      "PEAK MEMORY",
-      "+1.1%",
+      "TIME PER MINUTE OF AUDIO",
+      "AGAINST WHISPER SMALL",
+      "+97%",
+      "WORSE",
+      "Whisper large-v3-turbo  6.3 s",
+      "Whisper small  3.2 s",
+      "Interval +24 to +136%",
+      "Median, n = 24 each",
+      "From +90 to +103% across",
+      "conditions",
+      "Successful attempts only",
+      "WORD ERROR RATE, CLEAN",
+      "AUDIO",
+      "AGAINST WHISPER MEDIUM",
+      "\u22120.2 points",
       "EQUIVALENT",
-      "Deno  215 MiB",
-      "Node.js  213 MiB",
-      "Interval +1.0 to +1.2%",
-      "Median, n = 30 each",
+      "\u22122  0  +2",
+      "Interval \u22120.9 to +0.7 points",
+      "Mean, n = 12 each",
+      "From \u22120.4 to \u22120.1 points",
+      "across sources",
       "Successful attempts only",
-      "Effects against Node.js, with 97.5% intervals. Lower is better.",
-      "Measured on Apple M2 · macOS 26.6.2 · Bare metal",
+      "Effects against the candidate each cell names, with 99.67% intervals.",
+      "Lower is better.",
+      "Shaded band: too small to matter.",
+      "12 more results in the full report: 1 better, 3 likely better, 6 unclear, 2 worse.",
+      "Measured on Apple MacBook \u00b7 macOS 26.6.2 \u00b7 Bare metal",
       expect.stringMatching(/^github\.com\/mavdol\/astrolabe · results [0-9a-f]{12} · 2026-11-15 · Built with Astrolabe$/),
     ]);
   });
 
-  it("carries a text alternative for screen readers and for the README image", () => {
+  it("carries a text alternative for screen readers and for the README image, the answer first", () => {
     expect(card.svg).toContain('role="img"');
     expect(card.svg).toContain(`<title id="title">${card.altText}</title>`);
-    expect(card.altText).toBe(
-      "Deno against Node.js: wall time (lower is better) −10%, likely better; peak memory (lower is better) +1.1%, equivalent.",
+    expect(card.altText).toMatch(
+      /^Use Whisper large-v3-turbo: as accurate as Whisper medium on clean audio, likely faster\. Whisper large-v3-turbo against Whisper small, word error rate, Clean audio \(lower is better\) \u22122\.1 points, likely better;/,
     );
   });
 
@@ -68,18 +91,31 @@ describe("the README card", () => {
     expect(card.svg, "no filled badge").not.toMatch(/height="2[0-9]" rx="\d" fill="#/);
   });
 
-  it("draws a change in percent as the two values it compares, from zero, each in its candidate's colour", () => {
-    const series = seriesStylesOf(["node", "deno"], runtimes.style, "light");
-    const bars = [...card.svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="12" rx="2" fill="(#[0-9a-f]+)"\/>/g)];
+  it("draws a change in percent as the two values it compares, from zero, each in its candidate's colour, a long name above its bar", () => {
+    const series = seriesStylesOf(
+      speech.results.candidates.map((candidate) => candidate.id),
+      speech.style,
+      "light",
+    );
+    const bars = [...card.svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="12" rx="2" fill="(#[0-9a-f]+)"\/>/g)];
 
-    expect(bars.map((bar) => bar[3])).toEqual([
-      series.get("deno")!.colour,
-      series.get("node")!.colour,
-      series.get("deno")!.colour,
-      series.get("node")!.colour,
+    expect(bars.map((bar) => bar[4])).toEqual([series.get("turbo")!.colour, series.get("small")!.colour]);
+    expect(new Set(bars.map((bar) => bar[1])).size, "both bars start at the same zero").toBe(1);
+    expect(Number(bars[1][3]), "the smaller model's shorter time is the shorter bar").toBeLessThan(Number(bars[0][3]));
+    expect(card.textLines, "never cut").toContain("Whisper large-v3-turbo  6.3 s");
+  });
+
+  it("names the pair once when every headline shares it, else what each cell compares", () => {
+    const parsers = loadBenchmark("json-cli-parse");
+    const shared = renderCard(parsers, cardContentOf(parsers, ["headline-time", "headline-memory"]), "light", context);
+
+    expect(shared.textLines[0]).toBe("json-cli-parse v1.0.0 · FASTJSON AGAINST STDJSON");
+    expect(shared.textLines).not.toContain("AGAINST STDJSON");
+    expect(card.textLines.filter((line) => line.startsWith("AGAINST "))).toEqual([
+      "AGAINST WHISPER SMALL",
+      "AGAINST WHISPER SMALL",
+      "AGAINST WHISPER MEDIUM",
     ]);
-    expect(new Set(bars.slice(0, 2).map((bar) => bar[1])).size, "both bars start at the same zero").toBe(1);
-    expect(Number(bars[0][2]), "Deno's shorter time is the shorter bar").toBeLessThan(Number(bars[1][2]));
   });
 
   it("draws a difference as a dot, its interval as a capped line and the smallest difference that matters as a band", () => {
@@ -94,7 +130,7 @@ describe("the README card", () => {
   });
 
   it("changes only its colours between light and dark", () => {
-    const dark = renderCard(runtimes, cardContentOf(runtimes), "dark", context);
+    const dark = renderCard(speech, cardContentOf(speech, readmeHeadlines), "dark", context);
 
     expect(dark.textLines).toEqual(card.textLines);
     expect(dark.svg).not.toBe(card.svg);
@@ -106,7 +142,7 @@ describe("the README card", () => {
   });
 
   it("is the same bytes for the same results and date", () => {
-    expect(renderCard(runtimes, cardContentOf(runtimes), "light", context).svg).toBe(card.svg);
+    expect(renderCard(speech, cardContentOf(speech, readmeHeadlines), "light", context).svg).toBe(card.svg);
   });
 });
 
@@ -390,8 +426,8 @@ describe("exports", () => {
   });
 
   it("renders the PNG at twice the card's size, with the same picture", () => {
-    const runtimes = loadBenchmark("js-runtimes");
-    const svg = renderCard(runtimes, cardContentOf(runtimes), "light", context).svg;
+    const speech = loadBenchmark("speech-to-text");
+    const svg = renderCard(speech, cardContentOf(speech, ["headline-clean", "headline-time", "headline-medium"]), "light", context).svg;
     const png = decodePng(pngOf(svg));
     const svgWidth = Number(/width="(\d+)"/.exec(svg)![1]);
     const svgHeight = Number(/height="(\d+)"/.exec(svg)![1]);
@@ -402,7 +438,7 @@ describe("exports", () => {
   });
 
   it("writes a default README card in both modes when the file declares no export", () => {
-    expect(exportPlanOf(loadBenchmark("js-runtimes"))).toEqual({
+    expect(exportPlanOf({ ...loadBenchmark("speech-to-text"), exports: undefined })).toEqual({
       cards: [{ id: "readme-card", modes: ["light", "dark"] }],
       images: [],
       skipped: [],
