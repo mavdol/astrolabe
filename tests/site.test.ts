@@ -791,6 +791,19 @@ describe("the site", () => {
     ]);
   });
 
+  it("says the author's answer after the question when the file gives one, and leads the description with it", () => {
+    const speech = loadBenchmark("speech-to-text");
+    const answer = "Use Whisper large-v3-turbo: as accurate as Whisper medium on clean audio, likely faster";
+    const page = buildSite("speech-to-text").html;
+
+    expect(answerPartsOf(speech).stated).toBe(answer);
+    expect(page).toContain(`<span class="answer">${answer}</span></h1>`);
+    expect(answerOf(speech).startsWith(`${answer}. `)).toBe(true);
+    expect(buildSite("speech-to-text", { benchmark: { ...speech, answer: undefined } }).html).toContain(
+      '<span class="answer">5 candidates</span></h1>',
+    );
+  });
+
   it("names every candidate the claims compare, and writes as exact the values whose observations never vary", () => {
     const prices = { base: 10, mid: 12, next: 15 };
     const plan = planOf({

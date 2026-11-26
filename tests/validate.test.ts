@@ -211,6 +211,33 @@ describe("claims in the presentation", () => {
     expect(rulesOf(errorsOf(validate(exploratory, rawFiles).issues))).toEqual(["S11"]);
   });
 
+  it("an answer follows the rules of a title: templates that name something, no typed number, verdicts that still hold, said as firmly as they are", () => {
+    const withAnswer = (answer: Record<string, unknown>) => ({ ...copyOf(benchmark), answer });
+    const issuesOf = (answer: Record<string, unknown>) =>
+      validate(withAnswer(answer), rawFiles).issues.map((issue) => [issue.severity, issue.rule, issue.path]);
+    const sound = {
+      text: "{candidate:model_a}, likely more accurate, at a higher cost per item",
+      asserts: { accuracy__suite__model_a: "likely better", cost_per_item__suite__model_a: "worse" },
+    };
+
+    expect(issuesOf(sound)).toEqual([]);
+    expect(issuesOf({ text: "{candidate:model_c} wins" })).toEqual([["error", "V26", "answer.text"]]);
+    expect(issuesOf({ text: "{candidate:model_a}, 6 points ahead" })).toEqual([["error", "V26", "answer.text"]]);
+    expect(issuesOf({ ...sound, asserts: { cost_per_item__suite__model_a: "better" } })).toEqual([["error", "V25", "answer.asserts"]]);
+    expect(
+      issuesOf({ text: "{candidate:model_a} is more accurate", asserts: { accuracy__suite__model_a: "likely better" } }),
+      "the words leave out likely",
+    ).toEqual([["warning", "V25", "answer.asserts"]]);
+    expect(issuesOf({ text: "On math, {candidate:model_a}", asserts: { accuracy__math_word__model_a: "inconclusive" } })).toContainEqual([
+      "error",
+      "S11",
+      "answer.asserts",
+    ]);
+    expect(issuesOf({ text: `{candidate:model_a}${", and the rest of a long sentence".repeat(3)}` })).toEqual([
+      ["warning", "V25", "answer.text"],
+    ]);
+  });
+
   it("a number typed in a title is refused, a template is not", () => {
     const typedNumber = withBlock({ id: "claim", type: "headline", comparison: "accuracy__suite__model_a", title: "6 points ahead" });
 

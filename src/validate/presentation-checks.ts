@@ -32,6 +32,7 @@ interface Block {
 /** A claim read at a glance: one line on the page, the card and the images. */
 const LONGEST_TITLE = 60;
 const BLOCKS_WITH_WRITTEN_TITLES = new Set(["headline", "chart", "text"]);
+
 /** The answer after the question at the top of the page: a sentence, read before anything else. */
 export const LONGEST_ANSWER = 90;
 
