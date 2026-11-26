@@ -167,7 +167,7 @@ const PROOFS: Record<string, Proof> = {
   V6: { test: "tests/chart.test.ts", title: "shares its scale with the blocks it names" },
   V7: {
     test: "tests/card.test.ts",
-    title: "can be read alone: the question and its answer, effects, verdicts, intervals, how to read and the provenance",
+    title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
   },
   V9: { test: "tests/chart.test.ts", title: "draws a log scale with real values on its ticks, names it, and refuses bars on it" },
   V11: { test: "tests/chart.test.ts", title: "draws the interval of every value that has one" },
@@ -180,25 +180,25 @@ const PROOFS: Record<string, Proof> = {
   V26: { test: "tests/validate.test.ts", title: "a number typed in a title is refused, a template is not" },
   V27: {
     test: "tests/card.test.ts",
-    title: "can be read alone: the question and its answer, effects, verdicts, intervals, how to read and the provenance",
+    title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
   },
   V31: { test: "tests/markdown.test.ts", title: "keeps the interval, the number of observations and the failures next to every value" },
   V33: { test: "tests/validate.test.ts", title: "a filter default that is not one of its options is refused" },
   V34: { test: "tests/site.test.ts", title: "shows no value that only a pointer can reach" },
   V41: {
     test: "tests/card.test.ts",
-    title: "can be read alone: the question and its answer, effects, verdicts, intervals, how to read and the provenance",
+    title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
   },
   V42: {
     test: "tests/card.test.ts",
-    title: "can be read alone: the question and its answer, effects, verdicts, intervals, how to read and the provenance",
+    title: "can be read alone: the question, effects, verdicts, intervals, how to read and the provenance",
   },
   V43: {
     test: "tests/chart.test.ts",
     title: "plans a wide or square image of one chart, in light mode unless asked otherwise, with the default filter state",
   },
   V44: { test: "tests/markdown.test.ts", title: "keeps the interval, the number of observations and the failures next to every value" },
-  V46: { test: "tests/card.test.ts", title: "carries a text alternative for screen readers and for the README image, the answer first" },
+  V46: { test: "tests/card.test.ts", title: "carries a text alternative for screen readers and for the README image" },
   V47: { test: "tests/chart.test.ts", title: "gives every chart type a data table and a text alternative" },
   V48: {
     test: "tests/site.test.ts",

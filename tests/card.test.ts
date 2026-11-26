@@ -26,13 +26,11 @@ describe("the README card", () => {
     for (const reference of card.svg.matchAll(/href="([^"]*)"/g)) expect(reference[1]).toMatch(/^#g/);
   });
 
-  it("can be read alone: the question and its answer, effects, verdicts, intervals, how to read and the provenance", () => {
+  it("can be read alone: the question, effects, verdicts, intervals, how to read and the provenance", () => {
     expect(card.textLines).toEqual([
       "speech-to-text v1.1.0 · WHISPER LARGE-V3-TURBO AGAINST WHISPER SMALL AND WHISPER MEDIUM",
       "Which Whisper model should we run with whisper.cpp for",
       "podcast transcripts?",
-      "Use Whisper large-v3-turbo: as accurate as Whisper medium on",
-      "clean audio, likely faster",
       "WORD ERROR RATE, CLEAN",
       "AUDIO",
       "AGAINST WHISPER SMALL",
@@ -75,11 +73,11 @@ describe("the README card", () => {
     ]);
   });
 
-  it("carries a text alternative for screen readers and for the README image, the answer first", () => {
+  it("carries a text alternative for screen readers and for the README image", () => {
     expect(card.svg).toContain('role="img"');
     expect(card.svg).toContain(`<title id="title">${card.altText}</title>`);
     expect(card.altText).toMatch(
-      /^Use Whisper large-v3-turbo: as accurate as Whisper medium on clean audio, likely faster\. Whisper large-v3-turbo against Whisper small, word error rate, Clean audio \(lower is better\) \u22122\.1 points, likely better;/,
+      /^Whisper large-v3-turbo against Whisper small, word error rate, Clean audio \(lower is better\) \u22122\.1 points, likely better;/,
     );
   });
 

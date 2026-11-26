@@ -424,14 +424,6 @@ export function detailsOf(lookup: Lookup, comparison: Comparison, sharedLevel: s
 /** The text alternative: every headline in words, for screen readers and for the alt of the README image. */
 export function cardAltText(benchmark: Benchmark, content: CardContent): string {
   const lookup = lookupOf(benchmark.results);
-  const answer = benchmark.answer ? resolveTemplates(benchmark.answer.text, lookup) : undefined;
-  const claims = claimsInWordsOf(lookup, content);
-
-  return answer ? `${/[.!?]$/.test(answer) ? answer : `${answer}.`} ${claims}` : claims;
-}
-
-/** What the card's headlines or summaries say, in sentences. */
-function claimsInWordsOf(lookup: Lookup, content: CardContent): string {
   const sharedPair = sharedPairOf(lookup, content);
 
   if (content.charts && content.charts.length > 0)
@@ -781,18 +773,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
     cursorY += STYLE.eyebrow.lineHeight;
   }
 
-  const answer = benchmark.answer ? resolveTemplates(benchmark.answer.text, lookup) : undefined;
-
-  // With an answer, the question steps back and the answer reads first, as at the top of the page.
-  cursorY = drawLines(
-    text.wrap(results.benchmark.goal, STYLE.title, innerWidth),
-    STYLE.title,
-    answer ? colours.secondary : colours.ink,
-    PADDING,
-    cursorY + 16,
-  );
-
-  if (answer) cursorY = drawLines(text.wrap(answer, STYLE.title, innerWidth), STYLE.title, colours.ink, PADDING, cursorY + 4);
+  cursorY = drawLines(text.wrap(results.benchmark.goal, STYLE.title, innerWidth), STYLE.title, colours.ink, PADDING, cursorY + 16);
 
   cursorY += 30;
 

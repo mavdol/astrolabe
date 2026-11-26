@@ -5,7 +5,7 @@ English speech transcribed offline by whisper.cpp 1.9.6 on one Apple M2 laptop w
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="exports/readme-card-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="exports/readme-card-dark.svg">
-  <img alt="Use Whisper large-v3-turbo: as accurate as Whisper medium on clean audio, likely faster. Whisper large-v3-turbo against Whisper small, word error rate, Clean audio (lower is better) −2.1 points, likely better; Whisper large-v3-turbo against Whisper small, time per minute of audio (lower is better) +97%, worse; Whisper large-v3-turbo against Whisper medium, word error rate, Clean audio (lower is better) −0.2 points, equivalent." src="exports/readme-card-light.png">
+  <img alt="Whisper large-v3-turbo against Whisper small, word error rate, Clean audio (lower is better) −2.1 points, likely better; Whisper large-v3-turbo against Whisper small, time per minute of audio (lower is better) +97%, worse; Whisper large-v3-turbo against Whisper medium, word error rate, Clean audio (lower is better) −0.2 points, equivalent." src="exports/readme-card-light.png">
 </picture>
 
 Benchmark `speech-to-text`, version 1.1.0. Baseline: Whisper small.
