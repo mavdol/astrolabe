@@ -648,10 +648,6 @@
     "series": {"tiny": "#8a94a6", "base": "#3b82f6", "small": "#a855f7", "medium": "#ec4899", "turbo": "#eab308"},
     "attribution": true
   },
-  "answer": {
-    "text": "Use {candidate:turbo}: as accurate as {candidate:medium} on clean audio, likely faster",
-    "asserts": {"wer__clean__turbo__vs__medium": "equivalent", "time_per_min__suite__turbo__vs__medium": "likely better"}
-  },
   "blocks": [
     {
       "id": "headline-clean",

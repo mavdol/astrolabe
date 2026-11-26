@@ -125,8 +125,6 @@ main > section + section { border-top: 1px solid var(--rule); }
 .hero .benchmark-name { color: var(--ink); }
 .hero .benchmark-version { color: var(--quiet); }
 .hero h1 { max-width: 18.5em; margin: 28px 0 0; font-size: clamp(34px, 4.4vw, 54px); line-height: 1.06; letter-spacing: -0.038em; text-wrap: balance; }
-.hero .question { color: var(--quiet); }
-.hero .answer { color: var(--ink); }
 .hero .lede { max-width: 680px; margin: 28px 0 0; font-size: 16px; line-height: 1.55; color: var(--secondary); }
 
 .stats { display: grid; grid-template-columns: repeat(var(--columns, 1), minmax(0, 1fr)); }

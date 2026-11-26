@@ -191,13 +191,6 @@ export const comparisonsOfChart = (chart: SummaryChart) => chart.summaries.flatM
 export const listedNames = (names: string[]) =>
   names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
 
-/** "Model A and Model C compared with Model B": who a summary chart compares, with whom; the candidates alone when it counts who is best. */
-export function chartPairOf(lookup: Lookup, chart: SummaryChart): string {
-  const listed = listedNames(chart.summaries.map((summary) => lookup.candidateName.get(summary.candidate) ?? summary.candidate));
-
-  return chart.count === "best" ? listed : `${listed} compared with ${lookup.candidateName.get(lookup.results.baseline)}`;
-}
-
 /** How many parts a summary counts, and the name of a number of them: "file" and "files" after their level. */
 function countedPartsOf(lookup: Lookup, summary: Summary): { count: number; nameFor: (count: number) => string } {
   const level = lookup.results.structure?.nodes.find((node) => node.id === summary.comparisons[0]?.node)?.level ?? "comparison";

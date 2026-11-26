@@ -14,7 +14,7 @@ import { LONGEST_INLINE_HEADING } from "../src/render/site/blocks.js";
 import { pageRowsOf } from "../src/render/site/page.js";
 import { LONGEST_SUMMARY_TITLE, summaryChartOf, summaryTableOf, summaryTitleOf } from "../src/render/summary.js";
 import { tableOf } from "../src/render/site/html.js";
-import { answerOf, answerPartsOf, LONGEST_TITLE_PAIR } from "../src/render/site/write-site.js";
+import { answerOf } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
 import { THEME } from "../src/themes/astrolabe.js";
@@ -168,21 +168,12 @@ describe("the site", () => {
     expect(support.css).toContain(".segmented input:focus-visible + span { outline: 2px solid var(--ink)");
   });
 
-  it("names after the question the pair the page leads with, short, and keeps the answer in words for link previews", () => {
+  it("titles the page with the question alone, and keeps the answer in words for link previews", () => {
     const answer = "Model A against Model B: accuracy +6.4 points, likely better. 3 more results: 1 better, 1 unclear, 1 worse.";
 
-    expect(support.html).toContain('<span class="answer">Model A compared with Model B</span></h1>');
+    expect(support.html).toContain("<h1>Which model should power our support assistant, given accuracy and cost?</h1>");
     expect(support.html).toContain('<p class="lede">Internal tasks only; does not measure latency or safety.</p>');
     expect(support.html).toContain(`<meta name="description" content="${answer}">`);
-  });
-
-  it("names no pair after the question when it would be longer than a title allows", () => {
-    const benchmark = loadBenchmark("support-assistant-eval");
-
-    benchmark.results.candidates[0].name = "A model with a name far too long for a title";
-
-    expect(answerPartsOf(benchmark).pair).toBeUndefined();
-    expect(answerPartsOf(loadBenchmark("support-assistant-eval")).pair!.length).toBeLessThanOrEqual(LONGEST_TITLE_PAIR);
   });
 
   it("leaves out a headline title that only restates its figure, and the pair every headline shares", () => {
@@ -348,7 +339,6 @@ describe("the site", () => {
     benchmark.exports = undefined;
     const both = buildSite("support-assistant-eval", { benchmark }).html;
 
-    expect(answerPartsOf(benchmark).pair).toBe("Model A and Model C compared with Model B");
     expect([...both.matchAll(/<span class="stack-name">([^<]+)<\/span>/g)].map((match) => match[1])).toEqual(["Model A", "Model C"]);
     expect(both).toMatch(/<li>Model C: from −?[\d.]+ to \+?[\d.]+ points<\/li>/);
 
@@ -439,11 +429,9 @@ describe("the site", () => {
       ["limitations"],
       ["provenance"],
     ]);
-    expect(answerPartsOf(versions)).toEqual({
-      pair: "base, mid and next",
-      description:
-        "base, wall time on 4 scripts: tied for best on 1, behind on 3. mid, wall time on 4 scripts: tied for best on 1, behind on 3. next, wall time on 4 scripts: best on 3, behind on 1.",
-    });
+    expect(answerOf(versions)).toBe(
+      "base, wall time on 4 scripts: tied for best on 1, behind on 3. mid, wall time on 4 scripts: tied for best on 1, behind on 3. next, wall time on 4 scripts: best on 3, behind on 1.",
+    );
   });
 
   it("keeps a short reading after the chapter's title, and moves a long one under it in smaller type", () => {
@@ -791,20 +779,7 @@ describe("the site", () => {
     ]);
   });
 
-  it("says the author's answer after the question when the file gives one, and leads the description with it", () => {
-    const speech = loadBenchmark("speech-to-text");
-    const answer = "Use Whisper large-v3-turbo: as accurate as Whisper medium on clean audio, likely faster";
-    const page = buildSite("speech-to-text").html;
-
-    expect(answerPartsOf(speech).stated).toBe(answer);
-    expect(page).toContain(`<span class="answer">${answer}</span></h1>`);
-    expect(answerOf(speech).startsWith(`${answer}. `)).toBe(true);
-    expect(buildSite("speech-to-text", { benchmark: { ...speech, answer: undefined } }).html).toContain(
-      '<span class="answer">5 candidates</span></h1>',
-    );
-  });
-
-  it("names every candidate the claims compare, and writes as exact the values whose observations never vary", () => {
+  it("writes as exact the values whose observations never vary", () => {
     const prices = { base: 10, mid: 12, next: 15 };
     const plan = planOf({
       candidates: Object.keys(prices),
@@ -837,7 +812,6 @@ describe("the site", () => {
     const page = readFileSync(join(folder, "site", "index.html"), "utf8");
     const report = readFileSync(join(folder, "benchmark.md"), "utf8");
 
-    expect(answerPartsOf(fixedPrices).pair).toBe("base, mid and next");
     expect(page).toContain("No interval: every observation was the same, so each value is exact.");
     expect(page).not.toContain("95% confidence intervals");
     expect(report).toMatch(/\| mid, cost \| \+20% \| exact \| worse \|/);

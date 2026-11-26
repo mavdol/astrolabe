@@ -5,17 +5,8 @@ import type { Benchmark } from "../../schema/benchmark.js";
 import { THEME } from "../../themes/astrolabe.js";
 import type { Comparison } from "../../schema/benchmark.js";
 import { cardAltText, cardContentOf, MAX_HEADLINES, measuredOf, pairOf, renderCard } from "../card.js";
-import {
-  chartPairOf,
-  comparisonsOfChart,
-  countsByVerdict,
-  listedNames,
-  summaryChartOf,
-  summaryChartsOf,
-  summaryClaimOf,
-  type SummaryChart,
-} from "../summary.js";
-import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, resolveTemplates, verdictLabel, type BuildContext } from "../describe.js";
+import { comparisonsOfChart, countsByVerdict, summaryChartOf, summaryChartsOf, summaryClaimOf, type SummaryChart } from "../summary.js";
+import { effectAndInterval, lookupOf, lowerFirstLetterOfWord, verdictLabel, type BuildContext } from "../describe.js";
 import { exportPlanOf, IMAGE_SIZES, renderImage } from "../exports.js";
 import { pngOf } from "../png.js";
 import { pageModeOf, pageRowsOf, renderPage, type PageHead } from "./page.js";
@@ -92,55 +83,18 @@ function leadOf(benchmark: Benchmark, claims: Comparison[]): { comparison: Compa
   return claims[0] ? { comparison: claims[0] } : undefined;
 }
 
-/** The second part of the page's title is a title, not the answer: who is compared with whom, in at most this many characters. */
-export const LONGEST_TITLE_PAIR = 50;
-
-/** The top of the page: a short pair after the question, and the answer in words for link previews and search results. */
-export interface Answer {
-  /** The author's answer, written after the results, with its templates filled: the title shows it instead of the pair. */
-  stated?: string;
-  /** "quickmark compared with markly", left out when longer than LONGEST_TITLE_PAIR. */
-  pair?: string;
-  /** The claim the page leads with, then a count of the other primary comparisons. */
-  description?: string;
-}
-
-/** The names of the candidates the claims compare, in the order the plan declares them. */
-function comparedNamesOf(benchmark: Benchmark, claims: Comparison[]): string[] {
-  const compared = new Set(claims.flatMap((claim) => [claim.candidate, claim.vs]));
-
-  return benchmark.results.candidates.filter((candidate) => compared.has(candidate.id)).map((candidate) => candidate.name);
-}
-
-export function answerPartsOf(benchmark: Benchmark): Answer {
+/**
+ * The answer in words for link previews and search results: the claim the page leads with, then a count of the
+ * other primary comparisons. The page itself says it in its blocks, under the question.
+ */
+export function answerOf(benchmark: Benchmark): string {
   const lookup = lookupOf(benchmark.results);
   const claims = (benchmark.results.comparisons ?? []).filter((comparison) => comparison.role === "primary");
   const lead = leadOf(benchmark, claims);
 
-  const stated = benchmark.answer ? resolveTemplates(benchmark.answer.text, lookup) : undefined;
-  const asSentence = (words: string) => (/[.!?]$/.test(words) ? words : `${words}.`);
+  if (!lead) return "";
 
-  if (!lead) return stated ? { stated, description: asSentence(stated) } : {};
-
-  const baseline = lookup.candidateName.get(benchmark.results.baseline);
-  const comparedNames = comparedNamesOf(benchmark, claims);
   const statedComparisons = "chart" in lead ? comparisonsOfChart(lead.chart) : [lead.comparison];
-  const pairs =
-    "chart" in lead
-      ? [
-          chartPairOf(lookup, lead.chart),
-          lead.chart.count === "best"
-            ? `${lead.chart.summaries.length} candidates`
-            : `${lead.chart.summaries.length} candidates compared with ${baseline}`,
-        ]
-      : comparedNames.length > 2
-        ? claims.every((claim) => claim.vs === benchmark.results.baseline)
-          ? [
-              `${listedNames(comparedNames.filter((name) => name !== baseline))} compared with ${baseline}`,
-              `${comparedNames.length - 1} candidates compared with ${baseline}`,
-            ]
-          : [listedNames(comparedNames), `${comparedNames.length} candidates`]
-        : [`${lookup.candidateName.get(lead.comparison.candidate)} compared with ${lookup.candidateName.get(lead.comparison.vs)}`];
   const claim =
     "chart" in lead
       ? lead.chart.summaries.map((summary) => summaryClaimOf(lookup, summary)).join(" ")
@@ -149,14 +103,8 @@ export function answerPartsOf(benchmark: Benchmark): Answer {
   const othersCounted =
     others.length > 0 ? `${others.length} more result${others.length === 1 ? "" : "s"}: ${countsByVerdict(others)}.` : "";
 
-  return {
-    ...(stated ? { stated } : {}),
-    pair: pairs.find((pair) => pair.length <= LONGEST_TITLE_PAIR),
-    description: [stated ? asSentence(stated) : "", claim, othersCounted].filter(Boolean).join(" "),
-  };
+  return [claim, othersCounted].filter(Boolean).join(" ");
 }
-
-export const answerOf = (benchmark: Benchmark) => answerPartsOf(benchmark).description ?? "";
 
 /**
  * The site in one folder: the page with every filter state, its style, script and font, a copy of the
@@ -221,7 +169,7 @@ export function writeSite(
   }
 
   const description = answerOf(benchmark);
-  const head: PageHead = { url: inputs.url, description, answer: answerPartsOf(benchmark) };
+  const head: PageHead = { url: inputs.url, description };
 
   if (inputs.url) {
     const preview = previewImageOf(benchmark, context, rawFiles);

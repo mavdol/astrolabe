@@ -1446,37 +1446,6 @@
       },
       "additionalProperties": false
     },
-    "answer": {
-      "type": "object",
-      "properties": {
-        "text": {
-          "type": "string",
-          "minLength": 1
-        },
-        "asserts": {
-          "type": "object",
-          "propertyNames": {
-            "type": "string",
-            "minLength": 1
-          },
-          "additionalProperties": {
-            "type": "string",
-            "enum": [
-              "better",
-              "worse",
-              "equivalent",
-              "inconclusive",
-              "likely better",
-              "likely worse"
-            ]
-          }
-        }
-      },
-      "required": [
-        "text"
-      ],
-      "additionalProperties": false
-    },
     "filters": {
       "type": "array",
       "items": {
