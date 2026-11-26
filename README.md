@@ -29,7 +29,7 @@ It combines a skill and a command-line tool. The skill brings together best prac
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="assets/readme/site-light.png">
         <source media="(prefers-color-scheme: dark)" srcset="assets/readme/site-dark.png">
-        <img alt="The page of a benchmark of two models for a support assistant: headline results, a chart by category and accuracy against cost" src="assets/readme/site-light.png">
+        <img alt="The page of a benchmark of Node 22, 24 and 26: the question, who is best on run time and on memory across 12 workloads, then run time workload by workload" src="assets/readme/site-light.png">
       </picture>
       <br><sub><b>Site</b> · a page to publish, with every chart, table and filter</sub>
     </td>
