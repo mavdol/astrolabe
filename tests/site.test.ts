@@ -590,6 +590,41 @@ describe("the site", () => {
     expect(headingOf("table-values")).toBe("Wall time, script by script");
   });
 
+  it("leaves the names of several measures to a table's own headings, so its chapter's title stays short", () => {
+    const speech = loadBenchmark("speech-to-text");
+    const metrics = speech.results.metrics.map((metric) => metric.id);
+    const html = buildSite("speech-to-text", {
+      benchmark: {
+        ...speech,
+        layout: undefined,
+        blocks: [
+          { id: "table-effects", type: "table", metrics, rows: "condition", cells: "effects", show: ["ci"] },
+          { id: "table-values", type: "table", metrics, rows: "condition", show: ["n", "ci", "failures"] },
+        ],
+      } as Benchmark,
+    }).html;
+    const headingOf = (id: string) => new RegExp(`<h2 id="${id}-title"><a href="#${id}">([^<]+)</a>`).exec(html)?.[1];
+
+    expect(metrics.length).toBeGreaterThan(2);
+    expect(headingOf("table-effects")).toBe("Changes against Whisper small, condition by condition");
+    expect(headingOf("table-values")).toBe("Every measure, condition by condition");
+  });
+
+  it("heads the claims in the method after the candidate they are all against, or pair by pair", () => {
+    const claimsLabelOf = (benchmark: Benchmark) => {
+      const folder = mkdtempSync(join(tmpdir(), "astrolabe-site-"));
+
+      buildOutputs(benchmark, ["site"], folder, context, { rawFiles: {} });
+
+      return /<p class="mono-label">([^<]+)<span class="dim"> · the claims<\/span><\/p>/.exec(
+        readFileSync(join(folder, "site", "index.html"), "utf8"),
+      )?.[1];
+    };
+
+    expect(claimsLabelOf(scriptsBenchmarkOf(2))).toBe("Against base");
+    expect(claimsLabelOf(versionsBenchmarkOf(2))).toBe("Pair by pair");
+  });
+
   it("lists the described parts in the method, each opening to what it does, and links the rows of a table to them", () => {
     const scripts = {
       ...scriptsBenchmarkOf(3),

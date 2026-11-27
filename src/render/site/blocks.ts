@@ -812,7 +812,9 @@ function tableHtml(block: TableBlock, inputs: PageInputs, number: string): strin
 
 /**
  * What an untitled table holds, so that two tables on the same metrics never share a heading: "Build time and
- * identical pages, size by size", or "… compared with markly, size by size" for a table of effects.
+ * identical pages, size by size", or "Build time compared with markly, size by size" for a table of effects. A table
+ * of several measures leaves their names to its own headings, so the chapter's title stays short: "Changes against
+ * markly, size by size", "Every measure, size by size".
  */
 function defaultTableTitleOf(block: TableBlock, lookup: Lookup): string {
   const labels = block.metrics.map((metricId, index) => {
@@ -821,12 +823,18 @@ function defaultTableTitleOf(block: TableBlock, lookup: Lookup): string {
     return index === 0 ? label : lowerFirstLetterOfWord(label);
   });
   const listed = labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}` : labels[0];
-  const compared = block.cells === "effects" ? ` compared with ${lookup.candidateName.get(block.vs ?? lookup.results.baseline)}` : "";
-
+  const against = lookup.candidateName.get(block.vs ?? lookup.results.baseline);
   const rows = effectRowsOf(block, lookup);
+  const byRows = rows ? `, ${rows} by ${rows}` : "";
 
-  return `${listed}${compared}${rows ? `, ${rows} by ${rows}` : ""}`;
+  if (block.cells === "effects")
+    return `${labels.length > 1 ? `Changes against ${against}` : `${listed} compared with ${against}`}${byRows}`;
+
+  return `${labels.length > MOST_MEASURES_NAMED_IN_A_TITLE ? "Every measure" : listed}${byRows}`;
 }
+
+/** Past this many measures, a table of values leaves their names to the headings of its tables. */
+const MOST_MEASURES_NAMED_IN_A_TITLE = 2;
 
 function textHtml(block: Extract<Block, { type: "text" }>, inputs: PageInputs, number: string): string {
   const title = block.title ? resolveTemplates(block.title, inputs.lookup) : "";
@@ -1006,7 +1014,7 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
     `<ol class="pipeline">\n${steps.join("\n")}\n</ol>`,
     partsListHtml(lookup),
     '<div class="verdicts">',
-    `<p class="mono-label">Against ${escapeHtml(lookup.candidateName.get(lookup.results.baseline)!)}<span class="dim"> · the claims</span></p>`,
+    `<p class="mono-label">${escapeHtml(claimsAgainstOf(lookup, primary))}<span class="dim"> · the claims</span></p>`,
     foldedVerdictListOf(lookup, primary),
     `<details class="aside"><summary>How a verdict is read</summary><p>${escapeHtml(comparisonsIntro(lookup))}</p></details>`,
     ...(exploratory.length > 0
@@ -1019,6 +1027,13 @@ function methodologyHtml(block: Block, inputs: PageInputs): string {
     "</div>",
     `<div class="facts">\n${[...facts, ...candidates].join("\n")}\n</div>`,
   ].join("\n");
+}
+
+/** Whom the claims compare with: one candidate when they share it, else every pair. */
+function claimsAgainstOf(lookup: Lookup, claims: Comparison[]): string {
+  const against = new Set(claims.map((claim) => claim.vs));
+
+  return against.size === 1 ? `Against ${lookup.candidateName.get([...against][0])}` : "Pair by pair";
 }
 
 const factBlock = (title: string, lines: string[]) =>
