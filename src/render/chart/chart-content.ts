@@ -1,7 +1,8 @@
 import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark, Comparison, Metric } from "../../schema/benchmark.js";
 import type { ChartBlock } from "../../schema/presentation.js";
-import { seriesStylesOf, type Mode, type SeriesStyle } from "../../themes/astrolabe.js";
+import { ASTROLABE } from "../../themes/astrolabe.js";
+import { seriesStylesOf, type Mode, type SeriesStyle } from "../../themes/theme.js";
 import { intervalMethodsOf, restsOnUnblindedJudges, STATISTIC_WORD, type Lookup } from "../describe.js";
 import { formatLevel } from "../number-format.js";
 import { ChartError, type FilterState } from "./chart-data.js";
@@ -142,7 +143,7 @@ export function seriesOf(inputs: ChartInputs): Map<string, SeriesStyle> {
   return seriesStylesOf(
     inputs.lookup.results.candidates.map((candidate) => candidate.id),
     inputs.benchmark.style,
-    inputs.mode,
+    ASTROLABE.colours[inputs.mode],
   );
 }
 

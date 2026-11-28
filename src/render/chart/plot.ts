@@ -1,4 +1,5 @@
-import type { Colours, MarkerShape } from "../../themes/astrolabe.js";
+import { ASTROLABE } from "../../themes/astrolabe.js";
+import type { Colours, MarkerShape } from "../../themes/theme.js";
 import { escapeXml, type SvgTextRenderer } from "../svg-text.js";
 
 export interface PlotHeights {
@@ -26,18 +27,7 @@ export interface Plot {
   draw(text: SvgTextRenderer, colours: Colours, area: PlotArea): DrawnPlot;
 }
 
-export const PLOT_STYLE = {
-  heading: { weight: 600, size: 13 },
-  label: { weight: 500, size: 13 },
-  value: { weight: 500, size: 13, tabular: true, mono: true },
-  note: { weight: 400, size: 11, mono: true },
-  tick: { weight: 400, size: 11, tabular: true, mono: true },
-  /**
-   * Axis titles, in capitals as the page's labels; smaller than the ticks because capitals read larger.
-   * Every chart is shown at least 1.15 times its layout size, so these are still 12 px as read.
-   */
-  caption: { weight: 400, size: 10.5, mono: true, tracking: 0.04 },
-} as const;
+export const PLOT_STYLE = ASTROLABE.text.plot;
 
 /** The soft disc behind a marker, so the estimate reads first. */
 const HALO_RADIUS = 10;

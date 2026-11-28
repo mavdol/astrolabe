@@ -1,5 +1,6 @@
 import type { Comparison, Value } from "../../schema/benchmark.js";
-import { THEME, type Colours } from "../../themes/astrolabe.js";
+import { ASTROLABE } from "../../themes/astrolabe.js";
+import type { Colours } from "../../themes/theme.js";
 import {
   effectAndInterval,
   effectAsFactor,
@@ -195,7 +196,7 @@ export function comparisonRowsContent(inputs: ChartInputs): ChartContent {
 
   const comparisonById = new Map((lookup.results.comparisons ?? []).map((comparison) => [comparison.id, comparison]));
   const series = seriesOf(inputs);
-  const { ink, series: greys } = THEME[inputs.mode];
+  const { ink, series: greys } = ASTROLABE.colours[inputs.mode];
   const baselineColour = greys[greys.length - 1];
   const colourOf = (candidate: string) => {
     const colour = series.get(candidate)!.colour;

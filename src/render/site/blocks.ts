@@ -1,7 +1,7 @@
 import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark, Comparison, Metric, Results } from "../../schema/benchmark.js";
 import type { Block, ChartBlock, HeadlineBlock, SummaryBlock, TableBlock } from "../../schema/presentation.js";
-import type { Mode } from "../../themes/astrolabe.js";
+import type { Mode } from "../../themes/theme.js";
 import { addsInformation, detailsOf, isFirmVerdict, measuredOf, pairOf } from "../card.js";
 import {
   breakdownOf,
