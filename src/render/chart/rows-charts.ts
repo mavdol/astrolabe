@@ -1,6 +1,6 @@
 import { quantileSorted } from "../../compute/stats.js";
 import type { Comparison, Value } from "../../schema/benchmark.js";
-import { THEME } from "../../themes/astrolabe.js";
+import { ASTROLABE } from "../../themes/astrolabe.js";
 import {
   effectAndInterval,
   effectUnit,
@@ -52,7 +52,7 @@ import { placesOn, standingsOn, type Place } from "../standing.js";
 import { displayUnitOf, roundTopAbove } from "../units.js";
 
 /** Bars side by side stop being told apart beyond the ink and three greys. */
-const LARGEST_GROUPED_BAR_CANDIDATES = THEME.light.series.length;
+const LARGEST_GROUPED_BAR_CANDIDATES = ASTROLABE.colours.light.series.length;
 /** Up to this many observations a row shows every one; beyond, a box and the observations outside it. */
 const EVERY_OBSERVATION_UP_TO = 20;
 const BOX_REACH = 1.5;
@@ -216,7 +216,7 @@ export function resultsContent(inputs: ChartInputs): ChartContent {
     throw new ChartError("D1", `block "${block.id}": a bar starts at zero, so it cannot show a negative value; use dot-interval`);
 
   const series = seriesOf(inputs);
-  const colours = THEME[inputs.mode];
+  const colours = ASTROLABE.colours[inputs.mode];
   const highestOf = (group: ValueGroup) => Math.max(...group.values.map((value) => value.ci?.[1] ?? value.value));
   const tops = groups.map((group) => highestOf(group));
   const sharesOneScale = groups.length === 1 || Math.max(...tops) < LARGEST_SHARED_SCALE_RATIO * Math.min(...tops);
@@ -347,7 +347,7 @@ export function effectsContent(inputs: ChartInputs): ChartContent {
     [verdictLabel(comparison), comparison.role === "exploratory" ? "exploratory" : "", comparison.source === "declared" ? "declared" : ""]
       .filter(Boolean)
       .join(", ");
-  const colours = THEME[inputs.mode];
+  const colours = ASTROLABE.colours[inputs.mode];
   /** The verdict beside an effect takes the colour of its verdict; the mark keeps its candidate's colour, as on every chart. */
   const verdictColourOf = (comparison: Comparison) =>
     comparison.verdict === "better" ? colours.good : comparison.verdict === "worse" ? colours.bad : colours.secondary;
@@ -556,7 +556,7 @@ export function distributionContent(inputs: ChartInputs): ChartContent {
 export function stackedContent(inputs: ChartInputs): ChartContent {
   const { block, lookup } = inputs;
   const metric = metricOf(block, lookup);
-  const colours = THEME[inputs.mode];
+  const colours = ASTROLABE.colours[inputs.mode];
 
   if (metric.statistic !== "total")
     throw new ChartError("V52", `block "${block.id}": a stacked bar shows the parts of one total, and "${metric.id}" is not a total`);

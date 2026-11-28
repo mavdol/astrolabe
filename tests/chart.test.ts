@@ -12,7 +12,8 @@ import { loadRaw } from "../src/compute/files.js";
 import { benchmarkSchema, type Benchmark, type Comparison, type Metric } from "../src/schema/benchmark.js";
 import { effectAndInterval } from "../src/render/describe.js";
 import { blockSchema, CHART_TYPES, type ChartBlock } from "../src/schema/presentation.js";
-import { contrastRatio, MARK_CONTRAST, seriesStylesOf, TEXT_CONTRAST, THEME, visibleOn } from "../src/themes/astrolabe.js";
+import { ASTROLABE } from "../src/themes/astrolabe.js";
+import { contrastRatio, MARK_CONTRAST, seriesStylesOf, TEXT_CONTRAST, visibleOn } from "../src/themes/theme.js";
 import { scriptsBenchmarkOf, versionsBenchmarkOf } from "./helpers.js";
 import { displayUnitOf, roundTopAbove } from "../src/render/units.js";
 import { placesOn, type Standing } from "../src/render/standing.js";
@@ -77,7 +78,7 @@ describe("the scale of an axis", () => {
 
 describe("the colours of the default theme", () => {
   it.each(["light", "dark"] as const)("%s: text and marks keep their contrast against the background", (mode) => {
-    const colours = THEME[mode];
+    const colours = ASTROLABE.colours[mode];
 
     expect(contrastRatio(colours.ink, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
     expect(contrastRatio(colours.secondary, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
@@ -86,7 +87,7 @@ describe("the colours of the default theme", () => {
   });
 
   it.each(["light", "dark"] as const)("%s: the verdict colours read as text, and quiet text holds at large sizes", (mode) => {
-    const colours = THEME[mode];
+    const colours = ASTROLABE.colours[mode];
 
     expect(contrastRatio(colours.good, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
     expect(contrastRatio(colours.bad, colours.background)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
@@ -96,7 +97,7 @@ describe("the colours of the default theme", () => {
   });
 
   it("tells candidates apart by shape as well as by colour", () => {
-    const styles = [...seriesStylesOf(["a", "b", "c", "d"], undefined, "light").values()];
+    const styles = [...seriesStylesOf(["a", "b", "c", "d"], undefined, ASTROLABE.colours.light).values()];
 
     expect(new Set(styles.map((style) => style.shape)).size).toBe(4);
     expect(new Set(styles.map((style) => style.colour)).size).toBe(4);
@@ -114,21 +115,21 @@ describe("the colours of the default theme", () => {
   });
 
   it("gives the highlighted candidate the ink or the accent, and greys to the others", () => {
-    const withInk = seriesStylesOf(["a", "b"], { highlight: "b" }, "light");
-    const withAccent = seriesStylesOf(["a", "b"], { highlight: "b", accent: "#2f6fed" }, "light");
+    const withInk = seriesStylesOf(["a", "b"], { highlight: "b" }, ASTROLABE.colours.light);
+    const withAccent = seriesStylesOf(["a", "b"], { highlight: "b", accent: "#2f6fed" }, ASTROLABE.colours.light);
 
-    expect(withInk.get("b")!.colour).toBe(THEME.light.ink);
-    expect(withInk.get("a")!.colour).toBe(THEME.light.series[1]);
+    expect(withInk.get("b")!.colour).toBe(ASTROLABE.colours.light.ink);
+    expect(withInk.get("a")!.colour).toBe(ASTROLABE.colours.light.series[1]);
     expect(withAccent.get("b")!.colour).toBe("#2f6fed");
   });
 
   it("moves a colour that would be too faint towards the ink, and keeps one that is visible", () => {
     const paleYellow = "#fff3a0";
-    const adjusted = visibleOn(THEME.light.background, paleYellow, THEME.light.ink);
+    const adjusted = visibleOn(ASTROLABE.colours.light.background, paleYellow, ASTROLABE.colours.light.ink);
 
     expect(adjusted).not.toBe(paleYellow);
-    expect(contrastRatio(adjusted, THEME.light.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
-    expect(visibleOn(THEME.dark.background, paleYellow, THEME.dark.ink)).toBe(paleYellow);
+    expect(contrastRatio(adjusted, ASTROLABE.colours.light.background)).toBeGreaterThanOrEqual(MARK_CONTRAST);
+    expect(visibleOn(ASTROLABE.colours.dark.background, paleYellow, ASTROLABE.colours.dark.ink)).toBe(paleYellow);
   });
 });
 
@@ -281,7 +282,7 @@ describe("a chart of effects", () => {
   });
 
   it("shades the changes too small to matter and says how wide that zone is", () => {
-    expect(chart.svg).toContain(`fill="${THEME.light.band}"`);
+    expect(chart.svg).toContain(`fill="${ASTROLABE.colours.light.band}"`);
     expect(chart.howToRead).toContain("Shaded band: changes under 10%, too small to matter.");
   });
 
@@ -668,11 +669,11 @@ describe("a shaded table", () => {
   it("shades with a single neutral ramp, the figures readable on every shade", () => {
     for (const mode of ["light", "dark"] as const)
       for (let share = 0; share <= 1; share += 0.05) {
-        const fill = cellFill(THEME[mode], share, LARGEST_SHADE[mode]);
+        const fill = cellFill(ASTROLABE.colours[mode], share, LARGEST_SHADE[mode]);
         const channels = [1, 3, 5].map((start) => parseInt(fill.slice(start, start + 2), 16));
 
         expect(Math.max(...channels) - Math.min(...channels), `${fill} has no hue of its own`).toBeLessThanOrEqual(4);
-        expect(contrastRatio(THEME[mode].ink, fill)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+        expect(contrastRatio(ASTROLABE.colours[mode].ink, fill)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
       }
   });
 });

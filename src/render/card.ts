@@ -13,7 +13,8 @@ import {
   type BuildContext,
   type Lookup,
 } from "./describe.js";
-import { seriesStylesOf, THEME, type Colours, type Mode } from "../themes/astrolabe.js";
+import { ASTROLABE } from "../themes/astrolabe.js";
+import { seriesStylesOf, type Colours, type LinedTextStyle, type Mode, type TextStyle } from "../themes/theme.js";
 import { formatNumber } from "./number-format.js";
 import {
   comparisonsOfChart,
@@ -36,7 +37,7 @@ import {
   type SummaryDrawing,
   type VerdictBar,
 } from "./summary.js";
-import { CAP_HEIGHT_RATIO, escapeXml, SvgTextRenderer, type TextStyle } from "./svg-text.js";
+import { CAP_HEIGHT_RATIO, escapeXml, SvgTextRenderer } from "./svg-text.js";
 
 export type CardMode = Mode;
 
@@ -75,24 +76,7 @@ const HALO_OPACITY = 0.16;
 
 export const MAX_HEADLINES = 3;
 
-/**
- * Every size is at least 12 px at the card's own width, the smallest text readable once shown in a README.
- * Labels, verdicts and the small print are in Geist Mono, the question and the figures in Inter, as on the site.
- */
-export const STYLE = {
-  eyebrow: { weight: 400, size: 12, lineHeight: 16, tracking: 0.04, mono: true },
-  title: { weight: 500, size: 24, lineHeight: 30, tracking: -0.02 },
-  label: { weight: 400, size: 12, lineHeight: 17, tracking: 0.04, mono: true },
-  effect: { weight: 500, size: 56, lineHeight: 56, tabular: true, tracking: -0.05 },
-  effectUnit: { weight: 400, size: 18 },
-  heading: { weight: 500, size: 14, lineHeight: 20 },
-  chip: { weight: 400, size: 12, tracking: 0.06, mono: true },
-  name: { weight: 500, size: 13, lineHeight: 18 },
-  detail: { weight: 400, size: 12, lineHeight: 18, mono: true },
-  warning: { weight: 500, size: 12, lineHeight: 18, mono: true },
-  scale: { weight: 400, size: 12, mono: true },
-  counts: { weight: 400, size: 14, lineHeight: 21, mono: true },
-} as const;
+const STYLE = ASTROLABE.text.card;
 
 export interface CardHeadline {
   comparison: Comparison;
@@ -704,11 +688,11 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   if (!results.computed) throw new Error("the results have not been computed: run astrolabe compute first");
 
   const lookup = lookupOf(results);
-  const colours = THEME[mode];
+  const colours = ASTROLABE.colours[mode];
   const series = seriesStylesOf(
     results.candidates.map((candidate) => candidate.id),
     benchmark.style,
-    mode,
+    colours,
   );
   const text = new SvgTextRenderer();
   const marks: string[] = [];
@@ -717,7 +701,7 @@ export function renderCard(benchmark: Benchmark, content: CardContent, mode: Car
   let cursorY = PADDING;
 
   const baselineOf = (top: number, style: { size: number }) => top + style.size * CAP_HEIGHT_RATIO;
-  const drawLines = (lines: string[], style: TextStyle & { lineHeight: number }, fill: string, x: number, startY: number): number => {
+  const drawLines = (lines: string[], style: LinedTextStyle, fill: string, x: number, startY: number): number => {
     let y = startY;
 
     for (const line of lines) {

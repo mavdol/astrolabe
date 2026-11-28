@@ -1,58 +1,33 @@
-import monoFont from "./fonts/geist-mono.json" with { type: "json" };
-import interFont from "./fonts/inter.json" with { type: "json" };
+import { ASTROLABE } from "../themes/astrolabe.js";
+import { fontStackOf, type Glyph, type GlyphData, type TextStyle } from "../themes/theme.js";
 
 /** Text made safe inside an SVG attribute or element. */
 export const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export type FontWeight = 400 | 500 | 600 | 700;
+const FONTS = ASTROLABE.fonts;
 
-interface Glyph {
-  advance: number;
-  path: string;
-}
-
-interface WeightData {
-  glyphs: Record<string, Glyph>;
-  tabular: Record<string, Glyph>;
-  kerning: Record<string, number>;
-}
-
-interface FaceData {
-  units_per_em: number;
-  ascender: number;
-  descender: number;
-  cap_height: number;
-  weights: Record<string, WeightData>;
-}
-
-const FONT = interFont as unknown as FaceData;
-const MONO_FONT = monoFont as unknown as FaceData;
-
-export const CAP_HEIGHT_RATIO = FONT.cap_height / FONT.units_per_em;
+export const CAP_HEIGHT_RATIO = FONTS.text.glyphs.cap_height / FONTS.text.glyphs.units_per_em;
 
 const MISSING_CHARACTER = "?";
 const ELLIPSIS = "…";
 /** The width in px of the background drawn around text that sits over lines, so that no line strikes it through. */
 const HALO_WIDTH = 3;
 
-export interface TextStyle {
-  weight: FontWeight;
-  size: number;
-  /** Tabular figures: every digit has the same width, so numbers line up in columns. */
-  tabular?: boolean;
-  /** Letter spacing in em: negative tightens large figures, positive opens small capitals. */
-  tracking?: number;
-  /** Set in Geist Mono, the face of labels, ticks and figures beside the marks; it has weights 400 and 500. */
-  mono?: boolean;
+const faceOf = (style: TextStyle): GlyphData => (style.mono ? FONTS.mono.glyphs : FONTS.text.glyphs);
+
+const weightsIn = (glyphs: GlyphData) => Object.keys(glyphs.weights).map(Number);
+const TEXT_WEIGHTS = weightsIn(FONTS.text.glyphs);
+const MONO_WEIGHTS = weightsIn(FONTS.mono.glyphs);
+
+/** The weight drawn: the one asked for, or the heaviest lighter one the face has. */
+function weightOf(style: TextStyle): number {
+  const weights = style.mono ? MONO_WEIGHTS : TEXT_WEIGHTS;
+
+  return Math.max(...weights.filter((weight) => weight <= style.weight), Math.min(...weights));
 }
 
-export const MONO_FONT_FAMILY = '"Geist Mono", ui-monospace, monospace';
-
-const faceOf = (style: TextStyle) => (style.mono ? MONO_FONT : FONT);
-const weightOf = (style: TextStyle) => (style.mono ? Math.min(style.weight, 500) : style.weight);
-
 /**
- * Draws text as paths with the bundled Inter and Geist Mono, so a standalone SVG looks the
+ * Draws text as paths with the theme's faces, so a standalone SVG looks the
  * same on every device. Each glyph is defined once in <defs> and reused.
  */
 export class SvgTextRenderer {
@@ -211,7 +186,7 @@ export class SvgTextRenderer {
     const attributes = [
       `x="${round(x)}"`,
       `y="${round(y)}"`,
-      style.mono ? `font-family='${MONO_FONT_FAMILY}'` : "",
+      style.mono ? `font-family='${fontStackOf(FONTS.mono)}'` : "",
       `font-size="${style.size}"`,
       `font-weight="${style.weight}"`,
       `fill="${style.fill}"`,

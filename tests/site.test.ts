@@ -17,7 +17,7 @@ import { tableOf } from "../src/render/site/html.js";
 import { answerOf } from "../src/render/site/write-site.js";
 import { benchmarkSchema, SCHEMA_VERSION, type Benchmark } from "../src/schema/benchmark.js";
 import type { Block } from "../src/schema/presentation.js";
-import { THEME } from "../src/themes/astrolabe.js";
+import { ASTROLABE } from "../src/themes/astrolabe.js";
 import { planOf, rawFileOf, scriptsBenchmarkOf, versionsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng } from "./png.js";
 
@@ -911,7 +911,7 @@ describe("the site", () => {
   });
 
   it("takes every colour from the theme", () => {
-    const themeColours = new Set(Object.values(THEME).flatMap((colours) => Object.values(colours).flat()));
+    const themeColours = new Set(Object.values(ASTROLABE.colours).flatMap((colours) => Object.values(colours).flat()));
     const pageColours = support.css.match(/#[0-9a-f]{6}/gi)!;
 
     expect(pageColours.length).toBeGreaterThan(0);
@@ -1036,10 +1036,10 @@ describe("the site", () => {
       benchmark: { ...loadBenchmark("support-assistant-eval"), style: { mode: "auto" } },
     });
 
-    expect(support.css).toContain(`[data-candidate="model_a"] { --series: ${THEME.dark.series[0]}; }`);
+    expect(support.css).toContain(`[data-candidate="model_a"] { --series: ${ASTROLABE.colours.dark.series[0]}; }`);
     expect(following.css).toMatch(
       new RegExp(
-        `@media \\(prefers-color-scheme: dark\\) \\{[^\\n]*\\[data-candidate="model_a"\\] \\{ --series: ${THEME.dark.series[0]}; \\}`,
+        `@media \\(prefers-color-scheme: dark\\) \\{[^\\n]*\\[data-candidate="model_a"\\] \\{ --series: ${ASTROLABE.colours.dark.series[0]}; \\}`,
       ),
     );
     expect(support.html).toMatch(
@@ -1052,10 +1052,10 @@ describe("the site", () => {
       buildSite("support-assistant-eval", { benchmark: { ...loadBenchmark("support-assistant-eval"), style: { mode } } });
     const following = withMode("auto");
 
-    expect(support.css).toContain(`:root { color-scheme: dark; --background: ${THEME.dark.background};`);
+    expect(support.css).toContain(`:root { color-scheme: dark; --background: ${ASTROLABE.colours.dark.background};`);
     expect(support.html).toContain('<meta name="color-scheme" content="dark">');
-    expect(withMode("light").css).toContain(`:root { color-scheme: light; --background: ${THEME.light.background};`);
-    expect(following.css).toContain(`@media (prefers-color-scheme: dark) { :root { --background: ${THEME.dark.background};`);
+    expect(withMode("light").css).toContain(`:root { color-scheme: light; --background: ${ASTROLABE.colours.light.background};`);
+    expect(following.css).toContain(`@media (prefers-color-scheme: dark) { :root { --background: ${ASTROLABE.colours.dark.background};`);
     expect(following.html).toContain('<div data-mode="dark">');
   });
 
@@ -1140,7 +1140,7 @@ describe("the site", () => {
     const parsers = loadBenchmark("json-cli-parse");
     const light = buildSite("json-cli-parse", { benchmark: { ...parsers, style: { ...parsers.style, mode: "light" } } });
 
-    expect(light.css).toContain(`:root { color-scheme: light; --background: ${THEME.light.background};`);
+    expect(light.css).toContain(`:root { color-scheme: light; --background: ${ASTROLABE.colours.light.background};`);
     expect(light.html).not.toContain("data-mode=");
   });
 });

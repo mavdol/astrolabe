@@ -1,13 +1,19 @@
 import type { Style } from "../../schema/presentation.js";
-import { seriesStylesOf, THEME, type Colours, type Mode } from "../../themes/astrolabe.js";
+import { ASTROLABE } from "../../themes/astrolabe.js";
+import { cssFamilyOf, fontStackOf, seriesStylesOf, type Colours, type Mode, type ThemeFont } from "../../themes/theme.js";
 
-const INTER_WEIGHTS = [400, 500, 600, 700] as const;
-const MONO_WEIGHTS = [400, 500] as const;
-const interFileOf = (weight: number) => `inter-latin-${weight}-normal.woff`;
-const monoFileOf = (weight: number) => `geist-mono-latin-${weight}-normal.woff2`;
+const { colours: COLOURS, fonts: FONTS, page: PAGE, motion: MOTION } = ASTROLABE;
 
 /** Every file the site copies into its fonts folder: the faces, then their licences. */
-export const FONT_FILES = [...INTER_WEIGHTS.map(interFileOf), ...MONO_WEIGHTS.map(monoFileOf), "OFL.txt", "OFL-Geist.txt"];
+export const FONT_FILES = [...FONTS.text.files, ...FONTS.mono.files]
+  .map((font) => font.file)
+  .concat(FONTS.text.licence, FONTS.mono.licence);
+
+const fontFacesOf = (font: ThemeFont) =>
+  font.files.map(
+    ({ weight, file, format }) =>
+      `@font-face { font-family: ${cssFamilyOf(font)}; font-style: normal; font-weight: ${weight}; font-display: swap; src: url("fonts/${file}") format("${format}"); }`,
+  );
 
 const coloursOf = (colours: Colours) =>
   [
@@ -31,52 +37,35 @@ export function pageStyle(style: Style | undefined, candidateIds: string[] = [])
   const mode = style?.mode ?? "dark";
   /** Each candidate's colour, the same as on its charts, for the marks the page draws itself: table bars, keys. */
   const seriesOf = (colourMode: Mode) =>
-    [...seriesStylesOf(candidateIds, style, colourMode).entries()]
+    [...seriesStylesOf(candidateIds, style, COLOURS[colourMode]).entries()]
       .map(([candidate, series]) => `[data-candidate="${candidate}"] { --series: ${series.colour}; }`)
       .join(" ");
-  const fontFaces = [
-    ...INTER_WEIGHTS.map(
-      (weight) =>
-        `@font-face { font-family: Inter; font-style: normal; font-weight: ${weight}; font-display: swap; src: url("fonts/${interFileOf(weight)}") format("woff"); }`,
-    ),
-    ...MONO_WEIGHTS.map(
-      (weight) =>
-        `@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: ${weight}; font-display: swap; src: url("fonts/${monoFileOf(weight)}") format("woff2"); }`,
-    ),
-  ];
+  const fontFaces = [...fontFacesOf(FONTS.text), ...fontFacesOf(FONTS.mono)];
   const palette =
     mode === "auto"
       ? [
-          `:root { color-scheme: light dark; ${coloursOf(THEME.light)} }`,
+          `:root { color-scheme: light dark; ${coloursOf(COLOURS.light)} }`,
           seriesOf("light"),
-          `@media (prefers-color-scheme: dark) { :root { ${coloursOf(THEME.dark)} } ${seriesOf("dark")} }`,
+          `@media (prefers-color-scheme: dark) { :root { ${coloursOf(COLOURS.dark)} } ${seriesOf("dark")} }`,
           '[data-mode="dark"] { display: none; }',
           '@media (prefers-color-scheme: dark) { [data-mode="light"] { display: none; } [data-mode="dark"] { display: block; } }',
         ]
-      : [`:root { color-scheme: ${mode}; ${coloursOf(THEME[mode])} }`, seriesOf(mode)];
+      : [`:root { color-scheme: ${mode}; ${coloursOf(COLOURS[mode])} }`, seriesOf(mode)];
 
   return [...fontFaces, ...palette.filter(Boolean), PAGE_RULES].join("\n");
 }
 
-/** The width of the page's frame; charts are drawn to fit inside it. */
-export const PAGE_WIDTH = 1180;
-export const CHAPTER_HEAD_WIDTH = 360;
-export const GUTTER = 40;
-/** The column of the ruler, left of the frame, on screens wide enough to hold it and the frame side by side. */
-const RAIL_WIDTH = 240;
-const RAIL_FROM = 1400;
-/** Below this width the page is a single column, and charts switch to their narrow version. */
-const SINGLE_COLUMN_BELOW = 980;
-const NARROW_BELOW = 560;
+export const { width: PAGE_WIDTH, chapterHeadWidth: CHAPTER_HEAD_WIDTH, gutter: GUTTER } = PAGE;
+const { railWidth: RAIL_WIDTH, railFrom: RAIL_FROM, singleColumnBelow: SINGLE_COLUMN_BELOW, narrowBelow: NARROW_BELOW } = PAGE;
 
-const MONO = '"Geist Mono", ui-monospace, monospace';
-const EASE_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
+const MONO = fontStackOf(FONTS.mono);
+const EASE_OUT = MOTION.easeOut;
 const ARRIVING = ".hero > :not(h1), .stat, .chapter-head > *, .chapter-body, .trust-body > .block";
 
 const PAGE_RULES = `
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 24px; }
-body { margin: 0; overflow-x: clip; background: var(--background); color: var(--ink); font: 400 15px/1.55 Inter, system-ui, sans-serif; font-feature-settings: "cv11", "ss01", "ss03"; -webkit-font-smoothing: antialiased; }
+body { margin: 0; overflow-x: clip; background: var(--background); color: var(--ink); font: 400 15px/1.55 ${fontStackOf(FONTS.text)};${FONTS.text.features ? ` font-feature-settings: ${FONTS.text.features};` : ""} -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 p { margin: 0 0 12px; }

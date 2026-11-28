@@ -3,12 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildOutputs } from "../src/render/build.js";
-import { cardContentOf, MAX_HEADLINES, renderCard, STYLE } from "../src/render/card.js";
+import { cardContentOf, MAX_HEADLINES, renderCard } from "../src/render/card.js";
 import { exportPlanOf, pictureHtml } from "../src/render/exports.js";
 import { pngOf } from "../src/render/png.js";
 import { SvgTextRenderer } from "../src/render/svg-text.js";
 import { benchmarkSchema, type Benchmark } from "../src/schema/benchmark.js";
-import { seriesStylesOf, THEME } from "../src/themes/astrolabe.js";
+import { ASTROLABE } from "../src/themes/astrolabe.js";
+import { seriesStylesOf } from "../src/themes/theme.js";
 import { versionsBenchmarkOf, withTasksAsPrimary } from "./helpers.js";
 import { decodePng, shareOfDifferentPixels } from "./png.js";
 
@@ -82,9 +83,9 @@ describe("the README card", () => {
   });
 
   it("draws each verdict as the site does: its word after a dot, in a hairline frame of the verdict's colour", () => {
-    expect(card.svg).toContain(`rx="6" fill="none" stroke="${THEME.light.good}" stroke-opacity="0.4"`);
+    expect(card.svg).toContain(`rx="6" fill="none" stroke="${ASTROLABE.colours.light.good}" stroke-opacity="0.4"`);
     expect(card.svg, "a verdict that is neither better nor worse stays grey").toContain(
-      `rx="6" fill="none" stroke="${THEME.light.ruleStrong}"`,
+      `rx="6" fill="none" stroke="${ASTROLABE.colours.light.ruleStrong}"`,
     );
     expect(card.svg, "no filled badge").not.toMatch(/height="2[0-9]" rx="\d" fill="#/);
   });
@@ -93,7 +94,7 @@ describe("the README card", () => {
     const series = seriesStylesOf(
       speech.results.candidates.map((candidate) => candidate.id),
       speech.style,
-      "light",
+      ASTROLABE.colours.light,
     );
     const bars = [...card.svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="12" rx="2" fill="(#[0-9a-f]+)"\/>/g)];
 
@@ -122,7 +123,7 @@ describe("the README card", () => {
 
     expect(svg.match(/<circle [^>]*r="5"/g)).toHaveLength(3);
     expect(
-      svg.match(new RegExp(`<rect x="[\\d.]+" y="[\\d.]+" width="[\\d.]+" height="28" fill="${THEME.light.band}"/>`, "g")),
+      svg.match(new RegExp(`<rect x="[\\d.]+" y="[\\d.]+" width="[\\d.]+" height="28" fill="${ASTROLABE.colours.light.band}"/>`, "g")),
     ).toHaveLength(3);
     expect(svg.match(/stroke-width="2.5" stroke-linecap="round"/g)).toHaveLength(3);
   });
@@ -132,11 +133,11 @@ describe("the README card", () => {
 
     expect(dark.textLines).toEqual(card.textLines);
     expect(dark.svg).not.toBe(card.svg);
-    expect(dark.svg).toContain(`fill="${THEME.dark.background}"`);
+    expect(dark.svg).toContain(`fill="${ASTROLABE.colours.dark.background}"`);
   });
 
   it("draws no text below 12 px", () => {
-    expect(Math.min(...Object.values(STYLE).map((style) => style.size))).toBeGreaterThanOrEqual(12);
+    expect(Math.min(...Object.values(ASTROLABE.text.card).map((style) => style.size))).toBeGreaterThanOrEqual(12);
   });
 
   it("is the same bytes for the same results and date", () => {
@@ -197,7 +198,7 @@ describe("reading a card at a glance", () => {
   });
 
   it("never cuts the axis, even when the interval lies far beyond the band", () => {
-    const baselines = suiteCard.svg.match(new RegExp(`H[\\d.]+" stroke="${THEME.light.ruleStrong}"`, "g"));
+    const baselines = suiteCard.svg.match(new RegExp(`H[\\d.]+" stroke="${ASTROLABE.colours.light.ruleStrong}"`, "g"));
 
     expect(baselines, "one unbroken baseline per strip").toHaveLength(3);
     expect(suiteCard.textLines.filter((line) => line === "\u22123  0  +3")).toHaveLength(3);
@@ -226,11 +227,11 @@ describe("reading a card at a glance", () => {
     expect(card.textLines).toContain("WORSE (DECLARED)");
     expect(chips).toHaveLength(4);
     const unitsPerEm = JSON.parse(readFileSync("src/render/fonts/inter.json", "utf8")).units_per_em;
-    const unitScale = String(Math.round((STYLE.effectUnit.size / unitsPerEm) * 1e6) / 1e6).replace(".", "\\.");
+    const unitScale = String(Math.round((ASTROLABE.text.card.effectUnit.size / unitsPerEm) * 1e6) / 1e6).replace(".", "\\.");
     const unitStarts = [...svg.matchAll(new RegExp(`translate\\(([\\d.]+) [\\d.]+\\) scale\\(${unitScale} `, "g"))].map((match) =>
       Number(match[1]),
     );
-    const pointsEnd = unitStarts[2] + new SvgTextRenderer().measure("points", STYLE.effectUnit);
+    const pointsEnd = unitStarts[2] + new SvgTextRenderer().measure("points", ASTROLABE.text.card.effectUnit);
 
     expect(unitStarts, "one unit per figure").toHaveLength(4);
     expect(pointsEnd, "the unit after +1.2 ends inside the third cell").toBeLessThanOrEqual(600);
@@ -396,7 +397,7 @@ describe("reading a card at a glance", () => {
     const card = renderCard(usability, cardContentOf(usability), "light", context);
 
     expect(card.textLines.join(" ")).toContain("The candidates did not fail equally often");
-    expect(card.svg).toContain(`stroke="${THEME.light.ink}" stroke-width="1.4" stroke-linejoin="round"`);
+    expect(card.svg).toContain(`stroke="${ASTROLABE.colours.light.ink}" stroke-width="1.4" stroke-linejoin="round"`);
   });
 });
 

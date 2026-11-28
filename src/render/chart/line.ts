@@ -1,5 +1,5 @@
 import type { Value } from "../../schema/benchmark.js";
-import type { Colours, SeriesStyle } from "../../themes/astrolabe.js";
+import type { Colours, SeriesStyle } from "../../themes/theme.js";
 import { finestDecimals, lowerFirstLetterOfWord, STATISTIC_WORD, valueDecimals } from "../describe.js";
 import { formatInterval, formatLevel, formatNumber, type Decimals } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, type SvgTextRenderer } from "../svg-text.js";

@@ -1,4 +1,4 @@
-import type { Colours } from "../../themes/astrolabe.js";
+import type { Colours } from "../../themes/theme.js";
 import type { Decimals } from "../number-format.js";
 import { CAP_HEIGHT_RATIO, escapeXml, type SvgTextRenderer } from "../svg-text.js";
 import {

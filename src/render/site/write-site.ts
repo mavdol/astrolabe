@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, normalize, resolve } from "node:path";
 import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark } from "../../schema/benchmark.js";
-import { THEME } from "../../themes/astrolabe.js";
+import { ASTROLABE } from "../../themes/astrolabe.js";
 import type { Comparison } from "../../schema/benchmark.js";
 import { cardAltText, cardContentOf, MAX_HEADLINES, measuredOf, pairOf, renderCard } from "../card.js";
 import { comparisonsOfChart, countsByVerdict, summaryChartOf, summaryChartsOf, summaryClaimOf, type SummaryChart } from "../summary.js";
@@ -46,7 +46,7 @@ function cardPreviewSvg(benchmark: Benchmark, context: BuildContext): { svg: str
   );
 
   return {
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="${THEME.light.background}"/>${placed}</svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="${ASTROLABE.colours.light.background}"/>${placed}</svg>`,
     alt: cardAltText(benchmark, content),
   };
 }

@@ -1,9 +1,10 @@
 import type { RawFile } from "../../compute/raw-data.js";
 import type { Benchmark } from "../../schema/benchmark.js";
 import type { ChartBlock } from "../../schema/presentation.js";
-import { THEME, type Mode } from "../../themes/astrolabe.js";
+import { ASTROLABE } from "../../themes/astrolabe.js";
+import { fontStackOf, type LinedTextStyle, type Mode } from "../../themes/theme.js";
 import { lookupOf, provenanceParts, resolveTemplates, type BuildContext, type Lookup } from "../describe.js";
-import { CAP_HEIGHT_RATIO, escapeXml, SvgTextRenderer, type TextStyle } from "../svg-text.js";
+import { CAP_HEIGHT_RATIO, escapeXml, SvgTextRenderer } from "../svg-text.js";
 import { tickMark, TICK_MARK_WIDTH } from "../card.js";
 import {
   asSentence,
@@ -72,13 +73,7 @@ export interface RenderedChart {
   charactersWithoutGlyph: string[];
 }
 
-/** As on the site: what is measured and the small print in Geist Mono, the claim and its reading in Inter. */
-const STYLE = {
-  title: { weight: 500, size: 22, lineHeight: 28, tracking: -0.02 },
-  tightTitle: { weight: 500, size: 20, lineHeight: 25, tracking: -0.02 },
-  subtitle: { weight: 400, size: 12, lineHeight: 16, tracking: 0.04, mono: true },
-  foot: { weight: 400, size: 12, lineHeight: 18, mono: true },
-} as const;
+const STYLE = ASTROLABE.text.chartImage;
 
 const PADDING = 32;
 
@@ -92,8 +87,6 @@ const KEY_MARK_HEIGHT = 12;
 const KEY_MARK_GAP = 10;
 const KEY_COLUMN_GAP = 28;
 const KEY_ROW_GAP = 8;
-
-export const PAGE_FONT_FAMILY = "Inter, system-ui, sans-serif";
 
 interface KeyEntry {
   mark: KeyMark;
@@ -233,7 +226,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   if (!results.computed) throw new Error("the results have not been computed: run astrolabe compute first");
 
   const lookup = lookupOf(results);
-  const colours = THEME[options.mode];
+  const colours = ASTROLABE.colours[options.mode];
   const common = {
     benchmark,
     lookup,
@@ -323,7 +316,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
 
   const plotHeight = Math.min(room, plotHeights.largest);
   const height = options.height ?? Math.ceil(fixedHeight + plotHeight);
-  const drawLine = (line: string, x: number, top: number, style: TextStyle & { lineHeight: number }, fill: string) => {
+  const drawLine = (line: string, x: number, top: number, style: LinedTextStyle, fill: string) => {
     textLines.push(line);
     marks.push(text.draw(line, x, top + style.size * CAP_HEIGHT_RATIO + (style.lineHeight - style.size) / 2, { ...style, fill }));
   };
@@ -425,7 +418,7 @@ export function renderChart(benchmark: Benchmark, block: ChartBlock, options: Ch
   const opening = plotOnly
     ? [
         `<svg xmlns="http://www.w3.org/2000/svg" width="${options.width}" height="${height}" viewBox="0 0 ${options.width} ${height}" role="img" aria-label="${escapeXml(altText)}"`,
-        ` font-family="${PAGE_FONT_FAMILY}">`,
+        ` font-family="${fontStackOf(ASTROLABE.fonts.text)}">`,
       ]
     : [
         `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(options.width * enlargement)}" height="${Math.round(height * enlargement)}" viewBox="0 0 ${options.width} ${height}" role="img" aria-labelledby="title description"`,
